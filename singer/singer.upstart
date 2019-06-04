@@ -1,0 +1,29 @@
+description "Singer"
+
+start on (runlevel [2345] and started zk_update_monitor)
+stop on runlevel [016]
+respawn
+respawn limit 20 5
+
+env NAME=singer
+env JAVA_HOME=/usr/lib/jvm/java-8-oracle
+env SINGER_HOME=/opt/singer
+env LOG_DIR=/var/log/singer
+
+script
+    . /etc/default/singer
+    DAEMON=$JAVA_HOME/bin/java
+    CLASSPATH=$SINGER_HOME:$SINGER_HOME/*:$SINGER_HOME/lib/*
+    SINGER_CONFIG_PROPERTY=-Dconfig=${SERVER_CONFIG}
+    if [ -n "$SERVER_CONFIG_DIR" ]; then
+      SINGER_CONFIG_PROPERTY=-Dsinger.config.dir=${SERVER_CONFIG_DIR}
+    fi
+    DAEMON_OPTS="-server -Xmx800M -Xms800M -verbosegc -Xloggc:$LOG_DIR/gc.log \
+    -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=100 -XX:GCLogFileSize=2M \
+    -XX:+PrintGCDetails -XX:+PrintGCTimeStamps -XX:+PrintGCDateStamps -XX:+PrintClassHistogram \
+    -XX:+UseG1GC -XX:MaxGCPauseMillis=250 -XX:G1ReservePercent=10 -XX:ConcGCThreads=4 \
+    -XX:ParallelGCThreads=4 -XX:G1HeapRegionSize=8m -XX:InitiatingHeapOccupancyPercent=70 \
+    -XX:ErrorFile=$LOG_DIR/jvm_error.log \
+    -cp $CLASSPATH"
+    exec $DAEMON $DAEMON_OPTS -Dlog4j.configuration=${LOG_PROPERTIES} ${SINGER_CONFIG_PROPERTY} com.pinterest.singer.SingerMain
+end script

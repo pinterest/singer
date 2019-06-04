@@ -1,0 +1,17 @@
+#!/bin/bash -ex
+
+mkdir -p /var/log/singer
+mkdir -p /var/log/serviceframework
+chown prod:prod /var/log/serviceframework
+chmod 775 /var/log/serviceframework
+mkdir -p /var/run
+mkdir -p /mnt/share/logs
+chown prod:prod /mnt/share/logs
+chmod 775 /mnt/share/logs
+mkdir -p /etc/singer/conf.d
+mkdir -p /mnt/thrift_logger
+chown prod:prod /mnt/thrift_logger
+chmod 775 /mnt/thrift_logger
+
+echo "Copy properties file to /etc/singer/singer.properties"
+cp $TARGET/teletraan/conf/singer.properties /etc/singer/singer.properties

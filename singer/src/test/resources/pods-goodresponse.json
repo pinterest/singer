@@ -1,0 +1,1201 @@
+{
+  "kind": "PodList",
+  "apiVersion": "v1",
+  "metadata": {},
+  "items": [
+    {
+      "metadata": {
+        "name": "enimanager-ppl56",
+        "generateName": "enimanager-",
+        "namespace": "default",
+        "selfLink": "/api/v1/namespaces/default/pods/enimanager-ppl56",
+        "uid": "b1a2a0c2-d3ab-11e7-a1db-0674200569b6",
+        "resourceVersion": "33091093",
+        "creationTimestamp": "2017-11-27T19:46:43Z",
+        "labels": {
+          "controller-revision-hash": "1181101742",
+          "name": "enimanager",
+          "pod-template-generation": "1"
+        },
+        "annotations": {
+          "kubernetes.io/config.seen": "2017-11-27T19:46:43.127689764Z",
+          "kubernetes.io/config.source": "api",
+          "kubernetes.io/created-by": "{\"kind\":\"SerializedReference\",\"apiVersion\":\"v1\",\"reference\":{\"kind\":\"DaemonSet\",\"namespace\":\"default\",\"name\":\"enimanager\",\"uid\":\"b1a1beec-d3ab-11e7-a1db-0674200569b6\",\"apiVersion\":\"extensions\",\"resourceVersion\":\"33091082\"}}\n"
+        },
+        "ownerReferences": [
+          {
+            "apiVersion": "extensions/v1beta1",
+            "kind": "DaemonSet",
+            "name": "enimanager",
+            "uid": "b1a1beec-d3ab-11e7-a1db-0674200569b6",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ]
+      },
+      "spec": {
+        "volumes": [
+          {
+            "name": "log",
+            "hostPath": {
+              "path": "/var/log"
+            }
+          },
+          {
+            "name": "varrun",
+            "hostPath": {
+              "path": "/var/run"
+            }
+          },
+          {
+            "name": "kubelet",
+            "hostPath": {
+              "path": "/var/lib/kubelet"
+            }
+          },
+          {
+            "name": "enimanager",
+            "hostPath": {
+              "path": "/mnt/enimanager"
+            }
+          }
+        ],
+        "containers": [
+          {
+            "name": "enimanager",
+            "image": "1234567890.cloud-url/enimanager:2342384234234njadsh23j42h3424234gh23g4j2g34",
+            "env": [
+              {
+                "name": "RODIMUS_TOKEN",
+                "value": "jnfDmk5cr9Z6hpWpR1rhxeKGhJzd78"
+              }
+            ],
+            "resources": {},
+            "volumeMounts": [
+              {
+                "name": "varrun",
+                "mountPath": "/var/run"
+              },
+              {
+                "name": "log",
+                "mountPath": "/var/log"
+              },
+              {
+                "name": "enimanager",
+                "mountPath": "/mnt/enimanager"
+              },
+              {
+                "name": "kubelet",
+                "mountPath": "/var/lib/kubelet"
+              }
+            ],
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "File",
+            "imagePullPolicy": "Always"
+          }
+        ],
+        "restartPolicy": "Always",
+        "terminationGracePeriodSeconds": 30,
+        "dnsPolicy": "ClusterFirst",
+        "nodeName": "ip-10-1-161-13.ec2.internal",
+        "hostNetwork": true,
+        "securityContext": {},
+        "schedulerName": "default-scheduler",
+        "tolerations": [
+          {
+            "key": "node.alpha.kubernetes.io/notReady",
+            "operator": "Exists",
+            "effect": "NoExecute"
+          },
+          {
+            "key": "node.alpha.kubernetes.io/unreachable",
+            "operator": "Exists",
+            "effect": "NoExecute"
+          }
+        ]
+      },
+      "status": {
+        "phase": "Running",
+        "conditions": [
+          {
+            "type": "Initialized",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2017-11-27T19:46:43Z"
+          },
+          {
+            "type": "Ready",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2017-11-27T19:47:01Z"
+          },
+          {
+            "type": "PodScheduled",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2017-11-27T19:47:01Z"
+          }
+        ],
+        "hostIP": "10.1.161.13",
+        "podIP": "10.1.161.13",
+        "startTime": "2017-11-27T19:46:43Z",
+        "containerStatuses": [
+          {
+            "name": "enimanager",
+            "state": {
+              "running": {
+                "startedAt": "2017-11-27T19:47:00Z"
+              }
+            },
+            "lastState": {},
+            "ready": true,
+            "restartCount": 0,
+            "image": "1234567890.cloud-url/enimanager:2342384234234njadsh23j42h3424234gh23g4j2g34",
+            "imageID": "docker-pullable://1234567890.cloud-url/enimanager@sha256:472bb17b34ad49d16a05f5cd8f7c9b046578edbebb63925ac7bf72dfca20104b",
+            "containerID": "docker://d035782b2429893dc45618e0375a2409c22a8cd239ff9c0c446cb429b5a35b5c"
+          }
+        ],
+        "qosClass": "BestEffort"
+      }
+    },
+    {
+      "metadata": {
+        "name": "zk-update-monitor-r1vlt",
+        "generateName": "zk-update-monitor-",
+        "namespace": "default",
+        "selfLink": "/api/v1/namespaces/default/pods/zk-update-monitor-r1vlt",
+        "uid": "7d1d8b00-b532-11e7-b628-0674200569b6",
+        "resourceVersion": "32518932",
+        "creationTimestamp": "2017-10-20T01:03:31Z",
+        "labels": {
+          "controller-revision-hash": "4079167259",
+          "name": "zk-update-monitor",
+          "pod-template-generation": "1"
+        },
+        "annotations": {
+          "kubernetes.io/config.seen": "2017-11-27T19:44:45.858402679Z",
+          "kubernetes.io/config.source": "api",
+          "kubernetes.io/created-by": "{\"kind\":\"SerializedReference\",\"apiVersion\":\"v1\",\"reference\":{\"kind\":\"DaemonSet\",\"namespace\":\"default\",\"name\":\"zk-update-monitor\",\"uid\":\"fe580c9c-b092-11e7-b628-0674200569b6\",\"apiVersion\":\"extensions\",\"resourceVersion\":\"12847168\"}}\n"
+        },
+        "ownerReferences": [
+          {
+            "apiVersion": "extensions/v1beta1",
+            "kind": "DaemonSet",
+            "name": "zk-update-monitor",
+            "uid": "fe580c9c-b092-11e7-b628-0674200569b6",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ]
+      },
+      "spec": {
+        "volumes": [
+          {
+            "name": "cellzkhosts",
+            "hostPath": {
+              "path": "/etc/cell_zookeeper_hosts.conf"
+            }
+          },
+          {
+            "name": "zkhosts",
+            "hostPath": {
+              "path": "/etc/zookeeper_hosts.conf"
+            }
+          },
+          {
+            "name": "config",
+            "hostPath": {
+              "path": "/var/config"
+            }
+          },
+          {
+            "name": "serverset",
+            "hostPath": {
+              "path": "/var/serverset"
+            }
+          },
+          {
+            "name": "log",
+            "hostPath": {
+              "path": "/var/log/zk_update_monitor"
+            }
+          },
+          {
+            "name": "downloadmeta",
+            "hostPath": {
+              "path": "/var/zum_download_meta"
+            }
+          },
+          {
+            "name": "zumconfig",
+            "hostPath": {
+              "path": "/etc/zk_update_monitor.d"
+            }
+          },
+          {
+            "name": "default-token-9sqmj",
+            "secret": {
+              "secretName": "default-token-9sqmj",
+              "defaultMode": 420
+            }
+          }
+        ],
+        "containers": [
+          {
+            "name": "zk-update-monitor",
+            "image": "1234567890.cloud-url/zk-update-monitor:e11b8230120d18315e87092e45a3ecfd101c2977",
+            "resources": {},
+            "volumeMounts": [
+              {
+                "name": "cellzkhosts",
+                "mountPath": "/etc/cell_zookeeper_hosts.conf"
+              },
+              {
+                "name": "zkhosts",
+                "mountPath": "/etc/zookeeper_hosts.conf"
+              },
+              {
+                "name": "config",
+                "mountPath": "/var/config"
+              },
+              {
+                "name": "serverset",
+                "mountPath": "/var/serverset"
+              },
+              {
+                "name": "log",
+                "mountPath": "/var/log/zk_update_monitor"
+              },
+              {
+                "name": "downloadmeta",
+                "mountPath": "/var/zum_download_meta"
+              },
+              {
+                "name": "zumconfig",
+                "mountPath": "/etc/zk_update_monitor.d"
+              },
+              {
+                "name": "default-token-9sqmj",
+                "readOnly": true,
+                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount"
+              }
+            ],
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "File",
+            "imagePullPolicy": "IfNotPresent"
+          }
+        ],
+        "restartPolicy": "Always",
+        "terminationGracePeriodSeconds": 30,
+        "dnsPolicy": "ClusterFirst",
+        "serviceAccountName": "default",
+        "serviceAccount": "default",
+        "nodeName": "ip-10-1-161-13.ec2.internal",
+        "hostNetwork": true,
+        "securityContext": {},
+        "schedulerName": "default-scheduler",
+        "tolerations": [
+          {
+            "key": "node.alpha.kubernetes.io/notReady",
+            "operator": "Exists",
+            "effect": "NoExecute"
+          },
+          {
+            "key": "node.alpha.kubernetes.io/unreachable",
+            "operator": "Exists",
+            "effect": "NoExecute"
+          }
+        ]
+      },
+      "status": {
+        "phase": "Running",
+        "conditions": [
+          {
+            "type": "Initialized",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2017-10-20T01:03:35Z"
+          },
+          {
+            "type": "Ready",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2018-02-07T08:45:17Z"
+          },
+          {
+            "type": "PodScheduled",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2017-10-20T01:03:49Z"
+          }
+        ],
+        "hostIP": "10.1.161.13",
+        "podIP": "10.1.161.13",
+        "startTime": "2017-10-20T01:03:35Z",
+        "containerStatuses": [
+          {
+            "name": "zk-update-monitor",
+            "state": {
+              "running": {
+                "startedAt": "2018-02-07T08:45:16Z"
+              }
+            },
+            "lastState": {
+              "terminated": {
+                "exitCode": 137,
+                "reason": "Error",
+                "startedAt": "2018-02-06T07:57:00Z",
+                "finishedAt": "2018-02-07T08:45:15Z",
+                "containerID": "docker://f1713cb43857ba2bea8194362085bf2b4ad5e603d80ce37a0810e28b04e07337"
+              }
+            },
+            "ready": true,
+            "restartCount": 103,
+            "image": "1234567890.cloud-url/zk-update-monitor:e11b8230120d18315e87092e45a3ecfd101c2977",
+            "imageID": "docker-pullable://1234567890.cloud-url/zk-update-monitor@sha256:39411011296a7c0dbd1b22e56adca073a1801d3c036dfa1fb10e7aa475420406",
+            "containerID": "docker://a4be6120aefe99721ba48525be5d4076e06933aa8b5b2d2da8351675aac13a59"
+          }
+        ],
+        "qosClass": "BestEffort"
+      }
+    },
+    {
+      "metadata": {
+        "name": "tcollector-q4qx8",
+        "generateName": "tcollector-",
+        "namespace": "default",
+        "selfLink": "/api/v1/namespaces/default/pods/tcollector-q4qx8",
+        "uid": "8ad2dba8-b84c-11e7-b628-0674200569b6",
+        "resourceVersion": "17165145",
+        "creationTimestamp": "2017-10-23T23:47:34Z",
+        "labels": {
+          "controller-revision-hash": "45790700",
+          "name": "tcollector",
+          "pod-template-generation": "1"
+        },
+        "annotations": {
+          "kubernetes.io/config.seen": "2017-11-27T19:44:45.858411903Z",
+          "kubernetes.io/config.source": "api",
+          "kubernetes.io/created-by": "{\"kind\":\"SerializedReference\",\"apiVersion\":\"v1\",\"reference\":{\"kind\":\"DaemonSet\",\"namespace\":\"default\",\"name\":\"tcollector\",\"uid\":\"8ad12af5-b84c-11e7-b628-0674200569b6\",\"apiVersion\":\"extensions\",\"resourceVersion\":\"17164414\"}}\n"
+        },
+        "ownerReferences": [
+          {
+            "apiVersion": "extensions/v1beta1",
+            "kind": "DaemonSet",
+            "name": "tcollector",
+            "uid": "8ad12af5-b84c-11e7-b628-0674200569b6",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ]
+      },
+      "spec": {
+        "volumes": [
+          {
+            "name": "cellzkhosts",
+            "hostPath": {
+              "path": "/etc/cell_zookeeper_hosts.conf"
+            }
+          },
+          {
+            "name": "zkhosts",
+            "hostPath": {
+              "path": "/etc/zookeeper_hosts.conf"
+            }
+          },
+          {
+            "name": "config",
+            "hostPath": {
+              "path": "/var/config"
+            }
+          },
+          {
+            "name": "serverset",
+            "hostPath": {
+              "path": "/var/serverset"
+            }
+          },
+          {
+            "name": "log",
+            "hostPath": {
+              "path": "/var/log"
+            }
+          },
+          {
+            "name": "varrun",
+            "hostPath": {
+              "path": "/var/run"
+            }
+          },
+          {
+            "name": "run",
+            "hostPath": {
+              "path": "/run"
+            }
+          },
+          {
+            "name": "cgroup",
+            "hostPath": {
+              "path": "/sys/fs/cgroup"
+            }
+          },
+          {
+            "name": "deployd",
+            "hostPath": {
+              "path": "/mnt/deployd"
+            }
+          },
+          {
+            "name": "default-token-9sqmj",
+            "secret": {
+              "secretName": "default-token-9sqmj",
+              "defaultMode": 420
+            }
+          }
+        ],
+        "containers": [
+          {
+            "name": "tcollector",
+            "image": "1234567890.cloud-url/tcollector:763db0abff6ead4afe4aed15124f6fe4ca7dc295",
+            "env": [
+              {
+                "name": "LOGFILE",
+                "value": "/var/log/tcollector.log"
+              },
+              {
+                "name": "PIDFILE",
+                "value": "/var/run/tcollector.log"
+              },
+              {
+                "name": "HOST",
+                "value": "$HOSTNAME"
+              },
+              {
+                "name": "CLUSTER",
+                "value": "k8sworker"
+              },
+              {
+                "name": "EC2_ZONE",
+                "value": "us-east-1e"
+              }
+            ],
+            "resources": {},
+            "volumeMounts": [
+              {
+                "name": "cellzkhosts",
+                "mountPath": "/etc/cell_zookeeper_hosts.conf"
+              },
+              {
+                "name": "zkhosts",
+                "mountPath": "/etc/zookeeper_hosts.conf"
+              },
+              {
+                "name": "config",
+                "mountPath": "/var/config"
+              },
+              {
+                "name": "serverset",
+                "mountPath": "/var/serverset"
+              },
+              {
+                "name": "varrun",
+                "mountPath": "/var/run"
+              },
+              {
+                "name": "run",
+                "mountPath": "/run"
+              },
+              {
+                "name": "cgroup",
+                "mountPath": "/sys/fs/cgroup"
+              },
+              {
+                "name": "log",
+                "mountPath": "/var/log"
+              },
+              {
+                "name": "deployd",
+                "mountPath": "/mnt/deployd"
+              },
+              {
+                "name": "default-token-9sqmj",
+                "readOnly": true,
+                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount"
+              }
+            ],
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "File",
+            "imagePullPolicy": "IfNotPresent"
+          }
+        ],
+        "restartPolicy": "Always",
+        "terminationGracePeriodSeconds": 30,
+        "dnsPolicy": "ClusterFirst",
+        "serviceAccountName": "default",
+        "serviceAccount": "default",
+        "nodeName": "ip-10-1-161-13.ec2.internal",
+        "hostNetwork": true,
+        "securityContext": {},
+        "schedulerName": "default-scheduler",
+        "tolerations": [
+          {
+            "key": "node.alpha.kubernetes.io/notReady",
+            "operator": "Exists",
+            "effect": "NoExecute"
+          },
+          {
+            "key": "node.alpha.kubernetes.io/unreachable",
+            "operator": "Exists",
+            "effect": "NoExecute"
+          }
+        ]
+      },
+      "status": {
+        "phase": "Running",
+        "conditions": [
+          {
+            "type": "Initialized",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2017-10-23T23:47:34Z"
+          },
+          {
+            "type": "Ready",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2017-10-23T23:47:35Z"
+          },
+          {
+            "type": "PodScheduled",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2017-10-23T23:47:35Z"
+          }
+        ],
+        "hostIP": "10.1.161.13",
+        "podIP": "10.1.161.13",
+        "startTime": "2017-10-23T23:47:34Z",
+        "containerStatuses": [
+          {
+            "name": "tcollector",
+            "state": {
+              "running": {
+                "startedAt": "2017-10-23T23:47:35Z"
+              }
+            },
+            "lastState": {},
+            "ready": true,
+            "restartCount": 0,
+            "image": "1234567890.cloud-url/tcollector:763db0abff6ead4afe4aed15124f6fe4ca7dc295",
+            "imageID": "docker-pullable://1234567890.cloud-url/tcollector@sha256:a180b767f8fc13b7eadf7890d969dcefc154c90ba7565c4269f80926d3e92338",
+            "containerID": "docker://56336c15058d46041e8977a932039c68f9fe5ea7a1f14415a5f7d316da3c9911"
+          }
+        ],
+        "qosClass": "BestEffort"
+      }
+    },
+    {
+      "metadata": {
+        "name": "metrics-agent-8vm9g",
+        "generateName": "metrics-agent-",
+        "namespace": "default",
+        "selfLink": "/api/v1/namespaces/default/pods/metrics-agent-8vm9g",
+        "uid": "bfc5f760-b8e1-11e7-b628-0674200569b6",
+        "resourceVersion": "17608680",
+        "creationTimestamp": "2017-10-24T17:35:38Z",
+        "labels": {
+          "controller-revision-hash": "4410873",
+          "name": "metrics-agent",
+          "pod-template-generation": "1"
+        },
+        "annotations": {
+          "kubernetes.io/config.seen": "2017-11-27T19:44:45.85838677Z",
+          "kubernetes.io/config.source": "api",
+          "kubernetes.io/created-by": "{\"kind\":\"SerializedReference\",\"apiVersion\":\"v1\",\"reference\":{\"kind\":\"DaemonSet\",\"namespace\":\"default\",\"name\":\"metrics-agent\",\"uid\":\"bfc3d9c0-b8e1-11e7-b628-0674200569b6\",\"apiVersion\":\"extensions\",\"resourceVersion\":\"17608014\"}}\n"
+        },
+        "ownerReferences": [
+          {
+            "apiVersion": "extensions/v1beta1",
+            "kind": "DaemonSet",
+            "name": "metrics-agent",
+            "uid": "bfc3d9c0-b8e1-11e7-b628-0674200569b6",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ]
+      },
+      "spec": {
+        "volumes": [
+          {
+            "name": "config",
+            "hostPath": {
+              "path": "/var/config"
+            }
+          },
+          {
+            "name": "serverset",
+            "hostPath": {
+              "path": "/var/serverset"
+            }
+          },
+          {
+            "name": "log",
+            "hostPath": {
+              "path": "/var/log"
+            }
+          },
+          {
+            "name": "varrun",
+            "hostPath": {
+              "path": "/var/run"
+            }
+          },
+          {
+            "name": "default-token-9sqmj",
+            "secret": {
+              "secretName": "default-token-9sqmj",
+              "defaultMode": 420
+            }
+          }
+        ],
+        "containers": [
+          {
+            "name": "metrics-agent",
+            "image": "1234567890.cloud-url/metrics-agent:87155c18715c3e12301e42ec6cb6f9f5bb3c1e36",
+            "resources": {},
+            "volumeMounts": [
+              {
+                "name": "config",
+                "mountPath": "/var/config"
+              },
+              {
+                "name": "serverset",
+                "mountPath": "/var/serverset"
+              },
+              {
+                "name": "varrun",
+                "mountPath": "/var/run"
+              },
+              {
+                "name": "log",
+                "mountPath": "/var/log"
+              },
+              {
+                "name": "default-token-9sqmj",
+                "readOnly": true,
+                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount"
+              }
+            ],
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "File",
+            "imagePullPolicy": "IfNotPresent"
+          }
+        ],
+        "restartPolicy": "Always",
+        "terminationGracePeriodSeconds": 30,
+        "dnsPolicy": "ClusterFirst",
+        "serviceAccountName": "default",
+        "serviceAccount": "default",
+        "nodeName": "ip-10-1-161-13.ec2.internal",
+        "hostNetwork": true,
+        "securityContext": {},
+        "schedulerName": "default-scheduler",
+        "tolerations": [
+          {
+            "key": "node.alpha.kubernetes.io/notReady",
+            "operator": "Exists",
+            "effect": "NoExecute"
+          },
+          {
+            "key": "node.alpha.kubernetes.io/unreachable",
+            "operator": "Exists",
+            "effect": "NoExecute"
+          }
+        ]
+      },
+      "status": {
+        "phase": "Running",
+        "conditions": [
+          {
+            "type": "Initialized",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2017-10-24T17:35:38Z"
+          },
+          {
+            "type": "Ready",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2017-10-24T17:35:47Z"
+          },
+          {
+            "type": "PodScheduled",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2017-10-24T17:35:47Z"
+          }
+        ],
+        "hostIP": "10.1.161.13",
+        "podIP": "10.1.161.13",
+        "startTime": "2017-10-24T17:35:38Z",
+        "containerStatuses": [
+          {
+            "name": "metrics-agent",
+            "state": {
+              "running": {
+                "startedAt": "2017-10-24T17:35:46Z"
+              }
+            },
+            "lastState": {},
+            "ready": true,
+            "restartCount": 0,
+            "image": "1234567890.cloud-url/metrics-agent:87155c18715c3e12301e42ec6cb6f9f5bb3c1e36",
+            "imageID": "docker-pullable://1234567890.cloud-url/metrics-agent@sha256:b330453145957f8cdee90ac47ea8e214175a6aba1bca95bc142ae35fa50d964e",
+            "containerID": "docker://6a920a80a3b9892e957ec45dfd86936bded1b43a0ca16863e42afadc17951731"
+          }
+        ],
+        "qosClass": "BestEffort"
+      }
+    },
+    {
+      "metadata": {
+        "name": "kubernetes-dashboard-1835568627-hhfhj",
+        "generateName": "kubernetes-dashboard-1835568627-",
+        "namespace": "kube-system",
+        "selfLink": "/api/v1/namespaces/kube-system/pods/kubernetes-dashboard-1835568627-hhfhj",
+        "uid": "a343643b-b936-11e7-b628-0674200569b6",
+        "resourceVersion": "17831826",
+        "creationTimestamp": "2017-10-25T03:43:17Z",
+        "labels": {
+          "k8s-app": "kubernetes-dashboard",
+          "pod-template-hash": "1835568627"
+        },
+        "annotations": {
+          "kubernetes.io/config.seen": "2017-11-27T19:44:45.85842129Z",
+          "kubernetes.io/config.source": "api",
+          "kubernetes.io/created-by": "{\"kind\":\"SerializedReference\",\"apiVersion\":\"v1\",\"reference\":{\"kind\":\"ReplicaSet\",\"namespace\":\"kube-system\",\"name\":\"kubernetes-dashboard-1835568627\",\"uid\":\"a3427a70-b936-11e7-b628-0674200569b6\",\"apiVersion\":\"extensions\",\"resourceVersion\":\"17831783\"}}\n"
+        },
+        "ownerReferences": [
+          {
+            "apiVersion": "extensions/v1beta1",
+            "kind": "ReplicaSet",
+            "name": "kubernetes-dashboard-1835568627",
+            "uid": "a3427a70-b936-11e7-b628-0674200569b6",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ]
+      },
+      "spec": {
+        "volumes": [
+          {
+            "name": "tempvol",
+            "emptyDir": {
+              "sizeLimit": "0"
+            }
+          },
+          {
+            "name": "kubernetes-dashboard-token-mz6xk",
+            "secret": {
+              "secretName": "kubernetes-dashboard-token-mz6xk",
+              "defaultMode": 420
+            }
+          }
+        ],
+        "containers": [
+          {
+            "name": "kubernetes-dashboard",
+            "image": "gcr.io/google_containers/kubernetes-dashboard-amd64:v1.7.1",
+            "args": [
+              "--apiserver-host=http://10.1.100.201:8080"
+            ],
+            "ports": [
+              {
+                "hostPort": 9090,
+                "containerPort": 9090,
+                "protocol": "TCP"
+              }
+            ],
+            "resources": {},
+            "volumeMounts": [
+              {
+                "name": "tempvol",
+                "mountPath": "/tmp"
+              },
+              {
+                "name": "kubernetes-dashboard-token-mz6xk",
+                "readOnly": true,
+                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount"
+              }
+            ],
+            "livenessProbe": {
+              "httpGet": {
+                "path": "/",
+                "port": 9090,
+                "scheme": "HTTP"
+              },
+              "initialDelaySeconds": 30,
+              "timeoutSeconds": 30,
+              "periodSeconds": 10,
+              "successThreshold": 1,
+              "failureThreshold": 3
+            },
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "File",
+            "imagePullPolicy": "IfNotPresent"
+          }
+        ],
+        "restartPolicy": "Always",
+        "terminationGracePeriodSeconds": 30,
+        "dnsPolicy": "ClusterFirst",
+        "serviceAccountName": "kubernetes-dashboard",
+        "serviceAccount": "kubernetes-dashboard",
+        "nodeName": "ip-10-1-161-13.ec2.internal",
+        "hostNetwork": true,
+        "securityContext": {},
+        "schedulerName": "default-scheduler",
+        "tolerations": [
+          {
+            "key": "node-role.kubernetes.io/master",
+            "effect": "NoSchedule"
+          },
+          {
+            "key": "node.alpha.kubernetes.io/notReady",
+            "operator": "Exists",
+            "effect": "NoExecute",
+            "tolerationSeconds": 300
+          },
+          {
+            "key": "node.alpha.kubernetes.io/unreachable",
+            "operator": "Exists",
+            "effect": "NoExecute",
+            "tolerationSeconds": 300
+          }
+        ]
+      },
+      "status": {
+        "phase": "Running",
+        "conditions": [
+          {
+            "type": "Initialized",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2017-10-25T03:43:17Z"
+          },
+          {
+            "type": "Ready",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2017-10-25T03:43:21Z"
+          },
+          {
+            "type": "PodScheduled",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2017-10-25T03:43:17Z"
+          }
+        ],
+        "hostIP": "10.1.161.13",
+        "podIP": "10.1.161.13",
+        "startTime": "2017-10-25T03:43:17Z",
+        "containerStatuses": [
+          {
+            "name": "kubernetes-dashboard",
+            "state": {
+              "running": {
+                "startedAt": "2017-10-25T03:43:21Z"
+              }
+            },
+            "lastState": {},
+            "ready": true,
+            "restartCount": 0,
+            "image": "gcr.io/google_containers/kubernetes-dashboard-amd64:v1.7.1",
+            "imageID": "docker-pullable://gcr.io/google_containers/kubernetes-dashboard-amd64@sha256:327cfef378e88ffbc327f98dd24adacf6c9363c042db78e922d050f2bdcf6f78",
+            "containerID": "docker://82d3c78b28bdd202c401005b130d6550673f5d541cc4d1396e521f348e6bc94d"
+          }
+        ],
+        "qosClass": "BestEffort"
+      }
+    },
+    {
+      "metadata": {
+        "name": "test-ci-0",
+        "generateName": "test-ci-",
+        "namespace": "kubernetes-plugin",
+        "selfLink": "/api/v1/namespaces/kubernetes-plugin/pods/test-ci-0",
+        "uid": "f084af12-cbe6-11e7-a1db-0674200569b6",
+        "resourceVersion": "33082906",
+        "creationTimestamp": "2017-11-17T22:30:39Z",
+        "labels": {
+          "controller-revision-hash": "test-ci-2949316050",
+          "name": "test-ci"
+        },
+        "annotations": {
+          "kubernetes.io/config.seen": "2017-11-27T19:44:45.858430027Z",
+          "kubernetes.io/config.source": "api",
+          "kubernetes.io/created-by": "{\"kind\":\"SerializedReference\",\"apiVersion\":\"v1\",\"reference\":{\"kind\":\"StatefulSet\",\"namespace\":\"kubernetes-plugin\",\"name\":\"test-ci\",\"uid\":\"c41c7d07-cbe5-11e7-a1db-0674200569b6\",\"apiVersion\":\"apps/v1beta1\",\"resourceVersion\":\"26293887\"}}\n",
+          "pod.alpha.kubernetes.io/init-container-statuses": "[{\"name\":\"init-jenkins-home\",\"state\":{\"terminated\":{\"exitCode\":0,\"reason\":\"Completed\",\"startedAt\":\"2017-11-17T22:30:40Z\",\"finishedAt\":\"2017-11-17T22:30:40Z\",\"containerID\":\"docker://260c65a21b0ec71ea9738e7db6bf2f1877f3407aceb78d7b1e26b7a4fdbe8848\"}},\"lastState\":{},\"ready\":true,\"restartCount\":0,\"image\":\"busybox:latest\",\"imageID\":\"docker-pullable://busybox@sha256:bbc3a03235220b170ba48a157dd097dd1379299370e1ed99ce976df0355d24f0\",\"containerID\":\"docker://260c65a21b0ec71ea9738e7db6bf2f1877f3407aceb78d7b1e26b7a4fdbe8848\"}]",
+          "pod.alpha.kubernetes.io/init-containers": "[{\"name\":\"init-jenkins-home\",\"image\":\"busybox\",\"command\":[\"sh\",\"-c\",\"chmod 777 /var/jenkins_home\"],\"resources\":{},\"volumeMounts\":[{\"name\":\"jenkins-home\",\"mountPath\":\"/var/jenkins_home\"}],\"terminationMessagePath\":\"/dev/termination-log\",\"terminationMessagePolicy\":\"File\",\"imagePullPolicy\":\"Always\"}]",
+          "pod.beta.kubernetes.io/init-container-statuses": "[{\"name\":\"init-jenkins-home\",\"state\":{\"terminated\":{\"exitCode\":0,\"reason\":\"Completed\",\"startedAt\":\"2017-11-17T22:30:40Z\",\"finishedAt\":\"2017-11-17T22:30:40Z\",\"containerID\":\"docker://260c65a21b0ec71ea9738e7db6bf2f1877f3407aceb78d7b1e26b7a4fdbe8848\"}},\"lastState\":{},\"ready\":true,\"restartCount\":0,\"image\":\"busybox:latest\",\"imageID\":\"docker-pullable://busybox@sha256:bbc3a03235220b170ba48a157dd097dd1379299370e1ed99ce976df0355d24f0\",\"containerID\":\"docker://260c65a21b0ec71ea9738e7db6bf2f1877f3407aceb78d7b1e26b7a4fdbe8848\"}]",
+          "pod.beta.kubernetes.io/init-containers": "[{\"name\":\"init-jenkins-home\",\"image\":\"busybox\",\"command\":[\"sh\",\"-c\",\"chmod 777 /var/jenkins_home\"],\"resources\":{},\"volumeMounts\":[{\"name\":\"jenkins-home\",\"mountPath\":\"/var/jenkins_home\"}],\"terminationMessagePath\":\"/dev/termination-log\",\"terminationMessagePolicy\":\"File\",\"imagePullPolicy\":\"Always\"}]"
+        },
+        "ownerReferences": [
+          {
+            "apiVersion": "apps/v1beta1",
+            "kind": "StatefulSet",
+            "name": "test-ci",
+            "uid": "c41c7d07-cbe5-11e7-a1db-0674200569b6",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ]
+      },
+      "spec": {
+        "volumes": [
+          {
+            "name": "jenkins-home",
+            "hostPath": {
+              "path": "/jenkins/jenkinsmaster"
+            }
+          },
+          {
+            "name": "knox-bin",
+            "hostPath": {
+              "path": "/usr/bin/knox"
+            }
+          },
+          {
+            "name": "knox-lib",
+            "hostPath": {
+              "path": "/var/lib/knox"
+            }
+          },
+          {
+            "name": "normandie",
+            "hostPath": {
+              "path": "/var/lib/normandie"
+            }
+          }
+        ],
+        "initContainers": [
+          {
+            "name": "init-jenkins-home",
+            "image": "busybox",
+            "command": [
+              "sh",
+              "-c",
+              "chmod 777 /var/jenkins_home"
+            ],
+            "resources": {},
+            "volumeMounts": [
+              {
+                "name": "jenkins-home",
+                "mountPath": "/var/jenkins_home"
+              }
+            ],
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "File",
+            "imagePullPolicy": "Always"
+          }
+        ],
+        "containers": [
+          {
+            "name": "oauth-proxy",
+            "image": "1234567890.cloud-url/nginx-oauth-proxy:latest",
+            "ports": [
+              {
+                "hostPort": 80,
+                "containerPort": 80,
+                "protocol": "TCP"
+              }
+            ],
+            "env": [
+              {
+                "name": "SERVICE",
+                "value": "jenkins"
+              },
+              {
+                "name": "PROXY_PORT",
+                "value": "8080"
+              },
+              {
+                "name": "CALLBACK_HOST",
+                "value": "test-ci.sample.com"
+              }
+            ],
+            "resources": {},
+            "volumeMounts": [
+              {
+                "name": "knox-bin",
+                "mountPath": "/usr/bin/knox"
+              },
+              {
+                "name": "knox-lib",
+                "mountPath": "/var/lib/knox"
+              },
+              {
+                "name": "normandie",
+                "mountPath": "/var/lib/normandie"
+              }
+            ],
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "File",
+            "imagePullPolicy": "Always"
+          },
+          {
+            "name": "test-ci",
+            "image": "1234567890.cloud-url/jenkins:jenkins-master",
+            "ports": [
+              {
+                "hostPort": 8080,
+                "containerPort": 8080,
+                "protocol": "TCP"
+              },
+              {
+                "hostPort": 50000,
+                "containerPort": 50000,
+                "protocol": "TCP"
+              }
+            ],
+            "env": [
+              {
+                "name": "JAVA_OPTS",
+                "value": "-Dorg.apache.commons.jelly.tags.fmt.timeZone=America/Los_Angeles -XX:+UnlockExperimentalVMOptions -XX:+UseCGroupMemoryLimitForHeap -XX:MaxRAMFraction=1 -Dhudson.slaves.NodeProvisioner.MARGIN=50 -Dhudson.slaves.NodeProvisioner.MARGIN0=0.85 -Dhudson.slaves.NodeProvisioner.initialDelay=0 -Dhudson.slaves.NodeProvisioner.recurrencePeriod=5000"
+              }
+            ],
+            "resources": {
+              "limits": {
+                "cpu": "30"
+              },
+              "requests": {
+                "cpu": "30"
+              }
+            },
+            "volumeMounts": [
+              {
+                "name": "jenkins-home",
+                "mountPath": "/var/jenkins_home"
+              }
+            ],
+            "livenessProbe": {
+              "httpGet": {
+                "path": "/login",
+                "port": 8080,
+                "scheme": "HTTP"
+              },
+              "initialDelaySeconds": 60,
+              "timeoutSeconds": 5,
+              "periodSeconds": 10,
+              "successThreshold": 1,
+              "failureThreshold": 3
+            },
+            "readinessProbe": {
+              "httpGet": {
+                "path": "/login",
+                "port": 8080,
+                "scheme": "HTTP"
+              },
+              "initialDelaySeconds": 5,
+              "timeoutSeconds": 5,
+              "periodSeconds": 10,
+              "successThreshold": 1,
+              "failureThreshold": 3
+            },
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "File",
+            "imagePullPolicy": "IfNotPresent"
+          }
+        ],
+        "restartPolicy": "Always",
+        "terminationGracePeriodSeconds": 1,
+        "dnsPolicy": "ClusterFirst",
+        "nodeSelector": {
+          "jenkins/node": "test-ci"
+        },
+        "nodeName": "ip-10-1-161-13.ec2.internal",
+        "hostNetwork": true,
+        "securityContext": {},
+        "hostname": "test-ci-0",
+        "subdomain": "test-ci",
+        "schedulerName": "default-scheduler"
+      },
+      "status": {
+        "phase": "Running",
+        "conditions": [
+          {
+            "type": "Initialized",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2017-11-17T22:30:41Z"
+          },
+          {
+            "type": "Ready",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2017-11-27T19:44:54Z"
+          },
+          {
+            "type": "PodScheduled",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2017-11-17T22:30:39Z"
+          }
+        ],
+        "hostIP": "10.1.161.13",
+        "podIP": "10.1.161.13",
+        "startTime": "2017-11-17T22:30:39Z",
+        "initContainerStatuses": [
+          {
+            "name": "init-jenkins-home",
+            "state": {
+              "terminated": {
+                "exitCode": 0,
+                "reason": "Completed",
+                "startedAt": "2017-11-17T22:30:40Z",
+                "finishedAt": "2017-11-17T22:30:40Z",
+                "containerID": "docker://260c65a21b0ec71ea9738e7db6bf2f1877f3407aceb78d7b1e26b7a4fdbe8848"
+              }
+            },
+            "lastState": {},
+            "ready": true,
+            "restartCount": 0,
+            "image": "busybox:latest",
+            "imageID": "docker-pullable://busybox@sha256:bbc3a03235220b170ba48a157dd097dd1379299370e1ed99ce976df0355d24f0",
+            "containerID": "docker://260c65a21b0ec71ea9738e7db6bf2f1877f3407aceb78d7b1e26b7a4fdbe8848"
+          }
+        ],
+        "containerStatuses": [
+          {
+            "name": "oauth-proxy",
+            "state": {
+              "running": {
+                "startedAt": "2017-11-18T10:17:24Z"
+              }
+            },
+            "lastState": {},
+            "ready": true,
+            "restartCount": 0,
+            "image": "1234567890.cloud-url/nginx-oauth-proxy:latest",
+            "imageID": "docker-pullable://1234567890.cloud-url/nginx-oauth-proxy@sha256:16c4e8a21455f206cb4051de25a9e58a654743f4c57ed78d99a679a112f316c9",
+            "containerID": "docker://173b2e01223e4c0f3754f84da4c9685645cf0392bf44f1687bf871860c222276"
+          },
+          {
+            "name": "test-ci",
+            "state": {
+              "running": {
+                "startedAt": "2017-11-27T18:58:05Z"
+              }
+            },
+            "lastState": {},
+            "ready": true,
+            "restartCount": 0,
+            "image": "1234567890.cloud-url/jenkins:jenkins-master",
+            "imageID": "docker-pullable://1234567890.cloud-url/jenkins@sha256:9fdb938c6a1e343429eabcf44626ff326fbaa8fa7e672257eaa3fd9018471021",
+            "containerID": "docker://5cadd5f06d30664513aa97639a2433775c1364b516f05c2203bec9be4b8a8956"
+          }
+        ],
+        "qosClass": "Burstable"
+      }
+    }
+  ]
+}

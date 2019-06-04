@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<!DOCTYPE suppressions PUBLIC
+    "-//Puppy Crawl//DTD Suppressions 1.1//EN"
+    "http://www.puppycrawl.com/dtds/suppressions_1_1.dtd">
+<suppressions>
+    <suppress files="BaseThriftLogger.java" checks="PackageName" lines="1"/>
+    <suppress files="BaseThriftLoggerFactory.java" checks="PackageName" lines="1"/>
+    <suppress files="BaseThriftLoggerFactory.java" checks="MemberName"/>
+    <suppress files="AppenderUtils.java" checks="PackageName" lines="1"/>
+    <suppress files="AppenderUtils.java" checks="MemberName"/>
+    <suppress files="LogbackThriftLoggerFactory.java" checks="PackageName" lines="1"/>
+    <suppress files="LogbackThriftLoggerFactory.java" checks="MemberName"/>
+    <suppress files="LogbackThriftLogger.java" checks="PackageName" lines="1"/>
+    <suppress files="LogbackThriftLogger.java" checks="MemberName"/>
+    <suppress files="LogbackThriftLoggerTool.java" checks="PackageName" lines="1"/>
+    <suppress files="NoopLogger.java" checks="PackageName" lines="1"/>
+    <suppress files="ThriftLogger.java" checks="PackageName" lines="1"/>
+    <suppress files="ThriftLoggerConfig.java" checks="PackageName" lines="1"/>
+    <suppress files="ThriftLoggerFactory.java" checks="PackageName" lines="1"/>
+</suppressions>

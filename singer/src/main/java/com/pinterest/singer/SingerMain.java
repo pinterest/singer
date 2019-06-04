@@ -1,0 +1,152 @@
+/**
+ * Copyright 2019 Pinterest, Inc.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.pinterest.singer;
+
+import com.pinterest.singer.common.SingerMetrics;
+import com.pinterest.singer.common.SingerSettings;
+import com.pinterest.singer.config.DirectorySingerConfigurator;
+import com.pinterest.singer.config.SingerConfigurator;
+import com.pinterest.singer.heartbeat.HeartbeatGenerator;
+import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
+import com.pinterest.singer.metrics.OpenTsdbMetricsPusher;
+import com.pinterest.singer.metrics.OstrichAdminService;
+import com.pinterest.singer.thrift.configuration.SingerConfig;
+import com.pinterest.singer.utils.SingerUtils;
+import com.pinterest.singer.writer.KafkaProducerManager;
+
+import com.google.common.net.HostAndPort;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+
+public final class SingerMain {
+
+  private static final Logger LOG = LoggerFactory.getLogger(SingerMain.class);
+  private static final int TSDB_METRICS_PUSH_INTERVAL_IN_MILLISECONDS = 10 * 1000;
+  protected static final String hostName = SingerUtils.getHostname();
+  private static  OpenTsdbMetricsPusher metricsPusher = null;
+  private static String singerPath = "";
+
+  static class SingerCleanupThread extends Thread {
+
+    @Override
+    public void run() {
+      try {
+        if (SingerSettings.getLogMonitor() != null) {
+          SingerSettings.getLogMonitor().stop();
+        } else {
+          LOG.error("LogMonitor is not initialized properly.");
+        }
+      } catch (Throwable t) {
+        LOG.error("Shutdown failure: log monitor : ", t);
+      }
+
+      try {
+        if (SingerSettings.heartbeatGenerator != null) {
+          SingerSettings.heartbeatGenerator.stop();
+        }
+      } catch (Throwable t) {
+        LOG.error("Shutdown failure: heartbeat generator : ", t);
+      }
+
+      try {
+        KafkaProducerManager.shutdown();
+      } catch (Throwable t) {
+        LOG.error("Shutdown failure: kafka producers : ", t);
+      }
+
+      try {
+        OpenTsdbMetricConverter.incr("singer.shutdown", 1);
+        if (metricsPusher!= null) {
+          metricsPusher.sendMetrics(false);
+        } else {
+          LOG.error("metricsPusher was not initialized properly.");
+        }
+      } catch (Throwable t) {
+        LOG.error("Shutdown failure: metrics : ", t);
+      }
+    }
+  }
+
+  static void startOstrichService(SingerConfig singerConfig) {
+    // do not start ostrich if Ostrich server is disabled 
+    if (System.getenv(SingerMetrics.DISABLE_SINGER_OSTRICH) == null) {
+      OstrichAdminService ostrichService = new OstrichAdminService(singerConfig.getOstrichPort());
+      ostrichService.start();
+    }
+    if (singerConfig.isSetStatsPusherHostPort()) {
+      LOG.info("Starting the OpenTsdb metrics pusher");
+      try {
+        HostAndPort pushHostPort = HostAndPort.fromString(singerConfig.getStatsPusherHostPort());
+        metricsPusher = new OpenTsdbMetricsPusher(
+            pushHostPort.getHost(),
+            pushHostPort.getPort(),
+            // TODO: make the following 'prefix' and 'interval' configurable.
+            new OpenTsdbMetricConverter("singer", hostName),
+            TSDB_METRICS_PUSH_INTERVAL_IN_MILLISECONDS);
+        metricsPusher.start();
+        LOG.info("OpenTsdb metrics pusher started!");
+      } catch (Throwable t) {
+        // pusher fail is OK, do
+        LOG.error("Exception when starting stats pusher: ", t);
+      }
+    }
+  }
+
+  public static void validateConfig() throws Exception {
+    SingerConfigurator singerConfigurator = new DirectorySingerConfigurator(singerPath);
+    singerConfigurator.parseSingerConfig();
+  }
+
+  public static boolean parseValidateArgs(String[] args) throws Exception {
+    for (int i=0; i < args.length; i++) {
+      if (args[i].toLowerCase().equals("-validateconfig")) {
+        if (i+1 < args.length) {
+          singerPath = args[i+1];
+          return true;
+        } else {
+          throw new Exception("No config file specified. The correct usage of the " +
+                  "flag is -validateConfig [filePath]");
+        }
+      }
+    }
+    return false;
+  }
+
+  public static void main(String[] args) {
+    LOG.warn("Starting Singer logging agent.");
+    try {
+      boolean validateConfig = parseValidateArgs(args);
+
+      if (validateConfig) {
+        validateConfig();
+      } else {
+        Runtime.getRuntime().addShutdownHook(new SingerCleanupThread());
+        String configDir = System.getProperty("singer.config.dir");
+        String propertiesFile = System.getProperty("config");
+        SingerConfig singerConfig = SingerUtils.loadSingerConfig(configDir, propertiesFile, true);
+        if (singerConfig.isHeartbeatEnabled()) {
+          SingerSettings.heartbeatGenerator = new HeartbeatGenerator(singerConfig);
+        }
+        SingerSettings.initialize(singerConfig);
+        startOstrichService(singerConfig);
+      }
+    } catch (Throwable t) {
+      LOG.error("Singer failed.", t);
+      System.exit(1);
+    }
+  }
+}

@@ -1,0 +1,21 @@
+#!/bin/bash
+set -e
+
+# from the set_cpu_affinity function 
+# but change to expr rather than $(()), as upstart script doesn't support the later.
+# also make it only uses up to round(1/5 cores). For example, it will limit to cpu 0-6 of a c3.8xlarge instance which has 32 cpus total.
+NUM_OF_CORES=`/usr/bin/nproc`
+if [ "$NUM_OF_CORES" -lt 5 ]; then
+  NUM_SINGER_CORES=1
+else
+  NUM_SINGER_CORES=`expr "$NUM_OF_CORES" / 5 + 1`
+fi
+START_ID=0
+END_ID=`expr $NUM_SINGER_CORES - 1` || /bin/true
+
+configure-serviceset -c teletraan/conf/serviceset.conf -e START_ID=${START_ID} -e END_ID=${END_ID} -e LOG_PROPERTIES=${TELETRAAN_LOG_PROPERTIES}
+
+SINGER_PID=$(ps -efH | grep "com.pinterest.singer.[S]ingerMain" | awk '{print $2}')
+
+# Save the pid of script for legacy support
+echo ${SINGER_PID} > /var/run/singer.pid
