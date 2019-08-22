@@ -25,7 +25,7 @@ import com.pinterest.singer.thrift.AuditMessage;
 import com.pinterest.singer.thrift.LogMessage;
 import com.pinterest.singer.thrift.configuration.KafkaProducerConfig;
 import com.pinterest.singer.thrift.configuration.SingerRestartConfig;
-import com.pinterest.singer.utils.SingerUtils;
+import com.pinterest.singer.utils.PartitionComparator;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -37,6 +37,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -52,8 +53,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class KafkaWriter implements LogStreamWriter {
 
-  public static final String HOSTNAME = SingerUtils.getHostname();
+  public static final String HOSTNAME = SingerSettings.getEnvironment().getHostname();
   private static final Logger LOG = LoggerFactory.getLogger(KafkaWriter.class);
+  private static final PartitionComparator COMPARATOR = new PartitionComparator();
 
   // Counter for the number of batch message writing failures
   private static AtomicInteger failureCounter = new AtomicInteger(0);
@@ -118,20 +120,23 @@ public class KafkaWriter implements LogStreamWriter {
     this.serializer = new TSerializer();
   }
 
-  protected KafkaWriter(KafkaMessagePartitioner partitioner,
-                        boolean skipNoLeaderPartitions) {
+  protected KafkaWriter(KafkaProducerConfig producerConfig,
+                        KafkaMessagePartitioner partitioner,
+                        String topic,
+                        boolean skipNoLeaderPartitions,
+                        ExecutorService clusterThreadPool) {
     this.partitioner = partitioner;
     this.skipNoLeaderPartitions = skipNoLeaderPartitions;
+    this.producerConfig = producerConfig;
+    this.clusterThreadPool = clusterThreadPool;
+    this.topic = topic;
     logStream = null;
     logName = null;
-    topic = null;
     writeTimeoutInSeconds = 0;
     serializer = null;
     auditingEnabled = false;
     auditTopic = null;
-    producerConfig = null;
     kafkaClusterSig = null;
-    clusterThreadPool = null;
   }
 
   @Override
@@ -167,20 +172,19 @@ public class KafkaWriter implements LogStreamWriter {
    *
    * If skipNoLeaderPartitions flag is set, we will skip the partitions that have no leader.
    *
-   * @param producer kafkaProducer object
+   * @param partitions unordered list of partitionInfo to be used for partitioning this batch
    * @param topic the kafka topic
    * @param logMessages the messages that will be written to kafka
    * @return a list of message lists that are classified based on partitions.
    */
   List<List<ProducerRecord<byte[], byte[]>>> messageCollation(
-      KafkaProducer<byte[], byte[]> producer,
+      List<PartitionInfo> partitions,
       String topic,
       List<LogMessage> logMessages) throws Exception {
     LOG.info("Collate " + logMessages.size() + " messages");
 
     List<List<ProducerRecord<byte[], byte[]>>> buckets = new ArrayList<>();
     try {
-      List<PartitionInfo> partitions = producer.partitionsFor(topic);
       List<PartitionInfo> validPartitions = partitions;
       if (skipNoLeaderPartitions) {
         validPartitions = new ArrayList<>();
@@ -219,7 +223,7 @@ public class KafkaWriter implements LogStreamWriter {
 
   @Override
   public void writeLogMessages(List<LogMessage> logMessages) throws LogStreamWriterException {
-    Set<Future<KafkaWritingTaskResult>> set = new HashSet<>();
+    Set<Future<KafkaWritingTaskResult>> resultSet = new HashSet<>();
     KafkaProducer<byte[], byte[]> producer = KafkaProducerManager.getProducer(producerConfig);
     Preconditions.checkNotNull(producer);
 
@@ -227,22 +231,30 @@ public class KafkaWriter implements LogStreamWriter {
       producer.beginTransaction();
     }
     try {
+      List<PartitionInfo> partitions = producer.partitionsFor(topic);
       List<List<ProducerRecord<byte[], byte[]>>>
-          buckets = messageCollation(producer, topic, logMessages);
+          buckets = messageCollation(partitions, topic, logMessages);
+      
+      // we sort this info after, we have to create a copy of the data since
+      // the returned list is immutable
+      List<PartitionInfo> sortedPartitions = new ArrayList<>(partitions);
+      Collections.sort(sortedPartitions, COMPARATOR);
 
       for (List<ProducerRecord<byte[], byte[]>> msgs : buckets) {
-        if (auditingEnabled && msgs.size() > 0) {
-          includeAuditMessageInBatch(msgs);
+        if (msgs.size() > 0) {
+          if (auditingEnabled) {
+            includeAuditMessageInBatch(msgs);
+          }
+          Callable<KafkaWritingTaskResult> worker =
+              new KafkaWritingTask(producer, msgs, writeTimeoutInSeconds, sortedPartitions);
+          Future<KafkaWritingTaskResult> future = clusterThreadPool.submit(worker);
+          resultSet.add(future);
         }
-        Callable<KafkaWritingTaskResult> worker =
-            new KafkaWritingTask(producer, msgs, writeTimeoutInSeconds);
-        Future<KafkaWritingTaskResult> future = clusterThreadPool.submit(worker);
-        set.add(future);
       }
 
       int bytesWritten = 0;
       int maxKafkaBatchWriteLatency = 0;
-      for (Future<KafkaWritingTaskResult> f : set) {
+      for (Future<KafkaWritingTaskResult> f : resultSet) {
         KafkaWritingTaskResult result = f.get();
         if (!result.success) {
           LOG.error("Failed to write messages to kafka topic {}", topic, result.exception);
@@ -286,7 +298,7 @@ public class KafkaWriter implements LogStreamWriter {
 
       throw new LogStreamWriterException("Failed to write messages to topic " + topic, e);
     } finally {
-      for (Future<KafkaWritingTaskResult> f : set) {
+      for (Future<KafkaWritingTaskResult> f : resultSet) {
         if (!f.isDone() && !f.isCancelled()) {
           f.cancel(true);
         }

@@ -55,10 +55,12 @@ import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
 
 /**
  * The utility methods for Singer
@@ -273,5 +275,29 @@ public class SingerUtils {
 
       return NameFileComparator.NAME_REVERSE.compare(file1, file2);
     }
+  }
+  
+  /**
+   * Make an HTTP Get request on the supplied URI and return the response entity
+   * as {@link String}
+   * 
+   * @param uri
+   * @return
+   * @throws IOException
+   */
+  public static String makeGetRequest(String uri) throws IOException {
+      HttpGet getPodRequest = new HttpGet(uri);
+      try {
+          CloseableHttpResponse response = SingerUtils.makeRequest(getPodRequest);
+          if (response.getStatusLine().getStatusCode() != 200) {
+              LOG.warn("Non-200 status code(" + response.getStatusLine().getStatusCode() + ") reason:"
+                      + response.getStatusLine().getReasonPhrase());
+          }
+          String entity = EntityUtils.toString(response.getEntity());
+          response.close();
+          return entity;
+      } catch (KeyManagementException | NoSuchAlgorithmException | KeyStoreException | IOException e) {
+          throw new IOException(e);
+      }
   }
 }

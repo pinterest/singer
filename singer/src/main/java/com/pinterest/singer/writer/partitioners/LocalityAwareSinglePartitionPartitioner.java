@@ -15,25 +15,29 @@
  */
 package com.pinterest.singer.writer.partitioners;
 
+import org.apache.kafka.common.PartitionInfo;
+
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
-import org.apache.kafka.common.PartitionInfo;
-
 /**
- * Locality aware partitioner random partitioner
+ * Locality aware partitioner single partition partitioner. This partitioner can
+ * heuristically provide better compression ratios for data since all data from
+ * a given singer agent is written to one partition. For some datasets we have
+ * seen ~2x compression ratios.
  */
-public class LocalityAwareRandomPartitioner extends LocalityAwarePartitioner {
+public class LocalityAwareSinglePartitionPartitioner extends LocalityAwarePartitioner {
 
-  // refresh every 10 seconds
-  public static final long REFRESH_INTERVAL_MS = 10_000;
+  // refresh every 30 seconds
+  public static final long REFRESH_INTERVAL_MS = 30_000;
   private ThreadLocalRandom random = ThreadLocalRandom.current();
+  private int partitionId;
 
-  public LocalityAwareRandomPartitioner() {
+  public LocalityAwareSinglePartitionPartitioner() {
     super(REFRESH_INTERVAL_MS);
   }
 
-  protected LocalityAwareRandomPartitioner(String rack, long refreshIntervalMs) {
+  protected LocalityAwareSinglePartitionPartitioner(String rack, long refreshIntervalMs) {
     super(rack, refreshIntervalMs);
   }
 
@@ -43,9 +47,13 @@ public class LocalityAwareRandomPartitioner extends LocalityAwarePartitioner {
       checkAndAssignLocalPartitions(partitions);
       // set next refresh time
       updateNextRefreshTime();
+      // NOTE we are not doing a delta update here since PartitionInfo object doesn't
+      // have an overridden hashcode and equals implementation therefore the delta computation
+      // will be cumbersome
+      partitionId = localPartitions.get(Math.abs(random.nextInt() % localPartitions.size()))
+          .partition();
     }
-    // we supply on local partitions to this base partitioner
-    return localPartitions.get(Math.abs(random.nextInt() % localPartitions.size())).partition();
+    return partitionId;
   }
 
 }

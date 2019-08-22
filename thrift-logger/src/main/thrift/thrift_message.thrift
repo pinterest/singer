@@ -15,6 +15,6 @@ struct Event {
   // Note that we call this time instead of timestamp since timestamp is reserved in Hive.
   1: i64 time,
   2: i32 eventType,
-  3: i64 userId,   // user id
-  4: i64 objectId, // field to store generic object info
+  3: i64 userId, // the user performing the action
+  4: i64 objectId, // can be a user, pin, board, comment
 }

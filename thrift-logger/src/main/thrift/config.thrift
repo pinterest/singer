@@ -127,7 +127,7 @@ struct DummyWriteConfig {
 
 enum RealpinObjectType {
   MOBILE_PERF_LOG = 0
-  PROMOTIONS_INSERTION = 1
+  PIN_PROMOTIONS_INSERTION = 1
 }
 
 struct RealpinWriterConfig {
@@ -146,7 +146,7 @@ struct PulsarProducerConfig {
   2: required string serviceUrl;
   3: optional string compressionType = "NONE";
   4: optional i32 writeTimeoutInSeconds = 60;
-  5: optional string partitionerClass = "com.pinterest.singer.writer.partitioners.DefaultPartitioner";
+  5: optional string partitionerClass = "com.pinterest.singer.writer.pulsar.DefaultPartitioner";
   6: optional i32 batchingMaxMessages = 100;
   7: optional i32 maxPendingMessages = 2000;
   8: optional i32 batchingMaxPublishDelayInMilli = 10;
@@ -243,12 +243,12 @@ struct SingerConfig {
   /**
    * global thread pool size. Parsed directly from the singer config file.
    */
-  1: required i32 threadPoolSize;
+  1: required i32 threadPoolSize = 20;
 
   /**
    * port number of ostrich. Parsed directly from the singer config file.
    */
-  2: required i32 ostrichPort;
+  2: required i32 ostrichPort = 2047;
 
   /**
    * log monitor parameters. Parsed directly from the singer config file.
@@ -266,7 +266,7 @@ struct SingerConfig {
   5: optional i32 logConfigPollIntervalSecs = 10;
 
   /**
-   * stats pusher host and port
+   * Stats pusher host and port
    */
   6: optional string statsPusherHostPort;
 
@@ -319,5 +319,15 @@ struct SingerConfig {
    * Active or deactivate command server
    */
   16: optional bool runCommandServer = false;
+  
+  /** 
+   * Class name for stats pusher
+   */
+  17: optional string statsPusherClass = "com.pinterest.singer.metrics.OpenTsdbStatsPusher";
+  
+  /**
+   * Singer Environment provider class
+   */
+  18: optional string environmentProviderClass;
   
 }

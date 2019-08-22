@@ -36,7 +36,7 @@ import com.pinterest.singer.thrift.configuration.RealpinWriterConfig;
 public class TestLogConfigUtils {
 
   @Test
-  public void testRealpinTTLParsing() throws ConfigurationException {
+  public void testRealPinTTLParsing() throws ConfigurationException {
     String CONFIG = "" + "topic=test\n" + "objectType=mobile_perf_log\n"
         + "serverSetPath=/xyz/realpin/prod";
     PropertiesConfiguration config = new PropertiesConfiguration();
@@ -103,18 +103,61 @@ public class TestLogConfigUtils {
     }
 
     for (String type : Arrays.asList(
-        "com.pinterest.singer.writer.partitioners.Crc32ByteArrayPartitioner", 
-        "com.pinterest.singer.writer.partitioners.DefaultPartitioner", 
-        "com.pinterest.singer.writer.partitioners.SimpleRoundRobinPartitioner", 
+        "com.pinterest.singer.writer.partitioners.Crc32ByteArrayPartitioner",
+        "com.pinterest.singer.writer.partitioners.DefaultPartitioner",
+        "com.pinterest.singer.writer.partitioners.SimpleRoundRobinPartitioner",
         "com.pinterest.singer.writer.partitioners.SinglePartitionPartitioner",
-        "com.pinterest.singer.writer.partitioners.LocalityAwareRandomPartitioner"
-        )) {
+        "com.pinterest.singer.writer.partitioners.LocalityAwareRandomPartitioner")) {
       map.put("partitioner.class", type);
       try {
         LogConfigUtils.parseProducerConfig(config);
       } catch (ConfigurationException e) {
         throw e;
       }
+    }
+  }
+
+  @Test
+  public void testBaseSingerConfig() throws ConfigurationException {
+    Map<String, Object> map = new HashMap<>();
+    map.put("monitor.monitorIntervalInSecs", "10");
+    map.put("statsPusherHostPort", "localhost:1900");
+    AbstractConfiguration config = new MapConfiguration(map);
+    // defaults should be correct
+    LogConfigUtils.parseCommonSingerConfigHeader(config);
+
+    // must throw configuration exception
+    map.put("statsPusherClass", "com.pinterest.singer.monitor.DefaultLogMonitor");
+    try {
+      LogConfigUtils.parseCommonSingerConfigHeader(config);
+      fail(
+          "Must fail since the supplied class is not a valid StatsPusher class but it is a valid class");
+    } catch (Exception e) {
+    }
+    
+    map.put("statsPusherClass", "com.pinterest.singer.monitor.Xyz");
+    try {
+      LogConfigUtils.parseCommonSingerConfigHeader(config);
+      fail(
+          "Must fail since the supplied class is not a valid class");
+    } catch (Exception e) {
+    }
+    map.remove("statsPusherClass");
+    // cleanup after stats test
+    
+    map.put("environmentProviderClass", "com.pinterest.singer.monitor.Xyz");
+    try {
+      LogConfigUtils.parseCommonSingerConfigHeader(config);
+      fail(
+          "Must fail since the supplied class is not a valid class");
+    } catch (Exception e) {
+    }
+    map.put("environmentProviderClass", "com.pinterest.singer.monitor.DefaultLogMonitor");
+    try {
+      LogConfigUtils.parseCommonSingerConfigHeader(config);
+      fail(
+          "Must fail since the supplied class is not a valid class");
+    } catch (Exception e) {
     }
   }
 

@@ -66,6 +66,9 @@ public class SingerMetrics {
   public static final String NUM_KAFKA_MESSAGES = SINGER_WRITER + "num_kafka_messages_delivery_success";
   public static final String OVERSIZED_MESSAGES = SINGER_WRITER + "num_oversized_messages";
   public static final String WRITE_FAILURE        = SINGER_WRITER + "kafka_write_failure";
+  public static final String BROKER_WRITE_FAILURE        = SINGER_WRITER + "broker_write_failure";
+  public static final String BROKER_WRITE_SUCCESS        = SINGER_WRITER + "broker_write_success";
+  public static final String BROKER_WRITE_LATENCY        = SINGER_WRITER + "broker_write_latency";
   public static final String WRITER_BATCH_SIZE    = SINGER_WRITER + "message_batch_size";
   public static final String WRITER_SSL_EXCEPTION = SINGER_WRITER + "ssl_exception";
   public static final String KAFKA_THROUGHPUT = SINGER_WRITER + "topic_kafka_throughput";
@@ -93,5 +96,7 @@ public class SingerMetrics {
   public static final String SINGER_CONFIGURATOR_CONFIG_ERRORS_UNKNOWN = "singer.configurator.unexpected_config_errors";
   public static final String LOCALITY_MISSING = "singer.locality.missing";
   public static final String DISABLE_SINGER_OSTRICH = "DISABLE_OSTRICH_METRICS";
+  public static final String LEADER_INFO_EXCEPTION = SINGER_WRITER + "leader_info_exception";
+  public static final String MISSING_LOCAL_PARTITIONS = "singer.locality.missing_local_partitions";
   
 }

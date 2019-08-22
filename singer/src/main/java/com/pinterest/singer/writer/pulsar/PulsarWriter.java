@@ -18,7 +18,9 @@ package com.pinterest.singer.writer.pulsar;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
@@ -42,6 +44,7 @@ import com.pinterest.singer.thrift.LogMessage;
 import com.pinterest.singer.thrift.configuration.PulsarProducerConfig;
 import com.pinterest.singer.thrift.configuration.PulsarWriterConfig;
 import com.pinterest.singer.utils.SingerUtils;
+import com.pinterest.singer.utils.StatsUtils;
 
 /**
  * Pulsar Writer is capable of writing to a Pulsar cluster.1 Pulsar Writer
@@ -75,10 +78,14 @@ public class PulsarWriter implements LogStreamWriter {
       + "topic_pulsar_throughput";
   public static final String PULSAR_LATENCY = SingerMetrics.SINGER_WRITER
       + "max_pulsar_batch_write_latency";
+  private static Map<String, Producer<byte[]>> producerCache = new ConcurrentHashMap<>();
   private LogStream logStream;
-  private PulsarClient pulsarClient;
   private Producer<byte[]> producer;
   private String topic;
+
+  // pulsar topics have colons in the topic name, which is invalid in tsdb.
+  // Use this string to publish pulsar related metrics.
+  private String metricTag;
   private String logName;
 
   @SuppressWarnings("unchecked")
@@ -102,7 +109,6 @@ public class PulsarWriter implements LogStreamWriter {
     }
   }
 
-  @SuppressWarnings("unchecked")
   public PulsarWriter init(LogStream logStream, PulsarWriterConfig writerConfig)
       throws ConfigurationException, LogStreamWriterException {
     PulsarProducerConfig producerConfig = writerConfig.getProducerConfig();
@@ -110,41 +116,63 @@ public class PulsarWriter implements LogStreamWriter {
     this.logStream = logStream;
     this.logName = logStream.getLogStreamName();
     this.topic = writerConfig.getTopic();
+    this.metricTag = StatsUtils.pulsarTopicToMetricTag(this.topic);
+
+    if ((producer = producerCache.get(getProducerKey(producerConfig, topic))) == null) {
+      synchronized (producerCache) {
+        if ((producer = producerCache.get(getProducerKey(producerConfig, topic))) == null) {
+          producer = createProducer(topic, logName, producerConfig);
+          producerCache.put(getProducerKey(producerConfig, topic), producer);
+          LOG.info("Created new Pulsar producer with pulsarServiceUrl:" + producerConfig.getServiceUrl()
+              + " topic:" + topic + " logStream:" + logName);
+        }
+      }
+    }
+    return this;
+  }
+
+  @SuppressWarnings("unchecked")
+  public static Producer<byte[]> createProducer(String topic, String logName, PulsarProducerConfig producerConfig) throws LogStreamWriterException {
+    PulsarClient pulsarClient = null;
     try {
-      pulsarClient = PulsarClient.builder().serviceUrl(producerConfig.getServiceUrl()).build();
+      pulsarClient = PulsarClient.builder().serviceUrl(producerConfig.getServiceUrl())
+          .build();
     } catch (PulsarClientException e) {
       throw new LogStreamWriterException(
-          "Failed to build Pulsar client with service URL:" + producerConfig.getServiceUrl(), e);
+          "Failed to build Pulsar client with service URL:" + producerConfig.getServiceUrl(),
+          e);
     }
-    LOG.info("Created Pulsar client to connect to:" + producerConfig.getServiceUrl() + " topic:"
-        + topic + " logStream:" + logName);
+    LOG.info("Created Pulsar client to connect to:" + producerConfig.getServiceUrl()
+        + " topic:" + topic + " logStream:" + logName);
     try {
-      producer = pulsarClient.newProducer()
+      Producer<byte[]> producer = pulsarClient.newProducer()
           .compressionType(
               CompressionType.valueOf(producerConfig.getCompressionType().toUpperCase()))
           .messageRoutingMode(MessageRoutingMode.CustomPartition)
-          .messageRouter(new PulsarMessageRouter(
-              (Class<PulsarMessagePartitioner>) Class.forName(producerConfig.getPartitionerClass())))
-          .sendTimeout(producerConfig.getWriteTimeoutInSeconds(), TimeUnit.SECONDS).topic(topic)
-          .blockIfQueueFull(true).batchingMaxMessages(producerConfig.getBatchingMaxMessages())
+          .messageRouter(new PulsarMessageRouter((Class<PulsarMessagePartitioner>) Class
+              .forName(producerConfig.getPartitionerClass())))
+          .sendTimeout(producerConfig.getWriteTimeoutInSeconds(), TimeUnit.SECONDS)
+          .topic(topic).blockIfQueueFull(true)
+          .batchingMaxMessages(producerConfig.getBatchingMaxMessages())
           .maxPendingMessages(producerConfig.getMaxPendingMessages())
           .batchingMaxPublishDelay(producerConfig.getBatchingMaxPublishDelayInMilli(),
               TimeUnit.MILLISECONDS)
           .enableBatching(true).maxPendingMessagesAcrossPartitions(
               producerConfig.getMaxPendingMessagesAcrossPartitions())
           .create();
+      return producer;
     } catch (PulsarClientException | InstantiationException | IllegalAccessException
         | ClassNotFoundException e) {
       throw new LogStreamWriterException("Failed to initialize Pulsar writer", e);
     }
-    LOG.info("Created Pulsar producer with pulsarServiceUrl:" + producerConfig.getServiceUrl()
-        + " topic:" + topic + " logStream:" + logName);
-    return this;
+  }
+
+  public static String getProducerKey(PulsarProducerConfig producerConfig, String topic) {
+    return producerConfig.getServiceUrl() + "__" + topic;
   }
 
   @Override
   public void close() throws IOException {
-    // TODO Auto-generated method stub
     producer.flush();
   }
 
@@ -179,20 +207,19 @@ public class PulsarWriter implements LogStreamWriter {
         future.get();
       }
     } catch (PulsarClientException | InterruptedException | ExecutionException e) {
-      OpenTsdbMetricConverter.incr(PULSAR_WRITE_FAILURE, messages.size(), "topic=" + topic,
+      OpenTsdbMetricConverter.incr(PULSAR_WRITE_FAILURE, messages.size(), "topic=" + metricTag,
           "host=" + HOSTNAME, "logname=" + logName);
       throw new LogStreamWriterException("Message delivery failed", e);
     }
-    
-    maxPulsarWriteLatency = System.currentTimeMillis() - maxPulsarWriteLatency;
 
-    OpenTsdbMetricConverter.gauge(PULSAR_THROUGHPUT, bytesWritten, "topic=" + topic,
+    maxPulsarWriteLatency = System.currentTimeMillis() - maxPulsarWriteLatency;
+    OpenTsdbMetricConverter.gauge(PULSAR_THROUGHPUT, bytesWritten, "topic=" + metricTag,
         "host=" + HOSTNAME, "logname=" + logName);
-    OpenTsdbMetricConverter.gauge(PULSAR_LATENCY, maxPulsarWriteLatency, "topic=" + topic,
+    OpenTsdbMetricConverter.gauge(PULSAR_LATENCY, maxPulsarWriteLatency, "topic=" + metricTag,
         "host=" + HOSTNAME, "logname=" + logName);
-    OpenTsdbMetricConverter.incr(NUM_PULSAR_MESSAGES, messages.size(), "topic=" + topic,
+    OpenTsdbMetricConverter.incr(NUM_PULSAR_MESSAGES, messages.size(), "topic=" + metricTag,
         "host=" + HOSTNAME, "logname=" + logName);
-    LOG.info("Completed batch writes to Pulsar topic:" + topic + " size:" + messages.size());
+    LOG.info("Completed batch writes to Pulsar topic:" + metricTag + " size:" + messages.size());
 
   }
 

@@ -47,9 +47,11 @@ import scala.Tuple2;
  * The "addMetric" static function is provided to make it easier to add Ostrich metric names that
  * contain tags.
  */
-public class OpenTsdbMetricConverter  {
+public class OpenTsdbMetricConverter {
+  
   // According to http://opentsdb.net/docs/build/html/user_guide/writing.html
   public static final String VALID_OPENSTD_STAT_TAG_PATTERN = "[a-zA-Z0-9_./-]+";
+  private static boolean enableGranularMetrics;
 
   private final String prefix;
   private final String defaultTags;
@@ -156,6 +158,13 @@ public class OpenTsdbMetricConverter  {
   public static void addMetric(String name, int value, String... tags) {
     Stats.addMetric(nameMetric(name, tags), value);
   }
+  
+  public static void addGranularMetric(String name, int value, String... tags) {
+    if (!enableGranularMetrics) {
+      return;
+    }
+    Stats.addMetric(nameMetric(name, tags), value);
+  }
 
   public static void incr(String name) {
     Stats.incr(name);
@@ -175,5 +184,27 @@ public class OpenTsdbMetricConverter  {
 
   public static void gauge(String name, double value, String... tags) {
     Stats.setGauge(nameMetric(name, tags), value);
+  }
+  
+  public static void gaugeGranular(String name, double value, String... tags) {
+    if (!enableGranularMetrics) {
+      return;
+    }
+    Stats.setGauge(nameMetric(name, tags), value);
+  }
+
+  public static void incrGranular(String name, int i, String... tags) {
+    if (!enableGranularMetrics) {
+      return;
+    }
+    Stats.incr(nameMetric(name, tags), i);
+  }
+  
+  public static void setEnableGranularMetrics(boolean granularMetrics) {
+    enableGranularMetrics = granularMetrics;
+  }
+  
+  public static boolean isEnableGranularMetrics() {
+    return enableGranularMetrics;
   }
 }

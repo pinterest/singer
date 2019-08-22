@@ -15,26 +15,18 @@
  */
 package com.pinterest.singer.utils;
 
-import com.pinterest.singer.common.LogStream;
-import com.pinterest.singer.common.SingerLog;
+import org.apache.kafka.common.PartitionInfo;
+
+import java.util.Comparator;
 
 /**
- * Stats utility functions.
+ * Used to sort {@link PartitionInfo} by partitionid
  */
-public final class StatsUtils {
+public class PartitionComparator implements Comparator<PartitionInfo> {
 
-  private StatsUtils() {
+  @Override
+  public int compare(PartitionInfo p1, PartitionInfo p2) {
+    return Integer.compare(p1.partition(), p2.partition());
   }
 
-  public static String getLogStreamStatName(LogStream logStream, String group, String stat) {
-    return String.format("singer.%s.%s.%s", logStream.getLogStreamDescriptor(), group, stat);
-  }
-
-  public static String getLogStatName(SingerLog singerLog, String stat) {
-    return String.format("singer.%s.%s", singerLog.getLogName(), stat);
-  }
-
-  public static String pulsarTopicToMetricTag(String pulsarTopic) {
-    return pulsarTopic.replaceAll("persistent://", "");
-  }
 }

@@ -17,6 +17,8 @@ package com.pinterest.singer.common;
 
 import com.pinterest.singer.common.errors.SingerLogException;
 import com.pinterest.singer.config.SingerDirectoryWatcher;
+import com.pinterest.singer.environment.Environment;
+import com.pinterest.singer.environment.EnvironmentProvider;
 import com.pinterest.singer.heartbeat.HeartbeatGenerator;
 import com.pinterest.singer.kubernetes.KubeService;
 import com.pinterest.singer.monitor.FileSystemMonitor;
@@ -24,6 +26,7 @@ import com.pinterest.singer.monitor.LogStreamManager;
 import com.pinterest.singer.thrift.configuration.SingerConfig;
 import com.pinterest.singer.thrift.configuration.SingerLogConfig;
 import com.twitter.ostrich.stats.Stats;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -86,6 +89,9 @@ public final class SingerSettings {
   
   // initialized here so that unit tests aren't required to call the initialize method below
   private static SortedMap<String, Collection<SingerLogConfig>> logConfigMap = new TreeMap<>();
+  
+  //environment is production by default
+  private static Environment environment = new Environment();
 
   private SingerSettings() {
   }
@@ -98,6 +104,9 @@ public final class SingerSettings {
              NoSuchMethodException,
       SingerLogException {
     setSingerConfig(config);
+
+    loadAndSetSingerEnvironmentIfConfigured(config);
+    LOG.warn("Singer environment has been configured to:" + environment);
     
     SingerSettings.logProcessorExecutor = Executors.newScheduledThreadPool(
         singerConfig.getThreadPoolSize(),
@@ -224,6 +233,25 @@ public final class SingerSettings {
     return mon;
   }
   
+  protected static void loadAndSetSingerEnvironmentIfConfigured(SingerConfig config) {
+    if (config.getEnvironmentProviderClass() != null) {
+      try {
+        String environmentProviderClass = config.getEnvironmentProviderClass();
+        @SuppressWarnings("unchecked")
+        Class<EnvironmentProvider> providerClass = (Class<EnvironmentProvider>) 
+            Class.forName(environmentProviderClass);
+        EnvironmentProvider provider = providerClass.newInstance();
+        Environment env = provider.getEnvironment();
+        if (env != null) {
+          environment = env;
+          return;
+        }
+      } catch (Exception e) {
+        LOG.error("Failed to load Singer Environment configuration", e);
+      }
+    }
+  }
+  
   public static Map<String, FileSystemMonitor> getFsMonitorMap() {
     return fsMonitorMap;
   }
@@ -281,5 +309,14 @@ public final class SingerSettings {
    */
   public static void initializeConfigMap(SingerConfig config) {
     logConfigMap = loadLogConfigMap(config);
+  }
+  
+  public static Environment getEnvironment() {
+    return environment;
+  }
+  
+  @VisibleForTesting
+  public static void setEnvironment(Environment environment) {
+    SingerSettings.environment = environment;
   }
 }

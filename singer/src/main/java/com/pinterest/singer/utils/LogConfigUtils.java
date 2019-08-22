@@ -18,6 +18,8 @@ package com.pinterest.singer.utils;
 import com.pinterest.singer.common.SingerConfigDef;
 import com.pinterest.singer.config.ConfigFileServerSet;
 import com.pinterest.singer.config.DirectorySingerConfigurator;
+import com.pinterest.singer.environment.EnvironmentProvider;
+import com.pinterest.singer.metrics.StatsPusher;
 import com.pinterest.singer.thrift.configuration.DummyWriteConfig;
 import com.pinterest.singer.thrift.configuration.FileNameMatchMode;
 import com.pinterest.singer.thrift.configuration.HeartbeatWriterConfig;
@@ -141,11 +143,6 @@ public class LogConfigUtils {
       result.setLogConfigPollIntervalSecs(singerConfiguration.getInt("logConfigPollIntervalSecs"));
     } else {
       errors.add("singer.setLogConfigPollIntervalSecs " + "is required for Singer Configuration");
-    }
-
-    String statsPusherHostPort = singerConfiguration.getString("statsPusherHostPort");
-    if (statsPusherHostPort != null) {
-      result.setStatsPusherHostPort(statsPusherHostPort);
     }
 
     try {
@@ -391,11 +388,16 @@ public class LogConfigUtils {
 
   /**
    * Parse the common singer configuration
+   * @throws ConfigurationException 
    */
-  private static SingerConfig parseCommonSingerConfigHeader(AbstractConfiguration singerConfiguration) {
+  public static SingerConfig parseCommonSingerConfigHeader(AbstractConfiguration singerConfiguration) throws ConfigurationException {
     SingerConfig singerConfig = new SingerConfig();
-    singerConfig.setThreadPoolSize(singerConfiguration.getInt("threadPoolSize"));
-    singerConfig.setOstrichPort(singerConfiguration.getInt("ostrichPort"));
+    if (singerConfiguration.containsKey("threadPoolSize")) {
+      singerConfig.setThreadPoolSize(singerConfiguration.getInt("threadPoolSize"));
+    }
+    if (singerConfiguration.containsKey("ostrichPort")) {
+      singerConfig.setOstrichPort(singerConfiguration.getInt("ostrichPort"));
+    }
     if (singerConfiguration.containsKey("writerThreadPoolSize")) {
       int writerThreadPoolSize = singerConfiguration.getInt("writerThreadPoolSize");
       singerConfig.setWriterThreadPoolSize(writerThreadPoolSize);
@@ -418,7 +420,41 @@ public class LogConfigUtils {
     if (singerConfiguration.containsKey("heartbeatEnabled")) {
       singerConfig.setHeartbeatEnabled(singerConfiguration.getBoolean("heartbeatEnabled"));
     }
+    
+    if (singerConfiguration.containsKey("environmentProviderClass")) {
+      String envProviderClass = singerConfiguration.getString("environmentProviderClass");
+      singerConfig.setEnvironmentProviderClass(envProviderClass);
+      // environmentProviderClass can be null therefore validation is only needed
+      // if user has configured it
+      try {
+        Class<?> cls = Class.forName(envProviderClass);
+        if (!EnvironmentProvider.class.isAssignableFrom(cls)) {
+          throw new ConfigurationException("environmentProviderClass " + envProviderClass 
+              + " doesn't extend " + EnvironmentProvider.class.getName());
+        }
+      } catch (ClassNotFoundException e) {
+        throw new ConfigurationException("Couldn't find environmentProviderClass " + envProviderClass);
+      }
+    }
 
+    String statsPusherHostPort = singerConfiguration.getString("statsPusherHostPort");
+    if (statsPusherHostPort != null) {
+      singerConfig.setStatsPusherHostPort(statsPusherHostPort);
+      
+      String statsPusherClass = singerConfiguration.getString("statsPusherClass");
+      if (statsPusherClass != null) {
+        singerConfig.setStatsPusherClass(statsPusherClass);
+      }
+      try {
+        Class<?> cls = Class.forName(singerConfig.getStatsPusherClass());
+        if (!StatsPusher.class.isAssignableFrom(cls)) {
+          throw new ConfigurationException("statsPusherClass " + singerConfig.getStatsPusherClass() 
+              + " doesn't extend " + StatsPusher.class.getName());
+        }
+      } catch (ClassNotFoundException e) {
+        throw new ConfigurationException("Couldn't find statsPusherClass " + statsPusherClass);
+      }
+    }
     return singerConfig;
   }
 
@@ -466,7 +502,7 @@ public class LogConfigUtils {
           .setCompressionType(subsetConfiguration.getString(SingerConfigDef.COMPRESSION_TYPE));
     }
     if (subsetConfiguration.containsKey(SingerConfigDef.PARTITIONER_CLASS)) {
-      pulsarProducerConfig.setPartitionerClass(SingerConfigDef.PARTITIONER_CLASS);
+      pulsarProducerConfig.setPartitionerClass(subsetConfiguration.getString(SingerConfigDef.PARTITIONER_CLASS));
     }
     if (subsetConfiguration.containsKey(SingerConfigDef.PULSAR_SERVICE_URL)) {
       pulsarProducerConfig
