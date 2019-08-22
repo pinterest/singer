@@ -533,7 +533,6 @@ public class DefaultLogMonitor implements LogMonitor, Runnable {
             "log=" + log.replace(":", "/")), maxLatency);
       }
     }
-    Stats.setGauge(SingerMetrics.CURRENT_PROCESSOR_LATENCY, overallMaxLatency);
     for (String log : perLogStuck.keySet()) {
       OpenTsdbMetricConverter
           .incr("singer.processor.stuck", perLogStuck.get(log), "log=" + log, "host=" + HOSTNAME);

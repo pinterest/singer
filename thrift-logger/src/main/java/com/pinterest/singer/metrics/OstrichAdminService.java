@@ -50,6 +50,7 @@ public class OstrichAdminService {
     this.customHttpHandlerMap.put(path, handler);
   }
 
+  @SuppressWarnings("restriction")
   public void start() {
     try {
       Properties properties = new Properties();
@@ -62,7 +63,6 @@ public class OstrichAdminService {
     Duration[] defaultLatchIntervals = {Duration.apply(1, TimeUnit.MINUTES)};
     Iterator<Duration> durationIterator = Arrays.asList(defaultLatchIntervals).iterator();
 
-    @SuppressWarnings("deprecation")
     AdminServiceFactory adminServiceFactory = new AdminServiceFactory(
             this.port,
             20,

@@ -20,8 +20,8 @@ import com.pinterest.singer.common.SingerSettings;
 import com.pinterest.singer.config.DirectorySingerConfigurator;
 import com.pinterest.singer.config.SingerConfigurator;
 import com.pinterest.singer.heartbeat.HeartbeatGenerator;
+import com.pinterest.singer.metrics.StatsPusher;
 import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
-import com.pinterest.singer.metrics.OpenTsdbMetricsPusher;
 import com.pinterest.singer.metrics.OstrichAdminService;
 import com.pinterest.singer.thrift.configuration.SingerConfig;
 import com.pinterest.singer.utils.SingerUtils;
@@ -34,10 +34,11 @@ import org.slf4j.LoggerFactory;
 
 public final class SingerMain {
 
+  private static final String SINGER_METRICS_PREFIX = "singer";
   private static final Logger LOG = LoggerFactory.getLogger(SingerMain.class);
-  private static final int TSDB_METRICS_PUSH_INTERVAL_IN_MILLISECONDS = 10 * 1000;
+  private static final int STATS_PUSH_INTERVAL_IN_MILLISECONDS = 10 * 1000;
   protected static final String hostName = SingerUtils.getHostname();
-  private static  OpenTsdbMetricsPusher metricsPusher = null;
+  private static  StatsPusher statsPusher = null;
   private static String singerPath = "";
 
   static class SingerCleanupThread extends Thread {
@@ -70,8 +71,8 @@ public final class SingerMain {
 
       try {
         OpenTsdbMetricConverter.incr("singer.shutdown", 1);
-        if (metricsPusher!= null) {
-          metricsPusher.sendMetrics(false);
+        if (statsPusher!= null) {
+          statsPusher.sendMetrics(false);
         } else {
           LOG.error("metricsPusher was not initialized properly.");
         }
@@ -81,24 +82,28 @@ public final class SingerMain {
     }
   }
 
-  static void startOstrichService(SingerConfig singerConfig) {
+  public static void startOstrichService(SingerConfig singerConfig) {
     // do not start ostrich if Ostrich server is disabled 
     if (System.getenv(SingerMetrics.DISABLE_SINGER_OSTRICH) == null) {
       OstrichAdminService ostrichService = new OstrichAdminService(singerConfig.getOstrichPort());
       ostrichService.start();
     }
+    // enable high granularity metrics we are running in canary
     if (singerConfig.isSetStatsPusherHostPort()) {
-      LOG.info("Starting the OpenTsdb metrics pusher");
+      LOG.info("Starting the stats pusher");
       try {
+        @SuppressWarnings("unchecked")
+        Class<StatsPusher> pusherClass = (Class<StatsPusher>) Class.forName(singerConfig.getStatsPusherClass());
+        statsPusher = pusherClass.newInstance();
         HostAndPort pushHostPort = HostAndPort.fromString(singerConfig.getStatsPusherHostPort());
-        metricsPusher = new OpenTsdbMetricsPusher(
-            pushHostPort.getHost(),
-            pushHostPort.getPort(),
-            // TODO: make the following 'prefix' and 'interval' configurable.
-            new OpenTsdbMetricConverter("singer", hostName),
-            TSDB_METRICS_PUSH_INTERVAL_IN_MILLISECONDS);
-        metricsPusher.start();
-        LOG.info("OpenTsdb metrics pusher started!");
+        // allows hostname to be overridden based on environment
+        statsPusher.configure(SingerSettings.getEnvironment().getHostname()
+            , SINGER_METRICS_PREFIX
+            , pushHostPort.getHost()
+            , pushHostPort.getPort()
+            , STATS_PUSH_INTERVAL_IN_MILLISECONDS);
+        statsPusher.start();
+        LOG.info("Stats pusher started!");
       } catch (Throwable t) {
         // pusher fail is OK, do
         LOG.error("Exception when starting stats pusher: ", t);

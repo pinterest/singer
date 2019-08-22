@@ -21,17 +21,11 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.StandardWatchEventKinds;
 import java.nio.file.WatchEvent;
-import java.security.KeyManagementException;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
 
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -265,7 +259,7 @@ public class KubeService implements Runnable {
      */
     public Set<String> fetchPodUidsFromMetadata() throws IOException {
         LOG.debug("Attempting to make pod md request");
-        String response = makeGetRequest(PODS_MD_URL);
+        String response = SingerUtils.makeGetRequest(PODS_MD_URL);
         LOG.debug("Received pod md response:" + response);
         Gson gson = new Gson();
         JsonObject obj = gson.fromJson(response, JsonObject.class);
@@ -281,30 +275,6 @@ public class KubeService implements Runnable {
         }
         LOG.debug("Pod uids from kubelet:" + podUids);
         return podUids;
-    }
-
-    /**
-     * Make an HTTP Get request on the supplied URI and return the response entity
-     * as {@link String}
-     * 
-     * @param uri
-     * @return
-     * @throws IOException
-     */
-    private String makeGetRequest(String uri) throws IOException {
-        HttpGet getPodRequest = new HttpGet(uri);
-        try {
-            CloseableHttpResponse response = SingerUtils.makeRequest(getPodRequest);
-            if (response.getStatusLine().getStatusCode() != 200) {
-                LOG.warn("Non-200 status code(" + response.getStatusLine().getStatusCode() + ") reason:"
-                        + response.getStatusLine().getReasonPhrase());
-            }
-            String entity = EntityUtils.toString(response.getEntity());
-            response.close();
-            return entity;
-        } catch (KeyManagementException | NoSuchAlgorithmException | KeyStoreException | IOException e) {
-            throw new IOException(e);
-        }
     }
 
     /**

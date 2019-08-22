@@ -15,20 +15,21 @@
  */
 package com.pinterest.singer.writer;
 
-import com.pinterest.singer.common.SingerMetrics;
-
-import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
+import org.apache.kafka.common.PartitionInfo;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.pinterest.singer.common.SingerMetrics;
+import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
 
 public class KafkaWritingTask implements Callable<KafkaWritingTaskResult> {
 
@@ -38,14 +39,23 @@ public class KafkaWritingTask implements Callable<KafkaWritingTaskResult> {
   private List<ProducerRecord<byte[], byte[]>> messages;
   private int writeTimeoutInSeconds;
   private long taskCreationTimeInMillis;
+  private String leaderNode;
 
   public KafkaWritingTask(KafkaProducer<byte[], byte[]> producer,
                           List<ProducerRecord<byte[], byte[]>> msgs,
-                          int writeTimeoutInSeconds) {
+                          int writeTimeoutInSeconds, 
+                          List<PartitionInfo> sortedPartitions) {
     this.producer = producer;
     this.messages = msgs;
     this.writeTimeoutInSeconds = writeTimeoutInSeconds;
     this.taskCreationTimeInMillis = System.currentTimeMillis();
+    try {
+      leaderNode = sortedPartitions.get(msgs.get(0).partition()).leader().host();
+    } catch (Exception e) {
+      LOG.error("Error getting leader node from partition metadata", e);
+      OpenTsdbMetricConverter.incr(SingerMetrics.LEADER_INFO_EXCEPTION, 1, "host=" + KafkaWriter.HOSTNAME);
+      leaderNode = "n/a";
+    }
   }
 
   @Override
@@ -81,10 +91,13 @@ public class KafkaWritingTask implements Callable<KafkaWritingTaskResult> {
       }
       
       if (result == null) {
-        long kafkaLatency = System.currentTimeMillis() - taskCreationTimeInMillis;
+        // we can down convert since latency should be less that Integer.MAX_VALUE
+        int kafkaLatency = (int)(System.currentTimeMillis() - taskCreationTimeInMillis);
         // we shouldn't have latency creater than 2B milliseoncds so it should be okay
         // to downcast to integer
         result = new KafkaWritingTaskResult(true, bytesWritten, (int) kafkaLatency);
+        OpenTsdbMetricConverter.incrGranular(SingerMetrics.BROKER_WRITE_SUCCESS, 1, "broker=" + leaderNode);
+        OpenTsdbMetricConverter.addGranularMetric(SingerMetrics.BROKER_WRITE_LATENCY, kafkaLatency, "broker=" + leaderNode);
       }
     } catch (org.apache.kafka.common.errors.RecordTooLargeException e) {
       LOG.error("Kafka write failure due to excessively large message size", e);
@@ -100,6 +113,7 @@ public class KafkaWritingTask implements Callable<KafkaWritingTaskResult> {
       String errorMsg = "Failed to write " + messages.size() + " messages to kafka";
       LOG.error(errorMsg, e);
       OpenTsdbMetricConverter.incr(SingerMetrics.WRITE_FAILURE, 1, "topic=" + topic, "host=" + KafkaWriter.HOSTNAME);
+      OpenTsdbMetricConverter.incrGranular(SingerMetrics.BROKER_WRITE_FAILURE, 1, "broker=" + leaderNode);
       result = new KafkaWritingTaskResult(false, e);
     } finally {
       if (!result.success) {

@@ -85,6 +85,11 @@ public class KafkaProducerManager {
     result = producers.get(config);
     return result;
   }
+  
+  
+  public static void injectTestProducer(KafkaProducerConfig config, KafkaProducer<byte[], byte[]> producer) {
+    KafkaProducerManager.getInstance().producers.put(config, producer);
+  }
 
   /**
    * Reset the kafka producer
