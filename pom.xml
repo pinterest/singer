@@ -6,14 +6,13 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.pinterest.singer</groupId>
     <artifactId>singer-package</artifactId>
-    <version>0.7.3.25</version>
+    <version>0.7.3.26</version>
     <packaging>pom</packaging>
     <description>Singer Logging Agent modules</description>
     <inceptionYear>2013</inceptionYear>
     <url>https://github.com/pinterest/singer</url>
 
     <properties>
-        <singer.version>0.7.3.21</singer.version>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
         <encoding>UTF-8</encoding>
