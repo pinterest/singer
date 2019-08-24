@@ -4,7 +4,7 @@
   <parent>
     <groupId>com.pinterest.singer</groupId>
     <artifactId>singer-package</artifactId>
-    <version>0.7.3.26</version>
+    <version>0.7.3.27</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
   <artifactId>thrift-logger</artifactId>
