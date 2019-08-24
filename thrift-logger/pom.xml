@@ -4,7 +4,7 @@
   <parent>
     <groupId>com.pinterest.singer</groupId>
     <artifactId>singer-package</artifactId>
-    <version>0.7.3.25</version>
+    <version>0.7.3.26</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
   <artifactId>thrift-logger</artifactId>
@@ -51,7 +51,7 @@
     <dependency>
       <groupId>org.apache.thrift</groupId>
       <artifactId>libthrift</artifactId>
-      <version>${thrift.version}</version>
+      <version>0.12.0</version>
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
