@@ -16,8 +16,6 @@
 package com.pinterest.singer.metrics;
 
 import com.twitter.ostrich.stats.Distribution;
-import com.twitter.ostrich.stats.Stats$;
-import com.twitter.ostrich.stats.StatsListener;
 import com.twitter.ostrich.stats.StatsSummary;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +23,7 @@ import scala.Tuple2;
 import scala.collection.Iterator;
 import scala.collection.Map;
 
+import java.io.IOException;
 import java.net.UnknownHostException;
 
 /**
@@ -41,35 +40,32 @@ import java.net.UnknownHostException;
  * the logic for converting Ostrich {@link Distribution}s to OpenTSDB stats must be done inside an
  * {@link OpenTsdbMetricConverter}.
  */
-public class OpenTsdbMetricsPusher extends Thread {
+public class OpenTsdbStatsPusher extends StatsPusher {
 
-  private final OpenTsdbMetricConverter converter;
-  private final long pollMillis;
-  private final OpenTsdbClient.MetricsBuffer buffer;
-  private final String host;
-  private final int port;
-  private OpenTsdbClient client;
-  private StatsListener statsListener;
-
-  private static final Logger LOG = LoggerFactory.getLogger(OpenTsdbMetricsPusher.class);
+  private static final Logger LOG = LoggerFactory.getLogger(OpenTsdbStatsPusher.class);
   private static final int RETRY_SLEEP_MS = 100;
   private static final int MIN_SOCKET_TIME_MS = 200;
+  private OpenTsdbClient client;
+  protected OpenTsdbClient.MetricsBuffer buffer;
+  protected OpenTsdbMetricConverter converter;
 
-  public OpenTsdbMetricsPusher(
-      String host, int port, OpenTsdbMetricConverter converter, long pollMillis)
-      throws UnknownHostException {
-    this.host = host;
-    this.port = port;
-    this.converter = converter;
-    this.pollMillis = pollMillis;
+  public OpenTsdbStatsPusher() {
     this.buffer = new OpenTsdbClient.MetricsBuffer();
-
-    this.client = new OpenTsdbClient(host, port);
-    this.statsListener = new StatsListener(Stats$.MODULE$);
-    setDaemon(true);
+  }
+  
+  @Override
+  public void configure(String sourceHostname,
+                        String metricsPrefix,
+                        String destinationHost,
+                        int destinationPort,
+                        long pollMillis) throws IOException {
+    super.configure(sourceHostname, metricsPrefix, destinationHost, destinationPort, pollMillis);
+    this.client = new OpenTsdbClient(destinationHost, destinationPort);
+    this.converter = new OpenTsdbMetricConverter(metricsPrefix, sourceHostname);
   }
 
-  private void fillMetricsBuffer(StatsSummary summary, int epochSecs) {
+  @SuppressWarnings("unchecked")
+  protected void fillMetricsBuffer(StatsSummary summary, int epochSecs) {
     buffer.reset();
     OpenTsdbClient.MetricsBuffer buf = buffer;
 
@@ -99,6 +95,7 @@ public class OpenTsdbMetricsPusher extends Thread {
     LOG.debug("Ostrich Metrics {}: \n{}", epochSecs, buffer.toString());
   }
 
+  @Override
   public long sendMetrics(boolean retryOnFailure)
       throws InterruptedException, UnknownHostException {
     long startTimeinMillis = System.currentTimeMillis();
@@ -121,7 +118,7 @@ public class OpenTsdbMetricsPusher extends Thread {
           break;
         }
         // re-initiaize OpenTsdbClient before retrying
-        client = new OpenTsdbClient(host, port);
+        client = new OpenTsdbClient(destinationHost, destinationPort);
       }
       if (end - System.currentTimeMillis() < RETRY_SLEEP_MS + MIN_SOCKET_TIME_MS) {
         LOG.error("Failed to send epoch {} to OpenTSDB, moving to next interval", epochSecs);
@@ -133,21 +130,15 @@ public class OpenTsdbMetricsPusher extends Thread {
     return System.currentTimeMillis() - startTimeinMillis;
   }
 
-  @Override
-  public void run() {
-    try {
-      // Ignore the first interval, since we don't know when stats started being recorded,
-      // and we want to make sure all intervals are roughly the same length.
-      statsListener.get();
-      Thread.sleep(pollMillis);
-      while (!Thread.currentThread().isInterrupted()) {
-        long elapsedTimeMillis = sendMetrics(true);
-        Thread.sleep(Math.max(0, pollMillis - elapsedTimeMillis));
-      }
-    } catch (InterruptedException ex) {
-      LOG.info("OpenTsdbMetricsPusher thread interrupted, exiting");
-    } catch (Exception ex) {
-      LOG.error("Unexpected error in OpenTSDBMetricsPusher, exiting", ex);
-    }
+  /**
+   * @return the buffer
+   */
+  public OpenTsdbClient.MetricsBuffer getBuffer() {
+    return buffer;
   }
+  
+  public void setConverter(OpenTsdbMetricConverter converter) {
+    this.converter = converter;
+  }
+  
 }
