@@ -268,8 +268,8 @@ public class LogConfigUtils {
           .getString(SingerConfigDef.DAILY_RESTART_TIME_END);
       Date startTime = SingerUtils.convertToDate(restartConfig.dailyRestartUtcTimeRangeBegin);
       Date endTime = SingerUtils.convertToDate(restartConfig.dailyRestartUtcTimeRangeEnd);
-      if (endTime.compareTo(startTime) < 0) {
-        throw new ConfigurationException("Daily restart end time is earlier than start time");
+      if (endTime.compareTo(startTime) <= 0) {
+        throw new ConfigurationException("Daily restart end time is not later than start time");
       }
     }
     return restartConfig;
