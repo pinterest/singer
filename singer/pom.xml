@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.pinterest.singer</groupId>
         <artifactId>singer-package</artifactId>
-        <version>0.7.3.27</version>
+        <version>0.7.3.28</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <licenses>
