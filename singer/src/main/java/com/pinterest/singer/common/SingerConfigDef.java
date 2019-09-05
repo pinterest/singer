@@ -29,7 +29,7 @@ public class SingerConfigDef {
   public static final String DAILY_RESTART_FLAG = "daily";
   public static final String NUMBER_OF_FAILURES_ALLOWED = "numberOfFailuresAllowed";
   public static final String DAILY_RESTART_TIME_BEGIN = "dailyRestartUtcTimeRangeBegin";
-  public static final String DAILY_RESTART_TIME_END = "dailyRestartUtcTimeRangeBegin";
+  public static final String DAILY_RESTART_TIME_END = "dailyRestartUtcTimeRangeEnd";
 
   public static final String MONITOR_INTERVAL_IN_SECS = "monitorIntervalInSecs";
 
