@@ -25,6 +25,7 @@ import com.pinterest.singer.common.LogStreamWriter;
 import com.pinterest.singer.common.errors.LogStreamWriterException;
 import com.pinterest.singer.common.SingerLog;
 import com.pinterest.singer.common.SingerSettings;
+import com.pinterest.singer.config.Decider;
 import com.pinterest.singer.monitor.LogStreamManager;
 import com.pinterest.singer.reader.DefaultLogStreamReader;
 import com.pinterest.singer.reader.ThriftLogFileReaderFactory;
@@ -38,6 +39,7 @@ import com.pinterest.singer.thrift.configuration.ThriftReaderConfig;
 import com.pinterest.singer.utils.SimpleThriftLogger;
 import com.pinterest.singer.utils.WatermarkUtils;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import org.apache.commons.io.FilenameUtils;
 import org.junit.Test;
@@ -269,7 +271,7 @@ public class DefaultLogStreamProcessorTest extends com.pinterest.singer.SingerTe
               new ThriftLogFileReaderFactory(new ThriftReaderConfig(16000, 16000))),
           writer,
           50, 1, 1, 3600, 1800);
-
+      Decider.setInstance(ImmutableMap.of("singer_test_decider", 0));
       // Write messages to be skipped.
       boolean deciderEnabled = processor.isLoggingAllowedByDecider();
       assertEquals(false, deciderEnabled);
