@@ -241,7 +241,7 @@ public class SingerTestBase extends TestCase {
         put("topic_names", "topic1, topic2");
 
         put("topic1.name", "topic1");
-        put("topic1.owner", "team1");
+        put("topic1.owner", "owner1");
         put("topic1.type", "JSON");
         put("topic1.daily_datavolume", "1024");
         // we need this line to cheat the producer parser, otherwise it tries to resolve server set.
@@ -249,12 +249,12 @@ public class SingerTestBase extends TestCase {
         put("topic1.processor.batchSize", "200");
 
         put("topic2.name", "topic2");
-        put("topic2.owner", "team2");
+        put("topic2.owner", "owner2");
         put("topic2.type", "JSON");
         put("topic2.daily_datavolume", "2048");
         // we need this line to cheat the producer parser, otherwise it tries to resolve server set.
-        put("discovery.writer.kafka.producerConfig.bootstrap.servers", "broken_list_for_testing");
-        put("discovery.processor.batchSize", "200");
+        put("topic2.writer.kafka.producerConfig.bootstrap.servers", "broken_list_for_testing");
+        put("topic2.processor.batchSize", "200");
 
         put("singer.default.processor.processingIntervalInSeconds", "1");
         put("singer.default.reader.type", "thrift");
@@ -275,6 +275,7 @@ public class SingerTestBase extends TestCase {
         put("singer.default.writer.kafka.producerConfig.ssl.truststore.password", "truststore_password");
         put("singer.default.writer.kafka.producerConfig.ssl.truststore.type", "JKS");
         put("singer.default.logDir", "/mnt/thrift_logger/");
+
       }
     };
   }

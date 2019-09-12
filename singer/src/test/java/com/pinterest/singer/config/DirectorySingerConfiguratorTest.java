@@ -47,8 +47,10 @@ public class DirectorySingerConfiguratorTest extends SingerTestBase {
     // Make the singer config property file
     File singerConfigFile = createSingerConfigFile(makeDirectorySingerConfigProperties());
     // Make two log config properties files in the logConfigDir.
-    createLogConfigPropertiesFile("ads.mohawk.properties");
-    File searchLogConfig = createLogConfigPropertiesFile("search.discovery.properties");
+    createLogConfigPropertiesFile("ads.mohawk.properties", ImmutableMap.of(
+        "writer.kafka.producerConfig.bootstrap.servers", "127.0.0.1:9092"));
+    File searchLogConfig = createLogConfigPropertiesFile("search.discovery.properties",
+        ImmutableMap.of("writer.kafka.producerConfig.bootstrap.servers", "127.0.0.1:9092"));
 
     // Check the configurator can load two log configs.
     DirectorySingerConfigurator configurator = new DirectorySingerConfigurator(singerConfigFile
@@ -72,7 +74,8 @@ public class DirectorySingerConfiguratorTest extends SingerTestBase {
 
     {
       // Test live changes : adding a new file.
-      createLogConfigPropertiesFile("ads.ads.properties");
+      createLogConfigPropertiesFile("ads.ads.properties", ImmutableMap.of(
+          "writer.kafka.producerConfig.bootstrap.servers", "127.0.0.1:9092"));
       Thread.sleep(2000);
       // check exit() called with code 0.
       assertEquals(0, exitCode.get());
@@ -85,7 +88,7 @@ public class DirectorySingerConfiguratorTest extends SingerTestBase {
     {
       // Test live changes : modifying a config to increase batch size from 200 to 300.
       createLogConfigPropertiesFile("ads.mohawk.properties", ImmutableMap.of("processor.batchSize",
-          "300"));
+          "300", "writer.kafka.producerConfig.bootstrap.servers", "127.0.0.1:9092"));
       Thread.sleep(2000);
       assertEquals(0, exitCode.get());
     }
@@ -133,12 +136,12 @@ public class DirectorySingerConfiguratorTest extends SingerTestBase {
     SingerLogConfig[] logConfigs = LogConfigUtils.parseLogStreamConfigFromFile(newConfig);
 
     assertEquals(2, logConfigs.length);
-    SingerLogConfig adsMohawk = logConfigs[0];
-    assertEquals("mohawk", adsMohawk.getName());
-    assertEquals("/mnt/thrift_logger", adsMohawk.getLogDir());
-    SingerLogConfig search = logConfigs[1];
-    assertEquals("discovery", search.getName());
-    assertEquals("/mnt/thrift_logger", search.getLogDir());
+    SingerLogConfig topic1 = logConfigs[0];
+    assertEquals("topic1", topic1.getName());
+    assertEquals("/mnt/thrift_logger", topic1.getLogDir());
+    SingerLogConfig topic2 = logConfigs[1];
+    assertEquals("topic2", topic2.getName());
+    assertEquals("/mnt/thrift_logger", topic2.getLogDir());
   }
 
   Map<String, String> makeWrongSingerConfigProperties(int propertyNum) {
@@ -183,6 +186,7 @@ public class DirectorySingerConfiguratorTest extends SingerTestBase {
         put("singer.logConfigDir", logConfigDir.getPath());
         put("singer.logConfigPollIntervalSecs", "1");
         put("singer.logRetentionInSecs", "172800");
+        put("singer.heartbeatEnabled", "false");
       }
     };
   }
