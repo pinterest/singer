@@ -32,6 +32,23 @@ public class SingerLog {
     this.singerLogConfig = Preconditions.checkNotNull(singerLogConfig);
   }
 
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    SingerLog singerLog = (SingerLog) o;
+    return singerLogConfig.equals(singerLog.singerLogConfig);
+  }
+
+  @Override
+  public int hashCode() {
+    return singerLogConfig.hashCode();
+  }
+
   /**
    * @return the name of this SingerLog.
    */

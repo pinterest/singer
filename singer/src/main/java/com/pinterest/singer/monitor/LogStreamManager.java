@@ -80,9 +80,15 @@ public class LogStreamManager implements PodWatcher {
   /**
    * This needs to be thread safe since pods are dynamically created and deleted using an async
    * process. Additionally this data structure is accessed by several threads including DefaultLogMonitor
-   * , async delete task (LogStreamManager) and RecursiveFSEventProcessor.
+   * , async delete task (LogStreamManager), RecursiveFSEventProcessor and MissingDirChecker.
    */
   private final SortedMap<String, Collection<LogStream>> dirStreams = new ConcurrentSkipListMap<>();
+
+  /**
+   * This data structure needs to be thread safe as LogStreamManager and
+   * MissingDirChecker will access it.
+   */
+  private final Map<SingerLog, String> singerLogsWithoutDir = new ConcurrentHashMap<>();
 
   /**
    * This needs to be threadsafe since pods are dynamically created and new LogStreams
@@ -95,8 +101,15 @@ public class LogStreamManager implements PodWatcher {
   private FileSystemEventFetcher recursiveDirectoryWatcher;
   private Thread recursiveEventProcessorThread;
   private RecursiveFSEventProcessor recursiveEventProcessor;
+  private MissingDirChecker missingDirChecker;
+
+  @VisibleForTesting
+  public MissingDirChecker getMissingDirChecker() {
+    return missingDirChecker;
+  }
 
   protected LogStreamManager() {
+    missingDirChecker = new MissingDirChecker();
     if(SingerSettings.getSingerConfig()!=null &&
       SingerSettings.getSingerConfig().isKubernetesEnabled()) {
       KubeService.getInstance().addWatcher(this);
@@ -111,7 +124,7 @@ public class LogStreamManager implements PodWatcher {
         recursiveEventProcessorThread.start();
         recursiveEventProcessorThread.setName("RecursiveEventProcessor");
       } catch (IOException e) {
-        LOG.error("Error initalizing FS Event Fetcher for recursive directory watch", e);
+        LOG.error("Error initializing FS Event Fetcher for recursive directory watch", e);
         throw new RuntimeException(e);
       }
     }
@@ -216,7 +229,19 @@ public class LogStreamManager implements PodWatcher {
     LogStreamManager.getInstance().initializeLogStreamsInternal(NON_KUBERNETES_POD_ID, singerLog);
   }
 
-  private void initializeLogStreamsInternal() throws SingerLogException {
+  /**
+   * Initialize logStreams given singerLog and podUid.  This method is called by MissingDirChecker
+   * after it finds that a log directory is newly created.
+   *
+   * @param singerLog
+   * @param podUid
+   * @throws SingerLogException
+   */
+  public static void initializeLogStreams(SingerLog singerLog, String podUid) throws SingerLogException{
+    LogStreamManager.getInstance().initializeLogStreamsInternal(podUid, singerLog);
+  }
+
+  private void initializeLogStreamsInternal() throws SingerLogException{
     Preconditions.checkNotNull(SingerSettings.getSingerConfig());
     LOG.info("Initialize log streams");
     List<SingerLogConfig> logConfigs = SingerSettings.getSingerConfig().getLogConfigs();
@@ -231,6 +256,10 @@ public class LogStreamManager implements PodWatcher {
           singerLogPaths.get(logPathKey).add(singerLog);
           initializeLogStreamsInternal(NON_KUBERNETES_POD_ID, singerLog);
         }
+      LOG.info("set singerLogsWithoutDir and start MissingDirChecker thread.");
+      missingDirChecker.setSingerLogsWithoutDir(singerLogsWithoutDir);
+      missingDirChecker.start();
+      LOG.info("MissingDirChecker thread is running in the background.");
     } else {
         LOG.error("No log configs defined:" + SingerSettings.getSingerConfig().getLogConfigs());
     }
@@ -271,6 +300,8 @@ public class LogStreamManager implements PodWatcher {
         } else if (singerLogConfig.getFilenameMatchMode() == FileNameMatchMode.PREFIX) {
           createPrefixBasedLogStreams(singerLog, singerLogConfig, dir, files, logDirPath);
         }
+      } else if (NON_KUBERNETES_POD_ID.equals(podUid)) {
+          singerLogsWithoutDir.putIfAbsent(singerLog, podUid);
       }
     } catch (NoSuchFileException e) {
       Stats.incr(SingerMetrics.NO_SUCH_FILE_EXCEPTION);
@@ -450,6 +481,9 @@ public class LogStreamManager implements PodWatcher {
       }
       if(recursiveEventProcessorThread != null) {
           recursiveEventProcessorThread.interrupt();
+      }
+      if(missingDirChecker != null){
+        missingDirChecker.stop();
       }
   }
 
