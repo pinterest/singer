@@ -31,6 +31,7 @@ import com.google.common.base.Strings;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.PartitionInfo;
+import org.apache.kafka.common.header.Headers;
 import org.apache.thrift.TSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -221,19 +222,85 @@ public class KafkaWriter implements LogStreamWriter {
     return buckets;
   }
 
+  public List<List<LogMessage>> logMessagesCollation(List<PartitionInfo> partitions,
+                                                     String topic,
+                                                     List<LogMessage> logMessages) throws Exception {
+    LOG.info("Collate " + logMessages.size() + " messages");
+    List<List<LogMessage>> messageBuckets = new ArrayList<>();
+
+    try {
+      List<PartitionInfo> validPartitions = partitions;
+      if (skipNoLeaderPartitions) {
+        validPartitions = new ArrayList<>();
+        for (PartitionInfo partitionInfo : partitions) {
+          // If there is no leader, the id value is -1
+          // github.com/apache/kafka/blob/trunk/clients/src/main/java/org/apache/kafka/common/PartitionInfo.java
+          if (partitionInfo.leader().id() >= 0) {
+            validPartitions.add(partitionInfo);
+          }
+        }
+      }
+      for (int i = 0; i < validPartitions.size(); i++) {
+        messageBuckets.add(new ArrayList<>());
+      }
+      for (LogMessage msg : logMessages) {
+        byte[] key = null;
+        if (msg.isSetKey()) {
+          key = msg.getKey();
+        }
+        int partitionId = partitioner.partition(key, validPartitions);
+        if (skipNoLeaderPartitions) {
+          partitionId = validPartitions.get(partitionId).partition();
+        }
+        messageBuckets.get(partitionId).add(msg);
+      }
+    } catch (Exception e) {
+      LOG.error("Failed in message collation for topic {}, partitioner {}",
+          topic, partitioner.getClass().getName(), e);
+      throw new LogStreamWriterException(e.toString());
+    }
+    return messageBuckets;
+  }
+
+  public List<List<ProducerRecord<byte[], byte[]>>> createProducerRecordFromLogMessage(
+      List<List<LogMessage>> messageBuckets, String topic){
+    List<List<ProducerRecord<byte[], byte[]>>> recordBuckets = new ArrayList<>();
+
+    ProducerRecord<byte[], byte[]> keyedMessage;
+    for(int partitionId = 0; partitionId < messageBuckets.size(); partitionId++) {
+      List<ProducerRecord<byte[], byte[]>> records = new ArrayList<>();
+      for(LogMessage msg: messageBuckets.get(partitionId)) {
+        byte[] key = null;
+        if (msg.isSetKey()) {
+          key = msg.getKey();
+        }
+        keyedMessage = new ProducerRecord<>(topic, partitionId, key, msg.getMessage());
+        Headers headers = keyedMessage.headers();
+        HeaderProvider.addEnvHeaders(headers);
+        records.add(keyedMessage);
+      }
+      recordBuckets.add(records);
+    }
+    return recordBuckets;
+  }
+
   @Override
   public void writeLogMessages(List<LogMessage> logMessages) throws LogStreamWriterException {
     Set<Future<KafkaWritingTaskResult>> resultSet = new HashSet<>();
     KafkaProducer<byte[], byte[]> producer = KafkaProducerManager.getProducer(producerConfig);
     Preconditions.checkNotNull(producer);
-
     if (producerConfig.isTransactionEnabled()) {
       producer.beginTransaction();
     }
     try {
       List<PartitionInfo> partitions = producer.partitionsFor(topic);
+      /*
       List<List<ProducerRecord<byte[], byte[]>>>
           buckets = messageCollation(partitions, topic, logMessages);
+      */
+      List<List<LogMessage>>  messageBuckets = logMessagesCollation(partitions, topic, logMessages);
+      List<List<ProducerRecord<byte[], byte[]>>>
+          buckets = createProducerRecordFromLogMessage(messageBuckets, topic);
       
       // we sort this info after, we have to create a copy of the data since
       // the returned list is immutable
