@@ -98,5 +98,7 @@ public class SingerMetrics {
   public static final String DISABLE_SINGER_OSTRICH = "DISABLE_OSTRICH_METRICS";
   public static final String LEADER_INFO_EXCEPTION = SINGER_WRITER + "leader_info_exception";
   public static final String MISSING_LOCAL_PARTITIONS = "singer.locality.missing_local_partitions";
+  public static final String MISSING_DIR_CHECKER_INTERRUPTED = "singer.missing_dir_checker.thread_interrupted";
+  public static final String NUMBER_OF_MISSING_DIRS = "singer.missing_dir_checker.num_of_missing_dirs";
   
 }
