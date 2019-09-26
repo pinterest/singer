@@ -47,6 +47,7 @@
     <modules>
         <module>singer</module>
         <module>thrift-logger</module>
+        <module>singer-commons</module>
     </modules>
 
     <repositories>

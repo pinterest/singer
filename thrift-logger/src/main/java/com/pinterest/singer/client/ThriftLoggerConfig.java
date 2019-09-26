@@ -26,6 +26,7 @@ public class ThriftLoggerConfig {
   public final String kafkaTopic;
   public final int maxRetentionSecs;
   public final int logRotationThresholdBytes;
+  public Class<?> thriftClazz;
 
   public ThriftLoggerConfig(File baseDir,
                             String kafkaTopic,
@@ -38,9 +39,28 @@ public class ThriftLoggerConfig {
     this.logRotationThresholdBytes = logRotationThresholdBytes;
   }
 
+  public ThriftLoggerConfig(File baseDir,
+                            String kafkaTopic,
+                            int maxRetentionSecs,
+                            int logRotationThresholdBytes,
+                            Class<?> thriftClazz) {
+    this.baseDir = baseDir;
+    this.kafkaTopic = kafkaTopic;
+    this.maxRetentionSecs = maxRetentionSecs;
+    this.logRotationThresholdBytes = logRotationThresholdBytes;
+    this.thriftClazz = thriftClazz;
+  }
+
+
   public String toString() {
-    return String.format("Thrift Logger config is baseDir: %s,"
-            + " kafka topic: %s, max retention(seconds): %d, log rotation threshold(bytes): %d",
-        baseDir.getAbsolutePath(), kafkaTopic, maxRetentionSecs, logRotationThresholdBytes);
+    if (thriftClazz == null) {
+      return String.format("Thrift Logger config is baseDir: %s,"
+              + " kafka topic: %s, max retention(seconds): %d, log rotation threshold(bytes): %d",
+          baseDir.getAbsolutePath(), kafkaTopic, maxRetentionSecs, logRotationThresholdBytes);
+    } else {
+      return String.format("Thrift Logger config for AuditableLogbackThriftLogger is baseDir: %s,"
+              + " kafka topic: %s, max retention(seconds): %d, log rotation threshold(bytes): %d, thrift class name: %s",
+          baseDir.getAbsolutePath(), kafkaTopic, maxRetentionSecs, logRotationThresholdBytes, thriftClazz.getName());
+    }
   }
 }
