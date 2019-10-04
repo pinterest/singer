@@ -15,6 +15,7 @@
  */
 package com.pinterest.singer.client;
 
+import com.pinterest.singer.client.logback.AuditableLogbackThriftLoggerFactory;
 import com.pinterest.singer.client.logback.LogbackThriftLoggerFactory;
 
 import org.slf4j.Logger;
@@ -103,6 +104,27 @@ public class ThriftLoggerFactory {
   }
 
   /**
+   * Create AuditableLogbackThriftLoggerFactory which create AuditableLogbackThriftLogger
+   * Call this at the start of your server to initialize the audit thrift logging layer.
+   */
+  public static synchronized void initializeAuditLogbackThriftLoggerFactory() {
+    if (THRIFT_LOGGER_FACTORY_INSTANCE != null) {
+      LOGGER.info("Already initialized factory instance. Not initializing another instance.");
+      return;
+    }
+    THRIFT_LOGGER_FACTORY_INSTANCE = new AuditableLogbackThriftLoggerFactory();
+    LOGGER.info(SUCCESSFUL_INITIALIZATION_MSG + THRIFT_LOGGER_FACTORY_INSTANCE);
+
+    // Add a hook to shutdown loggers on program exit.
+    Runtime.getRuntime().addShutdownHook(new Thread() {
+      @Override
+      public void run() {
+        THRIFT_LOGGER_FACTORY_INSTANCE.shutdown();
+      }
+    });
+  }
+
+  /**
    * Create a Noop factory which doesn't log anything. Only useful in unit tests.
    */
   public static synchronized void initializeNoopFactory() {
@@ -153,5 +175,9 @@ public class ThriftLoggerFactory {
       throw new IllegalStateException("ThriftLoggerFactory.initialize() not called.");
     }
     return THRIFT_LOGGER_FACTORY_INSTANCE.getLogger(thriftLoggerConfig);
+  }
+
+  public static ThriftLoggerFactoryInterface getThriftLoggerFactoryInstance() {
+    return THRIFT_LOGGER_FACTORY_INSTANCE;
   }
 }

@@ -37,6 +37,11 @@
     <dependencies>
         <dependency>
             <groupId>com.pinterest.singer</groupId>
+            <artifactId>singer-commons</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.pinterest.singer</groupId>
             <artifactId>thrift-logger</artifactId>
             <version>${project.version}</version>
         </dependency>
