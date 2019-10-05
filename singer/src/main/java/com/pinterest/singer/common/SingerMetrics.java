@@ -101,5 +101,6 @@ public class SingerMetrics {
   public static final String MISSING_LOCAL_PARTITIONS = "singer.locality.missing_local_partitions";
   public static final String MISSING_DIR_CHECKER_INTERRUPTED = "singer.missing_dir_checker.thread_interrupted";
   public static final String NUMBER_OF_MISSING_DIRS = "singer.missing_dir_checker.num_of_missing_dirs";
+  public static final String NUMBER_OF_SERIALIZING_HEADERS_ERRORS = "singer.headers_injector.num_of_serializing_headers_errors";
   
 }

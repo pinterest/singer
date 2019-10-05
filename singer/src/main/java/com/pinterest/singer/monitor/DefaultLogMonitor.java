@@ -334,10 +334,12 @@ public class DefaultLogMonitor implements LogMonitor, Runnable {
 
     int writeTimeoutInSeconds = kafkaWriterConfig.getWriteTimeoutInSeconds();
     String partitionerClass = producerConfig.getPartitionerClass();
+    boolean enableHeadersInjector = logStream.getSingerLog().getSingerLogConfig().isEnableHeadersInjector();
+
     try {
       KafkaWriter kafkaWriter =
           new KafkaWriter(logStream, producerConfig, topic, kafkaWriterConfig.isSkipNoLeaderPartitions(),
-              auditingEnabled, auditTopic, partitionerClass, writeTimeoutInSeconds);
+              auditingEnabled, auditTopic, partitionerClass, writeTimeoutInSeconds, enableHeadersInjector);
       LOG.info("Created kafka writer : " + kafkaWriterConfig.toString());
       return kafkaWriter;
     } catch (Exception e) {

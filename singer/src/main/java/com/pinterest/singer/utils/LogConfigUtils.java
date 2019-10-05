@@ -42,6 +42,8 @@ import com.pinterest.singer.thrift.configuration.TextLogMessageType;
 import com.pinterest.singer.thrift.configuration.TextReaderConfig;
 import com.pinterest.singer.thrift.configuration.ThriftReaderConfig;
 import com.pinterest.singer.thrift.configuration.WriterType;
+import com.pinterest.singer.writer.HeadersInjector;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
@@ -348,6 +350,13 @@ public class LogConfigUtils {
     SingerLogConfig config = new SingerLogConfig(logName, local_dir, logfile_regex, processorConfig,
         readerConfig, writerConfig);
     config.setLogDecider(logDecider);
+    if (logConfiguration.containsKey("enableHeadersInjector")){
+      boolean enableHeadersInjector = logConfiguration.getBoolean("enableHeadersInjector");
+      config.setEnableHeadersInjector(enableHeadersInjector);
+      if (enableHeadersInjector && logConfiguration.containsKey("headersInjectorClass")){
+        config.setHeadersInjectorClass(logConfiguration.getString("headersInjectorClass"));
+      }
+    }
 
     FileNameMatchMode matchMode = FileNameMatchMode.PREFIX;
     String matchModeStr = logConfiguration.getString("logFileMatchMode");
@@ -365,6 +374,7 @@ public class LogConfigUtils {
       config
           .setLogRetentionInSeconds(logConfiguration.getInt(SingerConfigDef.LOG_RETENTION_SECONDS));
     }
+
     return config;
   }
 
