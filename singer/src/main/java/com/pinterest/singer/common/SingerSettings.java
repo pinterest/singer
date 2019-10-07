@@ -25,6 +25,7 @@ import com.pinterest.singer.monitor.FileSystemMonitor;
 import com.pinterest.singer.monitor.LogStreamManager;
 import com.pinterest.singer.thrift.configuration.SingerConfig;
 import com.pinterest.singer.thrift.configuration.SingerLogConfig;
+
 import com.twitter.ostrich.stats.Stats;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -319,4 +320,5 @@ public final class SingerSettings {
   public static void setEnvironment(Environment environment) {
     SingerSettings.environment = environment;
   }
+
 }

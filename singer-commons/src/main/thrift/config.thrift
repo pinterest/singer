@@ -187,6 +187,12 @@ struct SingerLogConfig {
    * Default value is -1 that means that there is no log retention enforcement by Singer.
    */
   9: optional i32 logRetentionInSeconds = -1;
+  10: optional bool enableHeadersInjector = false;
+  /**
+   * headers injector class
+   */
+  11: optional string headersInjectorClass = "com.pinterest.singer.writer.headersinjectors.LoggingAuditHeadersInjector";
+
 }
 
 /**
@@ -329,5 +335,5 @@ struct SingerConfig {
    * Singer Environment provider class
    */
   18: optional string environmentProviderClass;
-  
+
 }

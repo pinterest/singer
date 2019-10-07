@@ -26,11 +26,14 @@ import com.pinterest.singer.thrift.LogMessage;
 import com.pinterest.singer.thrift.configuration.KafkaProducerConfig;
 import com.pinterest.singer.thrift.configuration.SingerRestartConfig;
 import com.pinterest.singer.utils.PartitionComparator;
+
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.PartitionInfo;
+import org.apache.kafka.common.header.Headers;
 import org.apache.thrift.TSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -85,6 +88,15 @@ public class KafkaWriter implements LogStreamWriter {
 
   private KafkaMessagePartitioner partitioner;
 
+  public boolean enableHeadersInjector = false;
+
+  /**
+   *  HeadersInjector will be set if enableHeadersInjector is set to true.
+   *  Default is
+  */
+  private HeadersInjector headersInjector = null;
+
+
   public KafkaWriter(LogStream logStream,
       KafkaProducerConfig producerConfig,
       String topic,
@@ -120,6 +132,62 @@ public class KafkaWriter implements LogStreamWriter {
     this.serializer = new TSerializer();
   }
 
+  public KafkaWriter(LogStream logStream,
+                     KafkaProducerConfig producerConfig,
+                     String topic,
+                     boolean skipNoLeaderPartitions,
+                     boolean auditingEnabled,
+                     String auditTopic,
+                     String partitionerClassName,
+                     int writeTimeoutInSeconds, boolean enableHeadersInjector) throws Exception {
+    this(logStream, producerConfig, topic, skipNoLeaderPartitions, auditingEnabled, auditTopic,
+        partitionerClassName, writeTimeoutInSeconds);
+    this.enableHeadersInjector = enableHeadersInjector;
+    if (this.enableHeadersInjector) {
+      try{
+        String headersInjectorClass = logStream.getSingerLog().getSingerLogConfig().getHeadersInjectorClass();
+        Class<HeadersInjector> cls = (Class<HeadersInjector>)Class.forName(headersInjectorClass);
+        headersInjector = cls.newInstance();
+        LOG.warn("HeadersInjector has been configured to: " + headersInjector.getClass().getName());
+      } catch (Exception e){
+        LOG.error("failed to load and set SingerLogConfig's headersInjector");
+      }
+    }
+  }
+
+  @VisibleForTesting
+  protected KafkaWriter(LogStream logStream,
+                        KafkaProducerConfig producerConfig,
+                        KafkaMessagePartitioner partitioner,
+                        String topic,
+                        boolean skipNoLeaderPartitions,
+                        ExecutorService clusterThreadPool,
+                        boolean enableHeadersInjector) {
+    this.logStream = logStream;
+    this.partitioner = partitioner;
+    this.skipNoLeaderPartitions = skipNoLeaderPartitions;
+    this.producerConfig = producerConfig;
+    this.clusterThreadPool = clusterThreadPool;
+    this.topic = topic;
+    this.enableHeadersInjector = enableHeadersInjector;
+    logName = logStream.getSingerLog().getSingerLogConfig().getName();
+    writeTimeoutInSeconds = 0;
+    serializer = null;
+    auditingEnabled = false;
+    auditTopic = null;
+    kafkaClusterSig = null;
+    if (this.enableHeadersInjector){
+      try{
+        String headersInjectorClass = logStream.getSingerLog().getSingerLogConfig().getHeadersInjectorClass();
+        Class<HeadersInjector> cls = (Class<HeadersInjector>)Class.forName(headersInjectorClass);
+        headersInjector = cls.newInstance();
+        LOG.warn("HeadersInjector has been configured to: " + headersInjector.getClass().getName());
+      } catch (Exception e){
+        LOG.error("failed to load and set SingerLogConfig's headersInjector");
+      }
+    }
+  }
+
   protected KafkaWriter(KafkaProducerConfig producerConfig,
                         KafkaMessagePartitioner partitioner,
                         String topic,
@@ -138,7 +206,6 @@ public class KafkaWriter implements LogStreamWriter {
     auditTopic = null;
     kafkaClusterSig = null;
   }
-
   @Override
   public LogStream getLogStream() {
     return logStream;
@@ -147,6 +214,11 @@ public class KafkaWriter implements LogStreamWriter {
   @Override
   public boolean isAuditingEnabled() {
     return this.auditingEnabled;
+  }
+
+  @VisibleForTesting
+  public HeadersInjector getHeadersInjector() {
+    return headersInjector;
   }
 
   private void includeAuditMessageInBatch(List<ProducerRecord<byte[], byte[]>> messages) {
@@ -212,6 +284,10 @@ public class KafkaWriter implements LogStreamWriter {
           partitionId = validPartitions.get(partitionId).partition();
         }
         keyedMessage = new ProducerRecord<>(topic, partitionId, key, msg.getMessage());
+        Headers headers = keyedMessage.headers();
+        if (this.headersInjector != null) {
+          this.headersInjector.addHeaders(headers, msg);
+        }
         buckets.get(partitionId).add(keyedMessage);
       }
     } catch (Exception e) {
@@ -220,13 +296,11 @@ public class KafkaWriter implements LogStreamWriter {
     }
     return buckets;
   }
-
   @Override
   public void writeLogMessages(List<LogMessage> logMessages) throws LogStreamWriterException {
     Set<Future<KafkaWritingTaskResult>> resultSet = new HashSet<>();
     KafkaProducer<byte[], byte[]> producer = KafkaProducerManager.getProducer(producerConfig);
     Preconditions.checkNotNull(producer);
-
     if (producerConfig.isTransactionEnabled()) {
       producer.beginTransaction();
     }
