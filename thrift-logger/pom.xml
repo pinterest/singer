@@ -27,16 +27,6 @@
       <version>1.0.13</version>
     </dependency>
     <dependency>
-      <groupId>com.twitter</groupId>
-      <artifactId>ostrich_2.11</artifactId>
-      <version>9.27.0</version>
-    </dependency>
-    <dependency>
-      <groupId>commons-configuration</groupId>
-      <artifactId>commons-configuration</artifactId>
-      <version>1.9</version>
-    </dependency>
-    <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-api</artifactId>
       <version>5.3.1</version>
