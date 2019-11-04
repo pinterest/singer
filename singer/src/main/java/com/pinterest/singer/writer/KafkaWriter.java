@@ -20,6 +20,7 @@ import com.pinterest.singer.common.LogStreamWriter;
 import com.pinterest.singer.common.errors.LogStreamWriterException;
 import com.pinterest.singer.common.SingerMetrics;
 import com.pinterest.singer.common.SingerSettings;
+import com.pinterest.singer.loggingaudit.thrift.LoggingAuditHeaders;
 import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
 import com.pinterest.singer.thrift.AuditMessage;
 import com.pinterest.singer.thrift.LogMessage;
@@ -32,6 +33,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.header.Headers;
 import org.apache.thrift.TSerializer;
@@ -41,8 +43,10 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -90,6 +94,8 @@ public class KafkaWriter implements LogStreamWriter {
 
   public boolean enableHeadersInjector = false;
 
+  private boolean enableLoggingAudit = false;
+
   /**
    *  HeadersInjector will be set if enableHeadersInjector is set to true.
    *  Default is
@@ -130,6 +136,9 @@ public class KafkaWriter implements LogStreamWriter {
     this.clusterThreadPool = SingerSettings.getLogWritingExecutors().get(kafkaClusterSig);
     this.writeTimeoutInSeconds = writeTimeoutInSeconds;
     this.serializer = new TSerializer();
+    if (logStream != null && logStream.getSingerLog().getSingerLogConfig().isEnableLoggingAudit()){
+      this.enableLoggingAudit = true;
+    }
   }
 
   public KafkaWriter(LogStream logStream,
@@ -186,6 +195,9 @@ public class KafkaWriter implements LogStreamWriter {
         LOG.error("failed to load and set SingerLogConfig's headersInjector");
       }
     }
+    if (logStream != null && logStream.getSingerLog().getSingerLogConfig().isEnableLoggingAudit()){
+      this.enableLoggingAudit = true;
+    }
   }
 
   protected KafkaWriter(KafkaProducerConfig producerConfig,
@@ -221,21 +233,9 @@ public class KafkaWriter implements LogStreamWriter {
     return headersInjector;
   }
 
-  private void includeAuditMessageInBatch(List<ProducerRecord<byte[], byte[]>> messages) {
-    AuditMessage auditMessage = new AuditMessage();
-    auditMessage.setTimestamp(System.currentTimeMillis());
-    auditMessage.setHostname(HOSTNAME);
-    auditMessage.setTopic(topic);
-    auditMessage.setNumMessages(messages.size());
-
-    try {
-      ProducerRecord<byte[], byte[]> keyedMessage;
-      byte[] auditBytes = serializer.serialize(auditMessage);
-      keyedMessage = new ProducerRecord<>(auditTopic, auditBytes);
-      messages.add(keyedMessage);
-    } catch (Exception e) {
-      LOG.error("Failed to include audit message: ", e);
-    }
+  @VisibleForTesting
+  public ExecutorService getClusterThreadPool() {
+    return clusterThreadPool;
   }
 
   /**
@@ -249,13 +249,13 @@ public class KafkaWriter implements LogStreamWriter {
    * @param logMessages the messages that will be written to kafka
    * @return a list of message lists that are classified based on partitions.
    */
-  List<List<ProducerRecord<byte[], byte[]>>> messageCollation(
+  Map<Integer, List<ProducerRecord<byte[], byte[]>>> messageCollation(
       List<PartitionInfo> partitions,
       String topic,
-      List<LogMessage> logMessages) throws Exception {
-    LOG.info("Collate " + logMessages.size() + " messages");
+      List<LogMessage> logMessages, Map<Integer, Map<Integer, LoggingAuditHeaders>> mapOfHeadersMaps) throws Exception {
+    LOG.info("Collate {} messages of topic {} for logStream {}", logMessages.size(), topic, logName);
 
-    List<List<ProducerRecord<byte[], byte[]>>> buckets = new ArrayList<>();
+    Map<Integer, List<ProducerRecord<byte[], byte[]>>> buckets = new HashMap<>();
     try {
       List<PartitionInfo> validPartitions = partitions;
       if (skipNoLeaderPartitions) {
@@ -271,7 +271,11 @@ public class KafkaWriter implements LogStreamWriter {
 
       ProducerRecord<byte[], byte[]> keyedMessage;
       for (int i = 0; i < validPartitions.size(); i++) {
-        buckets.add(new ArrayList<>());
+        // for each partitionId, there is a corresponding bucket in buckets and a corresponding
+        // headersMap in mapOfHeadersMaps.
+        int partitionId = validPartitions.get(i).partition();
+        buckets.put(partitionId, new ArrayList<>());
+        mapOfHeadersMaps.put(partitionId ,new HashMap<Integer, LoggingAuditHeaders>());
       }
 
       for (LogMessage msg : logMessages) {
@@ -285,8 +289,17 @@ public class KafkaWriter implements LogStreamWriter {
         }
         keyedMessage = new ProducerRecord<>(topic, partitionId, key, msg.getMessage());
         Headers headers = keyedMessage.headers();
-        if (this.headersInjector != null) {
-          this.headersInjector.addHeaders(headers, msg);
+        if (msg.getLoggingAuditHeaders() != null) {
+          if (this.headersInjector != null) {
+            this.headersInjector.addHeaders(headers, msg);
+            OpenTsdbMetricConverter.incr(SingerMetrics.AUDIT_HEADERS_INJECTED, "topic=" + topic, "host=" + HOSTNAME,  "logName=" + msg.getLoggingAuditHeaders().getLogName(), "logStreamName=" + logName);
+          }
+          // it is the index of the audited message within its bucket.
+          // note that not necessarily all messages within a bucket are being audited, thus which
+          // message within the bucket being audited should be keep track of for later sending
+          // corresponding LoggingAuditEvents.
+          int indexWithinTheBucket = buckets.get(partitionId).size();
+          mapOfHeadersMaps.get(partitionId).put(indexWithinTheBucket, msg.getLoggingAuditHeaders());
         }
         buckets.get(partitionId).add(keyedMessage);
       }
@@ -306,19 +319,25 @@ public class KafkaWriter implements LogStreamWriter {
     }
     try {
       List<PartitionInfo> partitions = producer.partitionsFor(topic);
-      List<List<ProducerRecord<byte[], byte[]>>>
-          buckets = messageCollation(partitions, topic, logMessages);
+
+      // key of mapOfHeadersMap is the partition_id; value of mapOfHeadersMap is HeadersMap.
+      // key of the HeadersMap is the the listIndex of ProducerRecord in the
+      // bucket (buckets.get(partition_id) ); value of the HashMap is the
+      // LoggingAuditHeaders found for this ProducerRecord.
+      Map<Integer, Map<Integer, LoggingAuditHeaders>>  mapOfHeadersMap = new HashMap<>();
+
+      // key of buckets is the partition_id; value of the buckets is a list of ProducerRecord that
+      // should be sent to partition_id.
+      Map<Integer, List<ProducerRecord<byte[], byte[]>>>
+          buckets = messageCollation(partitions, topic, logMessages, mapOfHeadersMap);
       
       // we sort this info after, we have to create a copy of the data since
       // the returned list is immutable
       List<PartitionInfo> sortedPartitions = new ArrayList<>(partitions);
       Collections.sort(sortedPartitions, COMPARATOR);
 
-      for (List<ProducerRecord<byte[], byte[]>> msgs : buckets) {
+      for (List<ProducerRecord<byte[], byte[]>> msgs : buckets.values()) {
         if (msgs.size() > 0) {
-          if (auditingEnabled) {
-            includeAuditMessageInBatch(msgs);
-          }
           Callable<KafkaWritingTaskResult> worker =
               new KafkaWritingTask(producer, msgs, writeTimeoutInSeconds, sortedPartitions);
           Future<KafkaWritingTaskResult> future = clusterThreadPool.submit(worker);
@@ -328,18 +347,44 @@ public class KafkaWriter implements LogStreamWriter {
 
       int bytesWritten = 0;
       int maxKafkaBatchWriteLatency = 0;
+      boolean anyBucketSendFailed = false;
+
       for (Future<KafkaWritingTaskResult> f : resultSet) {
         KafkaWritingTaskResult result = f.get();
         if (!result.success) {
           LOG.error("Failed to write messages to kafka topic {}", topic, result.exception);
-          throw new LogStreamWriterException("Failed to write messages to kafka");
+          anyBucketSendFailed = true;
         } else {
           bytesWritten += result.getWrittenBytesSize();
           // get the max write latency
           maxKafkaBatchWriteLatency = Math.max(maxKafkaBatchWriteLatency,
               result.getKafkaBatchWriteLatencyInMillis());
+          if (isLoggingAuditEnabledAndConfigured()) {
+            int bucketIndex = result.getPartition();
+            // when result.success is true, the number of recordMetadata SHOULD be the same as
+            // the number of ProducerRecord. The size mismatch should never happen.
+            // Adding this if-check is just an additional verification to make sure the size match
+            // and the audit events sent out is indeed corresponding to those log messages that
+            // are audited.
+            if (bucketIndex >= 0 && result.getRecordMetadataList().size() != buckets.get(bucketIndex).size()){
+              LOG.warn("Number of ProducerRecord does not match the number of RecordMetadata, "
+                  + "LogName:{}, Topic:{}, BucketIndex:{}, result_size:{}, bucket_size:{}",
+                  logName, topic, bucketIndex, result.getRecordMetadataList().size(),
+                  buckets.get(bucketIndex).size());
+              OpenTsdbMetricConverter.incr(SingerMetrics.AUDIT_HEADERS_METADATA_COUNT_MISMATCH, 1,
+                  "topic=" + topic, "host=" + HOSTNAME, "logStreamName=" + logName, "partition=" + bucketIndex);
+            } else {
+              enqueueLoggingAuditEvents(result, mapOfHeadersMap.get(bucketIndex));
+              OpenTsdbMetricConverter.incr(SingerMetrics.AUDIT_HEADERS_METADATA_COUNT_MATCH, 1,
+                  "topic=" + topic, "host=" + HOSTNAME, "logStreamName=" + logName, "partition=" + bucketIndex);
+            }
+          }
         }
       }
+      if (anyBucketSendFailed){
+        throw new LogStreamWriterException("Failed to write messages to kafka");
+      }
+
       if (producerConfig.isTransactionEnabled()) {
         producer.commitTransaction();
         OpenTsdbMetricConverter.incr(SingerMetrics.NUM_COMMITED_TRANSACTIONS, 1,
@@ -377,6 +422,23 @@ public class KafkaWriter implements LogStreamWriter {
           f.cancel(true);
         }
       }
+    }
+  }
+
+  private boolean isLoggingAuditEnabledAndConfigured(){
+    return this.enableLoggingAudit && SingerSettings.getLoggingAuditClient() != null;
+  }
+
+  public void enqueueLoggingAuditEvents(KafkaWritingTaskResult result,
+                                        Map<Integer, LoggingAuditHeaders> headersMap){
+    for (Map.Entry<Integer, LoggingAuditHeaders> entry : headersMap.entrySet()) {
+        Integer listIndex = entry.getKey();
+        LoggingAuditHeaders loggingAuditHeaders = entry.getValue();
+        long messageAcknowledgedTimestamp = -1;
+        RecordMetadata recordMetadata =result.getRecordMetadataList().get(listIndex);
+        messageAcknowledgedTimestamp = recordMetadata.timestamp();
+        SingerSettings.getLoggingAuditClient().audit(this.logName, loggingAuditHeaders,
+            true, messageAcknowledgedTimestamp, kafkaClusterSig, topic);
     }
   }
 

@@ -289,7 +289,7 @@ public class LogStreamManager implements PodWatcher {
         FileFilter fileFilter = new RegexFileFilter(regexStr);
         File[] files = dir.listFiles(fileFilter);
 
-        LOG.info(files.length + " files matches the regex");
+        LOG.info(files.length + " files matches the regex " + regexStr);
         if (singerLogConfig.getFilenameMatchMode() == FileNameMatchMode.EXACT) {
           for (File file : files) {
             LogStream stream = new LogStream(singerLog, FilenameUtils.getName(file.getPath()));

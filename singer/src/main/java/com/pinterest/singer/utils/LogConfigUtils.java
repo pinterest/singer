@@ -19,6 +19,10 @@ import com.pinterest.singer.common.SingerConfigDef;
 import com.pinterest.singer.config.ConfigFileServerSet;
 import com.pinterest.singer.config.DirectorySingerConfigurator;
 import com.pinterest.singer.environment.EnvironmentProvider;
+import com.pinterest.singer.loggingaudit.client.utils.ConfigUtils;
+import com.pinterest.singer.loggingaudit.thrift.LoggingAuditStage;
+import com.pinterest.singer.loggingaudit.thrift.configuration.LoggingAuditClientConfig;
+import com.pinterest.singer.loggingaudit.thrift.configuration.AuditConfig;
 import com.pinterest.singer.metrics.StatsPusher;
 import com.pinterest.singer.thrift.configuration.DummyWriteConfig;
 import com.pinterest.singer.thrift.configuration.FileNameMatchMode;
@@ -42,7 +46,6 @@ import com.pinterest.singer.thrift.configuration.TextLogMessageType;
 import com.pinterest.singer.thrift.configuration.TextReaderConfig;
 import com.pinterest.singer.thrift.configuration.ThriftReaderConfig;
 import com.pinterest.singer.thrift.configuration.WriterType;
-import com.pinterest.singer.writer.HeadersInjector;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -198,6 +201,21 @@ public class LogConfigUtils {
       } catch (java.util.NoSuchElementException e) {
         LOG.error("singer.heartbeat is not configured correctly.", e);
         result.setHeartbeatEnabled(false);
+      }
+    }
+
+    if (result.isLoggingAuditEnabled()){
+      AbstractConfiguration loggingAuditConf = new SubsetConfiguration(configHeader, "singer.loggingAudit.");
+      try{
+        LoggingAuditClientConfig loggingAuditClientConfig = ConfigUtils.parseLoggingAuditClientConfig(loggingAuditConf);
+        if (loggingAuditClientConfig.getStage() != LoggingAuditStage.SINGER){
+          LOG.warn("LoggingAudit stage should be SINGER.");
+          loggingAuditClientConfig.setStage(LoggingAuditStage.SINGER);
+        }
+        result.setLoggingAuditClientConfig(loggingAuditClientConfig);
+      } catch (ConfigurationException e){
+        LOG.error("loggingAudit is not configured correctly.", e);
+        result.setLoggingAuditEnabled(false);
       }
     }
 
@@ -375,6 +393,19 @@ public class LogConfigUtils {
           .setLogRetentionInSeconds(logConfiguration.getInt(SingerConfigDef.LOG_RETENTION_SECONDS));
     }
 
+    if (logConfiguration.containsKey("enableLoggingAudit")){
+      boolean enableLoggingAudit = logConfiguration.getBoolean("enableLoggingAudit");
+      config.setEnableLoggingAudit(enableLoggingAudit);
+      try {
+        AuditConfig auditConfig = ConfigUtils.parseAuditConfig(new SubsetConfiguration(
+            logConfiguration, "loggingaudit."));
+        config.setAuditConfig(auditConfig);
+      } catch(ConfigurationException e){
+         LOG.error("TopicAuditConfig is not configured correctly for {}", logName, e);
+         config.setEnableLoggingAudit(false);
+      }
+    }
+
     return config;
   }
 
@@ -464,6 +495,10 @@ public class LogConfigUtils {
       } catch (ClassNotFoundException e) {
         throw new ConfigurationException("Couldn't find statsPusherClass " + statsPusherClass);
       }
+    }
+
+    if (singerConfiguration.containsKey("loggingAuditEnabled")) {
+      singerConfig.setLoggingAuditEnabled(singerConfiguration.getBoolean("loggingAuditEnabled"));
     }
     return singerConfig;
   }

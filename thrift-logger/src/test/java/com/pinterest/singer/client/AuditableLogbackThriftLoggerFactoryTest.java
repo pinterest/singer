@@ -57,7 +57,7 @@ public class AuditableLogbackThriftLoggerFactoryTest {
     int thresholdBytes = 100 * 1024;
     String prefixPath = "/tmp/log";
     File baseDir = new File(prefixPath, topic);
-    return new ThriftLoggerConfig(baseDir, topic, retentionSecs, thresholdBytes, thriftClazz);
+    return new ThriftLoggerConfig(baseDir, topic, retentionSecs, thresholdBytes, thriftClazz, true);
   }
 
 }
