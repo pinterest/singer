@@ -27,8 +27,14 @@ public class SingerLog {
 
   // The config for the SingerLog.
   private final SingerLogConfig singerLogConfig;
+  private String podUid;
 
   public SingerLog(SingerLogConfig singerLogConfig) {
+    this.singerLogConfig = Preconditions.checkNotNull(singerLogConfig);
+  }
+
+  public SingerLog(SingerLogConfig singerLogConfig, String podUid) {
+    this.podUid = podUid;
     this.singerLogConfig = Preconditions.checkNotNull(singerLogConfig);
   }
 
@@ -61,5 +67,9 @@ public class SingerLog {
    */
   public SingerLogConfig getSingerLogConfig() {
     return singerLogConfig;
+  }
+  
+  public String getPodUid() {
+    return podUid;
   }
 }

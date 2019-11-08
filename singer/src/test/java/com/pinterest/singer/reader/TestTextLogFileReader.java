@@ -43,14 +43,32 @@ public class TestTextLogFileReader extends SingerTestBase {
     long inode = SingerUtils.getFileInode(SingerUtils.getPath(path));
     LogFile logFile = new LogFile(inode);
     LogFileReader reader = new TextLogFileReader(logFile, path, 0, 8192, 102400, 1,
-        Pattern.compile("^.*$"), TextLogMessageType.PLAIN_TEXT, false, false, null);
+        Pattern.compile("^.*$"), TextLogMessageType.PLAIN_TEXT, false, false, null, null);
     for (int i = 0; i < 100; i++) {
       LogMessageAndPosition log = reader.readLogMessageAndPosition();
       assertEquals(dataWritten.get(i), new String(log.getLogMessage().getMessage()));
     }
     reader.close();
   }
+  
+  @Test
+  public void testReadLogMessageAndPositionWithHostname() throws Exception {
+    String path = FilenameUtils.concat(getTempPath(), "test2.log");
+    List<String> dataWritten = generateDummyMessagesToFile(path);
+    String delimiter = " ";
+    String hostname = "test";
 
+    long inode = SingerUtils.getFileInode(SingerUtils.getPath(path));
+    LogFile logFile = new LogFile(inode);
+    LogFileReader reader = new TextLogFileReader(logFile, path, 0, 8192, 102400, 1,
+        Pattern.compile("^.*$"), TextLogMessageType.PLAIN_TEXT, false, true, hostname, delimiter);
+    for (int i = 0; i < 100; i++) {
+      LogMessageAndPosition log = reader.readLogMessageAndPosition();
+      assertEquals(hostname + delimiter + dataWritten.get(i), new String(log.getLogMessage().getMessage()));
+    }
+    reader.close();
+  }
+  
   @Test
   public void testReadLogMessageAndPositionMultiRead() throws Exception {
     String path = FilenameUtils.concat(getTempPath(), "test2.log");
@@ -59,7 +77,7 @@ public class TestTextLogFileReader extends SingerTestBase {
     long inode = SingerUtils.getFileInode(SingerUtils.getPath(path));
     LogFile logFile = new LogFile(inode);
     LogFileReader reader = new TextLogFileReader(logFile, path, 0, 8192, 102400, 2,
-        Pattern.compile("^.*$"), TextLogMessageType.PLAIN_TEXT, false, false, null);
+        Pattern.compile("^.*$"), TextLogMessageType.PLAIN_TEXT, false, false, null, null);
     for (int i = 0; i < 100; i = i + 2) {
       LogMessageAndPosition log = reader.readLogMessageAndPosition();
       assertEquals(dataWritten.get(i) + dataWritten.get(i + 1),
