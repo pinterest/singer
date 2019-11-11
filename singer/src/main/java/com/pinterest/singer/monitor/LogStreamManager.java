@@ -636,7 +636,7 @@ public class LogStreamManager implements PodWatcher {
           // since the DefaultLogMonitor de-duplicates this using hashcode
           // which is dependent on LogStream name
           clone.setName(podUid + ":" + clone.getName());
-          singerLog = new SingerLog(clone);
+          singerLog = new SingerLog(clone, podUid);
 
           if (!singerLogPaths.containsKey(logPathKey)) {
             singerLogPaths.put(logPathKey, new HashSet<>());
