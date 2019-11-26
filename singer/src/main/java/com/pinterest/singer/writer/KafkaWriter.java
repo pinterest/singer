@@ -26,6 +26,7 @@ import com.pinterest.singer.thrift.LogMessage;
 import com.pinterest.singer.thrift.configuration.KafkaProducerConfig;
 import com.pinterest.singer.thrift.configuration.SingerRestartConfig;
 import com.pinterest.singer.utils.PartitionComparator;
+import com.pinterest.singer.utils.SingerUtils;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -205,13 +206,13 @@ public class KafkaWriter implements LogStreamWriter {
       for (LogMessage msg : logMessages) {
         byte[] key = null;
         if (msg.isSetKey()) {
-          key = msg.getKey();
+          key = SingerUtils.readFromByteBuffer(msg.BufferForKey());
         }
         int partitionId = partitioner.partition(key, validPartitions);
         if (skipNoLeaderPartitions) {
           partitionId = validPartitions.get(partitionId).partition();
         }
-        keyedMessage = new ProducerRecord<>(topic, partitionId, key, msg.getMessage());
+        keyedMessage = new ProducerRecord<>(topic, partitionId, key, SingerUtils.readFromByteBuffer(msg.BufferForMessage()));
         buckets.get(partitionId).add(keyedMessage);
       }
     } catch (Exception e) {

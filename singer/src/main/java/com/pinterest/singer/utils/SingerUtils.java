@@ -40,6 +40,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
+import java.nio.ByteBuffer;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -308,6 +309,18 @@ public class SingerUtils {
       }
     }
     return SingerUtils.getHostname();
+  }
+  
+  /**
+   * Convert a {@link ByteBuffer} to byte array. 
+   * Reads all bytes from current position to the limit of the buffer into a byte array.
+   * @param buf
+   * @return
+   */
+  public static byte[] readFromByteBuffer(ByteBuffer buf) {
+    byte[] bytes = new byte[buf.limit()-buf.position()];
+    buf.get(bytes);
+    return bytes;
   }
   
 }
