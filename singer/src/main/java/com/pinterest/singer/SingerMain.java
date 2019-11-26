@@ -69,6 +69,14 @@ public final class SingerMain {
         LOG.error("Shutdown failure: kafka producers : ", t);
       }
 
+      try{
+        if (SingerSettings.getLoggingAuditClient() != null){
+          SingerSettings.getLoggingAuditClient().close();
+        }
+      } catch (Throwable t){
+        LOG.error("Shutdown failure: LoggingAudit client : ", t);
+      }
+
       try {
         OpenTsdbMetricConverter.incr("singer.shutdown", 1);
         if (statsPusher!= null) {

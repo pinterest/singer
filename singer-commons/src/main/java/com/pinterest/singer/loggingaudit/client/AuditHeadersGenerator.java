@@ -13,10 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.pinterest.singer.loggingaudit.client;
 
-import com.pinterest.singer.loggingaudit.client.utils.AuditHeadersUtil;
+import com.pinterest.singer.utils.CommonUtils;
 import com.pinterest.singer.loggingaudit.thrift.LoggingAuditHeaders;
 
 /**
@@ -34,9 +33,9 @@ public class AuditHeadersGenerator {
   private String host;
 
   /**
-   *  Topic that log message will be sent to eventually.
+   *  name of log files where the log messages are written to.
    */
-  private String topic;
+  private String logName;
 
   /**
    *  Process that generate log message.
@@ -53,10 +52,10 @@ public class AuditHeadersGenerator {
    */
   private int logSeqNumInSession;
 
-  public AuditHeadersGenerator(String host, String topic) {
+  public AuditHeadersGenerator(String host, String logName) {
     this.host = host;
-    this.topic = topic;
-    this.pid = AuditHeadersUtil.getPid();
+    this.logName = logName;
+    this.pid = CommonUtils.getPid();
     this.session = System.currentTimeMillis();
     this.logSeqNumInSession = -1;
   }
@@ -69,7 +68,7 @@ public class AuditHeadersGenerator {
     this.logSeqNumInSession += 1;
     return new LoggingAuditHeaders()
         .setHost(this.host)
-        .setTopic(this.topic)
+        .setLogName(this.logName)
         .setPid(this.pid)
         .setSession(this.session)
         .setLogSeqNumInSession(this.logSeqNumInSession);
