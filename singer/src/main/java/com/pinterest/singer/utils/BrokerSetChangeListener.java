@@ -15,6 +15,7 @@
  */
 package com.pinterest.singer.utils;
 
+import java.net.InetSocketAddress;
 import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ThreadLocalRandom;
@@ -25,12 +26,10 @@ import org.slf4j.LoggerFactory;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import com.twitter.common.net.pool.DynamicHostSet;
-import com.twitter.thrift.Endpoint;
-import com.twitter.thrift.ServiceInstance;
+import com.pinterest.singer.config.ServersetMonitor;
 
-public final class BrokerSetChangeListener
-    implements DynamicHostSet.HostChangeMonitor<ServiceInstance> {
+public final class BrokerSetChangeListener implements ServersetMonitor {
+  
   private static final int RESTART_WAIT_MAX_DELAY = 1800_000;
   private static final int BROKER_RESTART_PRECENTAGE_THRESHOLD = 50;
   private static final int BROKER_RESTART_VALUE_THRESHOLD = 1;
@@ -53,11 +52,10 @@ public final class BrokerSetChangeListener
   }
 
   @Override
-  public void onChange(ImmutableSet<ServiceInstance> serviceInstances) {
+  public void onChange(ImmutableSet<InetSocketAddress> serviceInstances) {
     Set<String> newBrokerSet = Sets.newHashSet();
-    for (ServiceInstance instance : serviceInstances) {
-      Endpoint endPoint = instance.getServiceEndpoint();
-      newBrokerSet.add(Joiner.on(":").join(endPoint.getHost(), endPoint.getPort()));
+    for (InetSocketAddress instance : serviceInstances) {
+      newBrokerSet.add(Joiner.on(":").join(instance.getHostName(), instance.getPort()));
     }
     // 'serverSetPath' variable will still long live. But it should be rare as we
     // only

@@ -59,38 +59,6 @@
         </dependency>
         <!-- https://mvnrepository.com/artifact/com.twitter.common/dynamic-host-set -->
         <dependency>
-            <groupId>com.twitter.common</groupId>
-            <artifactId>dynamic-host-set</artifactId>
-            <version>0.0.56</version>
-        </dependency>
-        <!-- https://mvnrepository.com/artifact/com.twitter.common/service-thrift -->
-        <dependency>
-            <groupId>com.twitter.common</groupId>
-            <artifactId>service-thrift</artifactId>
-            <version>1.0.55</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.apache.thrift</groupId>
-                    <artifactId>libthrift</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>com.twitter</groupId>
-            <artifactId>finagle-core_2.11</artifactId>
-            <version>6.25.0</version>
-        </dependency>
-        <dependency>
-            <groupId>com.twitter</groupId>
-            <artifactId>finagle-serversets_2.11</artifactId>
-            <version>6.25.0</version>
-        </dependency>
-        <dependency>
-            <groupId>com.twitter</groupId>
-            <artifactId>util-core_2.11</artifactId>
-            <version>6.25.0</version>
-        </dependency>
-        <dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>kafka_2.11</artifactId>
             <version>2.1.0</version>
