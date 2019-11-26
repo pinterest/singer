@@ -56,7 +56,7 @@ public class AuditableLogbackThriftLoggerTest {
     try {
       appender = AppenderUtils.createFileRollingThriftAppender(
           new File(logFileDir), topic, 10000, new ContextBase(), 1);
-      ThriftLogger logger = new AuditableLogbackThriftLogger(appender, topic, thriftClazz);
+      ThriftLogger logger = new AuditableLogbackThriftLogger(appender, topic, thriftClazz, true, 1.0);
 
       for (int i = 0; i < messages.length; i++) {
         ThriftMessage msg = new ThriftMessage();

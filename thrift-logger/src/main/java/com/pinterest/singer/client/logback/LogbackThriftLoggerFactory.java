@@ -33,9 +33,9 @@ import java.io.File;
  */
 public class LogbackThriftLoggerFactory extends BaseThriftLoggerFactory {
 
-  private final File basePath;
-  private final int rotateThresholdKBytes;
-  private final ContextBase contextBase = new ContextBase();
+  protected final File basePath;
+  protected final int rotateThresholdKBytes;
+  protected final ContextBase contextBase = new ContextBase();
 
   @Deprecated
   public LogbackThriftLoggerFactory(File basePath, int rotateThresholdKBytes) {

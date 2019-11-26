@@ -14,21 +14,12 @@
  * limitations under the License.
  */
 
-package com.pinterest.singer.loggingaudit.client.utils;
+package com.pinterest.singer.loggingaudit.client;
 
-import java.lang.management.ManagementFactory;
+public interface LoggingAuditEventSender extends Runnable {
 
-public class AuditHeadersUtil {
+  void start();
 
-  public static int getPid() {
-    int pid = -1;
-    try {
-      String pidStr = ManagementFactory.getRuntimeMXBean().getName().split("@")[0];
-      pid = Integer.parseInt(pidStr);
-      return pid;
-    } catch (Exception e){
-      return pid;
-    }
-  }
+  void stop();
 
 }

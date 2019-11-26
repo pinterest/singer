@@ -15,12 +15,19 @@
  */
 package com.pinterest.singer.writer;
 
+import org.apache.kafka.clients.producer.RecordMetadata;
+
+import java.util.ArrayList;
+import java.util.List;
+
 public class KafkaWritingTaskResult {
 
   public final boolean success;
   public final Exception exception;
   private int writtenBytesSize;
   private int kafkaBatchWriteLatencyInMillis;
+  private List<RecordMetadata> recordMetadataList = new ArrayList<>();
+  private int partition = -1;
 
   public KafkaWritingTaskResult(boolean successFlag, int bytes, int kafkaLatency) {
     this.success = successFlag;
@@ -40,5 +47,22 @@ public class KafkaWritingTaskResult {
   
   public int getKafkaBatchWriteLatencyInMillis() {
     return kafkaBatchWriteLatencyInMillis;
+  }
+
+  public void setRecordMetadataList(
+      List<RecordMetadata> recordMetadataList) {
+    this.recordMetadataList = recordMetadataList;
+  }
+
+  public List<RecordMetadata> getRecordMetadataList() {
+    return recordMetadataList;
+  }
+
+  public int getPartition() {
+    return partition;
+  }
+
+  public void setPartition(int partition) {
+    this.partition = partition;
   }
 }
