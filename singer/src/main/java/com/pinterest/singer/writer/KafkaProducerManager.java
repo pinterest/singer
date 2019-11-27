@@ -15,6 +15,8 @@
  */
 package com.pinterest.singer.writer;
 
+import com.pinterest.singer.common.SingerMetrics;
+import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
 import com.pinterest.singer.thrift.configuration.KafkaProducerConfig;
 import com.pinterest.singer.utils.KafkaUtils;
 
@@ -81,6 +83,8 @@ public class KafkaProducerManager {
       if (result != null && result != producer) {
         producer.close();
       }
+      // log metrics for no.of kafka producers currently in the cache
+      OpenTsdbMetricConverter.addMetric(SingerMetrics.NUM_KAFKA_PRODUCERS, producers.size());
     }
     result = producers.get(config);
     return result;
@@ -106,6 +110,8 @@ public class KafkaProducerManager {
       if (!retval) {
         newProducer.close();
       }
+      // log metrics for no.of kafka producers currently in the cache
+      OpenTsdbMetricConverter.addMetric(SingerMetrics.NUM_KAFKA_PRODUCERS, producers.size());
     }
     return retval;
   }
