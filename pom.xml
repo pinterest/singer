@@ -6,7 +6,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.pinterest.singer</groupId>
     <artifactId>singer-package</artifactId>
-    <version>0.7.3.30</version>
+    <version>0.7.3.31</version>
     <packaging>pom</packaging>
     <description>Singer Logging Agent modules</description>
     <inceptionYear>2013</inceptionYear>
