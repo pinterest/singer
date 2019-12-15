@@ -18,9 +18,9 @@ import org.slf4j.LoggerFactory;
 public class LoggingAuditHeadersInjector implements HeadersInjector {
 
   private static final Logger LOG = LoggerFactory.getLogger(LoggingAuditHeadersInjector.class);
-
   private static final String HEADER_KEY = "loggingAuditHeaders";
-  private static final TSerializer SER = new TSerializer();
+
+  private final TSerializer SER = new TSerializer();
 
   public static String getHeaderKey() {
     return HEADER_KEY;
