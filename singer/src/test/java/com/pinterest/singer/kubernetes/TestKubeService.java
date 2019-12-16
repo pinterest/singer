@@ -28,6 +28,9 @@ import java.nio.file.Files;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
 
@@ -102,17 +105,23 @@ public class TestKubeService {
 
         KubeConfig kubeConfig = new KubeConfig();
         KubeService poll = new KubeService(kubeConfig);
-        Set<String> fetchPodIdsFromMetadata = poll.fetchPodUidsFromMetadata();
+        Set<String> fetchPodNamesFromMetadata = poll.fetchPodNamesFromMetadata();
 
         // check uid count is correct
-        assertEquals(6, fetchPodIdsFromMetadata.size());
-        String[] podUids = new String[] { "enimanager-ppl56",
-                "zk-update-monitor-r1vlt", "tcollector-q4qx8",
-                "metrics-agent-8vm9g", "kubernetes-dashboard-1835568627-hhfhj",
-                "test-ci-0" };
-        // check UIDs are correct, sequence doesn't really matter in this case
-        for (int i = 0; i < podUids.length; i++) {
-            assertTrue(fetchPodIdsFromMetadata.contains(podUids[i]));
+        assertEquals(12, fetchPodNamesFromMetadata.size());
+        
+        Map<String, String> podToNamespaceMap = new HashMap<>();
+        podToNamespaceMap.put("enimanager-ppl56", "default");
+        podToNamespaceMap.put("zk-update-monitor-r1vlt", "default");
+        podToNamespaceMap.put("tcollector-q4qx8", "default");
+        podToNamespaceMap.put("metrics-agent-8vm9g", "default");
+        podToNamespaceMap.put("kubernetes-dashboard-1835568627-hhfhj", "kube-system");
+        podToNamespaceMap.put("test-ci-0", "kubernetes-plugin");
+        for (Entry<String, String> entry : podToNamespaceMap.entrySet()) {
+          String name = entry.getKey();
+          String namespace = entry.getValue();
+          assertTrue(fetchPodNamesFromMetadata.contains(name));
+          assertTrue(fetchPodNamesFromMetadata.contains(namespace + "_" + name));
         }
     }
 
@@ -123,7 +132,7 @@ public class TestKubeService {
 
         KubeConfig kubeConfig = new KubeConfig();
         KubeService kubeService = new KubeService(kubeConfig);
-        Set<String> fetchPodIdsFromMetadata = kubeService.fetchPodUidsFromMetadata();
+        Set<String> fetchPodIdsFromMetadata = kubeService.fetchPodNamesFromMetadata();
 
         assertEquals(0, fetchPodIdsFromMetadata.size());
     }
@@ -169,7 +178,7 @@ public class TestKubeService {
                 set.add(podUid);
             }
         });
-        poll.updatePodUids();
+        poll.updatePodNames();
 
         assertEquals(6, set.size());
         set.clear();
@@ -188,7 +197,7 @@ public class TestKubeService {
             }
         });
         
-        poll.updatePodUids();
+        poll.updatePodNames();
         assertEquals(6, set.size());
     }
 
