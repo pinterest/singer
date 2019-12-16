@@ -35,7 +35,7 @@ public class KubeServiceChecker {
 		
 		KubeService service = KubeService.getInstance();
 		try {
-			Set<String> podUids = service.fetchPodUidsFromMetadata();
+			Set<String> podUids = service.fetchPodNamesFromMetadata();
 			for (String puid : podUids) {
 				System.out.println(puid);
 			}

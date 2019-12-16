@@ -115,7 +115,7 @@ public class KubeService implements Runnable {
     @Override
     public void run() {
         // fetch existing pod directories
-        updatePodUidsFromFileSystem();
+        updatePodNamesFromFileSystem();
         
         // we should wait for some time 
         try {
@@ -128,7 +128,7 @@ public class KubeService implements Runnable {
             try {
                 // method refactored so that class level method locking is done with the
                 // synchronized keyword
-                updatePodUids();
+                updatePodNames();
                 LOG.debug("Pod IDs refreshed at:" + new Date(System.currentTimeMillis()));
             } catch (Exception e) {
                 // TODO what should be done if we have errors in reaching MD service
@@ -150,7 +150,7 @@ public class KubeService implements Runnable {
      * 
      * This method should have an effect on data if Singer was restarted
      */
-    private void updatePodUidsFromFileSystem() {
+    private void updatePodNamesFromFileSystem() {
         LOG.info("Kubernetes POD log directory configured as:" + podLogDirectory);
         File[] directories = new File(podLogDirectory).listFiles(new FileFilter() {
 
@@ -177,18 +177,18 @@ public class KubeService implements Runnable {
 
         if (directories != null) {
             for (File directory : directories) {
-                String podUid = directory.getName();
-                if (temp.contains("." + podUid)) {
-                    LOG.info("Ignoring POD directory " + podUid + " since there is a tombstone file present");
+                String podName = directory.getName();
+                if (temp.contains("." + podName)) {
+                    LOG.info("Ignoring POD directory " + podName + " since there is a tombstone file present");
                     // Skip adding this pod to the active podset
                     continue;
                 }
 
-                activePodSet.add(podUid);
+                activePodSet.add(podName);
                 for (PodWatcher podWatcher : registeredWatchers) {
-                    podWatcher.podCreated(podUid);
+                    podWatcher.podCreated(podName);
                 }
-                LOG.info("Active POD found (via directory):" + podUid);
+                LOG.info("Active POD found (via directory):" + podName);
             }
         }
         // update number of active pods running
@@ -196,7 +196,7 @@ public class KubeService implements Runnable {
     }
 
     /**
-     * Clear the set of Pod UIDs and update it with the latest fetch from kubelet
+     * Clear the set of Pod Names and update it with the latest fetch from kubelet
      * 
      * Following a listener design, currently we only have 1 listener but in future
      * if we want to do something else as well when these events happen then this
@@ -204,15 +204,15 @@ public class KubeService implements Runnable {
      * 
      * @throws IOException
      */
-    public void updatePodUids() throws IOException {
+    public void updatePodNames() throws IOException {
         LOG.debug("Active podset:" + activePodSet);
-        Set<String> updatedPodUids = fetchPodUidsFromMetadata();
-        SetView<String> deletedPods = Sets.difference(activePodSet, updatedPodUids);
+        Set<String> updatedPodNames = fetchPodNamesFromMetadata();
+        SetView<String> deletedNames = Sets.difference(activePodSet, updatedPodNames);
 
         // ignore new pods, pod discovery is done by watching directories
 
-        for (String podUid : deletedPods) {
-            updatePodWatchers(podUid, true);
+        for (String podName : deletedNames) {
+            updatePodWatchers(podName, true);
             // update metrics since pods have been deleted
             Stats.incr(SingerMetrics.PODS_DELETED);
             Stats.incr(SingerMetrics.NUMBER_OF_PODS, -1);
@@ -220,24 +220,24 @@ public class KubeService implements Runnable {
         LOG.debug("Fired events for registered watchers");
 
         activePodSet.clear();
-        activePodSet.addAll(updatedPodUids);
-        LOG.debug("Cleared and updated pod UIDs:" + activePodSet);
+        activePodSet.addAll(updatedPodNames);
+        LOG.debug("Cleared and updated pod names:" + activePodSet);
     }
 
     /**
      * Update all {@link PodWatcher} about the pod that changed (created or deleted)
      * 
-     * @param podUid
+     * @param podName
      * @param isDelete
      */
-    public void updatePodWatchers(String podUid, boolean isDelete) {
-        LOG.debug("Pod change:" + podUid + " deleted:" + isDelete);
+    public void updatePodWatchers(String podName, boolean isDelete) {
+        LOG.debug("Pod change:" + podName + " deleted:" + isDelete);
         for (PodWatcher watcher : registeredWatchers) {
             try {
                 if (isDelete) {
-                    watcher.podDeleted(podUid);
+                    watcher.podDeleted(podName);
                 } else {
-                    watcher.podCreated(podUid);
+                    watcher.podCreated(podName);
                 }
             } catch (Exception e) {
                 LOG.error("Watcher had an exception", e);
@@ -248,33 +248,35 @@ public class KubeService implements Runnable {
     /**
      * Fetch Pod IDs from metadata.
      * 
-     * Note: inside singer we refer to pod's identifier as a the PodUid
-     * 
-     * In our internal case 'Pod Uid' = 'kubernetes pod name'
+     * Note: inside singer we refer to pod's identifier as a the PodName
      * 
      * e.g. see src/test/resources/pods-goodresponse.json
      * 
-     * @return set of pod uids
+     * @return set of pod names
      * @throws IOException
      */
-    public Set<String> fetchPodUidsFromMetadata() throws IOException {
+    public Set<String> fetchPodNamesFromMetadata() throws IOException {
         LOG.debug("Attempting to make pod md request");
         String response = SingerUtils.makeGetRequest(PODS_MD_URL);
         LOG.debug("Received pod md response:" + response);
         Gson gson = new Gson();
         JsonObject obj = gson.fromJson(response, JsonObject.class);
-        LOG.debug("Finished parsing kubelet response for PODs; now extracting POD UIDs");
-        Set<String> podUids = new HashSet<>();
+        LOG.debug("Finished parsing kubelet response for PODs; now extracting POD names");
+        Set<String> podNames = new HashSet<>();
         if (obj != null && obj.has("items")) {
             JsonArray ary = obj.get("items").getAsJsonArray();
             for (int i = 0; i < ary.size(); i++) {
-                String uid = ary.get(i).getAsJsonObject().get("metadata").getAsJsonObject().get("name").getAsString();
-                podUids.add(uid);
-                LOG.debug("Found active POD UID in JSON:" + uid);
+                JsonObject metadata = ary.get(i).getAsJsonObject().get("metadata").getAsJsonObject();
+                String name = metadata.get("name").getAsString();
+                podNames.add(name);
+                // to support namespace based POD directories
+                String namespace = metadata.get("namespace").getAsString();
+                podNames.add(namespace + "_" + name);
+                LOG.debug("Found active POD name in JSON:" + name);
             }
         }
-        LOG.debug("Pod uids from kubelet:" + podUids);
-        return podUids;
+        LOG.debug("Pod names from kubelet:" + podNames);
+        return podNames;
     }
 
     /**
@@ -385,22 +387,23 @@ public class KubeService implements Runnable {
         // ignore delete events
         if (kind.equals(StandardWatchEventKinds.ENTRY_CREATE)) {
             if (!file.toFile().isFile()) {
-                String podUid = file.toFile().getName();
-                if (podUid.startsWith(".")) {
+                String podName = file.toFile().getName();
+                if (podName.startsWith(".")) {
                     // ignore tombstone files
                     return;
                 }
-                LOG.info("New pod directory discovered by FSM:" + event.logDir() + " " + podLogDirectory+" poduid:" + podUid);
+                LOG.info("New pod directory discovered by FSM:" + event.logDir() + " " + podLogDirectory 
+                    + " podname:" + podName);
                 Stats.incr(SingerMetrics.PODS_CREATED);
                 Stats.incr(SingerMetrics.NUMBER_OF_PODS);
-                activePodSet.add(podUid);
-                updatePodWatchers(podUid, false);
+                activePodSet.add(podName);
+                updatePodWatchers(podName, false);
             }
             // ignore all events that are not directory create events
         } else if (kind.equals(StandardWatchEventKinds.OVERFLOW)) {
             LOG.warn("Received overflow watch event from filesystem: Events may have been lost");
-            // perform a full sync on pod IDs from file system
-            updatePodUidsFromFileSystem();
+            // perform a full sync on pod names from file system
+            updatePodNamesFromFileSystem();
         } else if (kind.equals(StandardWatchEventKinds.ENTRY_DELETE)) {
             // ignore the . files
             if (!file.toFile().getName().startsWith(".")) {
