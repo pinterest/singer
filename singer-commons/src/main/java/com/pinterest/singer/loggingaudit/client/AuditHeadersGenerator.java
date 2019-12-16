@@ -71,7 +71,8 @@ public class AuditHeadersGenerator {
         .setLogName(this.logName)
         .setPid(this.pid)
         .setSession(this.session)
-        .setLogSeqNumInSession(this.logSeqNumInSession);
+        .setLogSeqNumInSession(this.logSeqNumInSession)
+        .setTimestamp(System.currentTimeMillis());
   }
 
 }
