@@ -105,4 +105,7 @@ public class SingerMetrics {
   public static final String AUDIT_HEADERS_METADATA_COUNT_MISMATCH = "singer.audit.headers_metadata_count_mismatch";
   public static final String AUDIT_HEADERS_METADATA_COUNT_MATCH = "singer.audit.headers_metadata_count_match";
 
+  // Used when logging audit is enabled and is started at Singer instead of ThriftLogger.
+  public static final String AUDIT_HEADERS_SET_FOR_LOG_MESSAGE = "singer.audit.log_message_headers_set";
+  public static final String AUDIT_HEADERS_SET_FOR_LOG_MESSAGE_EXCEPTION = "singer.audit.log_message_headers_set.exception";
 }
