@@ -1,6 +1,7 @@
 package com.pinterest.singer.writer;
 
 import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.when;
 
@@ -38,10 +39,13 @@ import com.pinterest.singer.SingerTestBase;
 import com.pinterest.singer.common.LogStream;
 import com.pinterest.singer.common.SingerLog;
 import com.pinterest.singer.common.SingerSettings;
+import com.pinterest.singer.loggingaudit.client.AuditHeadersGenerator;
 import com.pinterest.singer.loggingaudit.thrift.LoggingAuditHeaders;
+import com.pinterest.singer.loggingaudit.thrift.configuration.AuditConfig;
 import com.pinterest.singer.thrift.LogMessage;
 import com.pinterest.singer.thrift.configuration.KafkaProducerConfig;
 import com.pinterest.singer.thrift.configuration.SingerConfig;
+import com.pinterest.singer.thrift.configuration.SingerLogConfig;
 import com.pinterest.singer.utils.PartitionComparator;
 import com.pinterest.singer.writer.headersinjectors.LoggingAuditHeadersInjector;
 
@@ -258,7 +262,7 @@ public class TestKafkaWriter extends SingerTestBase {
     assertNull(writer.getHeadersInjector());
   }
 
-    @Test
+  @Test
   public void testWriterWithHeadersInjectorEnabled() throws Exception {
     SingerLog singerLog = new SingerLog(createSingerLogConfig("test", "/a/b/c"));
     LogStream logStream = new LogStream(singerLog, "test.tmp");
@@ -340,6 +344,98 @@ public class TestKafkaWriter extends SingerTestBase {
     }
     // validate if writes are throwing any error
     writer.writeLogMessages(logMessages);
+    writer.close();
+  }
+
+  @Test
+  public void testCheckAndSetLoggingAuditHeadersForLogMessage() throws Exception{
+    // prepare log messages
+    List<LogMessage> logMessages = new ArrayList<>();
+    List<LoggingAuditHeaders> originalHeaders = new ArrayList<>();
+    int pid = new Random().nextInt();
+    long session = System.currentTimeMillis();
+    TSerializer serializer = new TSerializer();
+    for (int i = 0; i < NUM_EVENTS; i++) {
+      LogMessage logMessage = new LogMessage();
+      logMessage.setKey(ByteBuffer.allocate(100).put(String.valueOf(i).getBytes()));
+      logMessage.setMessage(ByteBuffer.allocate(100).put(String.valueOf(i).getBytes()));
+      LoggingAuditHeaders headers = new LoggingAuditHeaders()
+          .setHost("host-name")
+          .setLogName("topicx")
+          .setPid(pid)
+          .setSession(session)
+          .setLogSeqNumInSession(i);
+      originalHeaders.add(headers);
+      logMessage.setLoggingAuditHeaders(headers);
+      logMessages.add(logMessage);
+    }
+
+    KafkaMessagePartitioner partitioner = new Crc32ByteArrayPartitioner();
+    KafkaProducerConfig config = new KafkaProducerConfig();
+    SingerSettings.setSingerConfig(new SingerConfig());
+    KafkaProducerManager.injectTestProducer(config, producer);
+
+    // case 1: enableLoggingAudit is false
+    SingerLogConfig singerLogConfig1 = createSingerLogConfig("test", "/a/b/c");
+    SingerLog singerLog1 = new SingerLog(singerLogConfig1);
+    LogStream logStream1 = new LogStream(singerLog1, "test.tmp");
+
+    KafkaWriter writer = new KafkaWriter(logStream1, config, partitioner, "topicx", false,
+        Executors.newCachedThreadPool(), true);
+    assertNull(writer.getAuditHeadersGenerator());
+    assertNull(writer.getAuditConfig());
+    assertFalse(writer.isEnableLoggingAudit());
+    for(int i = 0; i < logMessages.size(); i++){
+      writer.checkAndSetLoggingAuditHeadersForLogMessage(logMessages.get(i));
+      assertEquals(originalHeaders.get(i), logMessages.get(i).getLoggingAuditHeaders());
+    }
+
+    // case 2: enableLoggingAudit is true but logging audit does not start at current stage.
+    SingerLogConfig singerLogConfig2 = createSingerLogConfig("test", "/a/b/c");
+    singerLogConfig2.setEnableLoggingAudit(true);
+    singerLogConfig2.setAuditConfig(new AuditConfig().setStartAtCurrentStage(false)
+        .setStopAtCurrentStage(false).setSamplingRate(1.0));
+
+    SingerLog singerLog2 = new SingerLog(singerLogConfig2);
+    LogStream logStream2 = new LogStream(singerLog2, "test.tmp");
+    writer = new KafkaWriter(logStream2, config, partitioner, "topicx", false,
+        Executors.newCachedThreadPool(), true);
+
+    assertNotNull(writer.getAuditHeadersGenerator());
+    assertNotNull(writer.getAuditConfig());
+    assertTrue(writer.isEnableLoggingAudit());
+    for(int i = 0; i < logMessages.size(); i++){
+      writer.checkAndSetLoggingAuditHeadersForLogMessage(logMessages.get(i));
+      assertEquals(originalHeaders.get(i), logMessages.get(i).getLoggingAuditHeaders());
+    }
+
+    // case 3: enableLoggingAudit is true and logging audit starts at current stage.
+    SingerLogConfig singerLogConfig3 = createSingerLogConfig("test", "/a/b/c");
+    singerLogConfig3.setEnableLoggingAudit(true);
+    singerLogConfig3.setAuditConfig(new AuditConfig().setStartAtCurrentStage(true)
+        .setStopAtCurrentStage(false).setSamplingRate(1.0));
+
+    SingerLog singerLog3 = new SingerLog(singerLogConfig3);
+    LogStream logStream3 = new LogStream(singerLog3, "test.tmp");
+    writer = new KafkaWriter(logStream3, config, partitioner, "topicx", false,
+        Executors.newCachedThreadPool(), true);
+
+    // inject auditHeadersGenerator for header verification
+    String hostName = "testHostName";
+    String logName = "testLogName";
+    writer.setAuditHeadersGenerator(new AuditHeadersGenerator(hostName, logName));
+    assertNotNull(writer.getAuditHeadersGenerator());
+    assertNotNull(writer.getAuditConfig());
+    assertTrue(writer.isEnableLoggingAudit());
+    for(int i = 0; i < logMessages.size(); i++) {
+      writer.checkAndSetLoggingAuditHeadersForLogMessage(logMessages.get(i));
+      assertNotEquals(originalHeaders.get(i), logMessages.get(i).getLoggingAuditHeaders());
+      LoggingAuditHeaders headers = logMessages.get(i).getLoggingAuditHeaders();
+      assertEquals(hostName, headers.getHost());
+      assertEquals(logName, headers.getLogName());
+      assertEquals(i, headers.getLogSeqNumInSession());
+    }
+
     writer.close();
   }
 }

@@ -20,12 +20,15 @@ import com.pinterest.singer.common.LogStreamWriter;
 import com.pinterest.singer.common.errors.LogStreamWriterException;
 import com.pinterest.singer.common.SingerMetrics;
 import com.pinterest.singer.common.SingerSettings;
+import com.pinterest.singer.loggingaudit.client.AuditHeadersGenerator;
 import com.pinterest.singer.loggingaudit.thrift.LoggingAuditHeaders;
+import com.pinterest.singer.loggingaudit.thrift.configuration.AuditConfig;
 import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
 import com.pinterest.singer.thrift.AuditMessage;
 import com.pinterest.singer.thrift.LogMessage;
 import com.pinterest.singer.thrift.configuration.KafkaProducerConfig;
 import com.pinterest.singer.thrift.configuration.SingerRestartConfig;
+import com.pinterest.singer.utils.CommonUtils;
 import com.pinterest.singer.utils.PartitionComparator;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -51,6 +54,7 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -96,6 +100,10 @@ public class KafkaWriter implements LogStreamWriter {
 
   private boolean enableLoggingAudit = false;
 
+  private AuditHeadersGenerator auditHeadersGenerator = null;
+
+  private AuditConfig auditConfig = null;
+
   /**
    *  HeadersInjector will be set if enableHeadersInjector is set to true.
    *  Default is
@@ -103,14 +111,33 @@ public class KafkaWriter implements LogStreamWriter {
   private HeadersInjector headersInjector = null;
 
 
+  public boolean isEnableLoggingAudit() {
+    return enableLoggingAudit;
+  }
+
+  public AuditHeadersGenerator getAuditHeadersGenerator() {
+    return auditHeadersGenerator;
+  }
+
+  @VisibleForTesting
+  public void setAuditHeadersGenerator(
+      AuditHeadersGenerator auditHeadersGenerator) {
+    this.auditHeadersGenerator = auditHeadersGenerator;
+  }
+
+  public AuditConfig getAuditConfig() {
+    return auditConfig;
+  }
+
+
   public KafkaWriter(LogStream logStream,
-      KafkaProducerConfig producerConfig,
-      String topic,
-      boolean skipNoLeaderPartitions,
-      boolean auditingEnabled,
-      String auditTopic,
-      String partitionerClassName,
-      int writeTimeoutInSeconds) throws Exception {
+                     KafkaProducerConfig producerConfig,
+                     String topic,
+                     boolean skipNoLeaderPartitions,
+                     boolean auditingEnabled,
+                     String auditTopic,
+                     String partitionerClassName,
+                     int writeTimeoutInSeconds) throws Exception {
     Preconditions.checkNotNull(logStream);
     Preconditions.checkNotNull(producerConfig);
     Preconditions.checkArgument(!Strings.isNullOrEmpty(topic));
@@ -138,6 +165,8 @@ public class KafkaWriter implements LogStreamWriter {
     this.serializer = new TSerializer();
     if (logStream != null && logStream.getSingerLog().getSingerLogConfig().isEnableLoggingAudit()){
       this.enableLoggingAudit = true;
+      this.auditConfig = logStream.getSingerLog().getSingerLogConfig().getAuditConfig();
+      this.auditHeadersGenerator = new AuditHeadersGenerator(CommonUtils.getHostName(), logName);
     }
   }
 
@@ -197,6 +226,8 @@ public class KafkaWriter implements LogStreamWriter {
     }
     if (logStream != null && logStream.getSingerLog().getSingerLogConfig().isEnableLoggingAudit()){
       this.enableLoggingAudit = true;
+      this.auditConfig = logStream.getSingerLog().getSingerLogConfig().getAuditConfig();
+      this.auditHeadersGenerator = new AuditHeadersGenerator(CommonUtils.getHostName(), logName);
     }
   }
 
@@ -289,6 +320,7 @@ public class KafkaWriter implements LogStreamWriter {
         }
         keyedMessage = new ProducerRecord<>(topic, partitionId, key, msg.getMessage());
         Headers headers = keyedMessage.headers();
+        checkAndSetLoggingAuditHeadersForLogMessage(msg);
         if (msg.getLoggingAuditHeaders() != null) {
           if (this.headersInjector != null) {
             this.headersInjector.addHeaders(headers, msg);
@@ -309,6 +341,28 @@ public class KafkaWriter implements LogStreamWriter {
     }
     return buckets;
   }
+
+  public void checkAndSetLoggingAuditHeadersForLogMessage(LogMessage msg){
+    if (enableLoggingAudit && auditConfig.isStartAtCurrentStage() &&
+        ThreadLocalRandom.current().nextDouble() < auditConfig.getSamplingRate()){
+      LoggingAuditHeaders loggingAuditHeaders = null;
+      try {
+        loggingAuditHeaders = auditHeadersGenerator.generateHeaders();
+        msg.setLoggingAuditHeaders(loggingAuditHeaders);
+        LOG.debug("Setting loggingAuditHeaders {} for {}", loggingAuditHeaders, logName);
+        OpenTsdbMetricConverter.incr(SingerMetrics.AUDIT_HEADERS_SET_FOR_LOG_MESSAGE,
+            "topic=" + topic, "host=" + HOSTNAME,  "logName=" +
+                msg.getLoggingAuditHeaders().getLogName(), "logStreamName=" + logName);
+      } catch (Exception e){
+        OpenTsdbMetricConverter.incr(SingerMetrics.AUDIT_HEADERS_SET_FOR_LOG_MESSAGE_EXCEPTION,
+            "topic=" + topic, "host=" + HOSTNAME,  "logName=" +
+                msg.getLoggingAuditHeaders().getLogName(), "logStreamName=" + logName);
+        LOG.debug("Couldn't set loggingAuditHeaders {} for {} as logging audit is enabled "
+            + "and start at Singer {} ", loggingAuditHeaders, logName,  auditConfig);
+      }
+    }
+  }
+
   @Override
   public void writeLogMessages(List<LogMessage> logMessages) throws LogStreamWriterException {
     Set<Future<KafkaWritingTaskResult>> resultSet = new HashSet<>();
