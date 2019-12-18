@@ -52,6 +52,11 @@ struct LoggingAuditHeaders {
     *  Log sequence number for a given session and it starts with 0.
     */
    5: required i32 logSeqNumInSession;
+
+   /**
+    *  Timstamp (millisecond) when the audit header is generated.
+    */
+   6: required i64 timestamp;
 }
 
 
@@ -117,7 +122,7 @@ struct LoggingAuditEvent {
     *  (1) auditing is ended at current stage (indicated by field 4 of LoggingAuditEvent struct)
     *  (2) acknowledge timestamp cannot be obtained due to configuration or error.
     */
-   7: optional i64  messageAcknowledgedTimestamp = -1;
+    7: optional i64  messageAcknowledgedTimestamp = -1;
 
 
    /**
@@ -141,6 +146,12 @@ struct LoggingAuditEvent {
     *  value "".
     */
     10: optional string topic = "";
+
+   /**
+    *  used to bucket audit events into different time window
+    */
+    11: required i64 headerGeneratedTimestamp;
+
 
 }
 
