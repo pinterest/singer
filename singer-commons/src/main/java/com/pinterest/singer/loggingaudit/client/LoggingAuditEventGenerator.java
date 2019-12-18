@@ -46,6 +46,7 @@ public class LoggingAuditEventGenerator {
         .setStartAtCurrentStage(auditConfigs.get(loggingAuditName).isStartAtCurrentStage())
         .setStopAtCurrentStage(auditConfigs.get(loggingAuditName).isStopAtCurrentStage())
         .setLoggingAuditHeaders(headers)
+        .setHeaderGeneratedTimestamp(headers.getTimestamp())
         .setMessageValid(messageValid)
         .setMessageAcknowledgedTimestamp(messageAcknowledgedTimestamp)
         .setKafkaCluster(kafkaCluster)
