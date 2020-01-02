@@ -23,6 +23,8 @@ To increase the chances that your pull request will be accepted:
 - Write tests for your changes
 - Write a good commit message
 
+NOTE: all PRs must pass build before they can be accepted.
+
 ## License
 
 By contributing to this project, you agree that your contributions will be
