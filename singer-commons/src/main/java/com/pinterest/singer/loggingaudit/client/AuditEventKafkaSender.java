@@ -22,6 +22,7 @@ import com.pinterest.singer.loggingaudit.thrift.LoggingAuditEvent;
 import com.pinterest.singer.loggingaudit.thrift.LoggingAuditStage;
 import com.pinterest.singer.loggingaudit.thrift.configuration.KafkaSenderConfig;
 import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
+import com.pinterest.singer.utils.CommonUtils;
 
 import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -198,18 +199,18 @@ public class AuditEventKafkaSender implements LoggingAuditEventSender {
   }
 
   private void refreshPartitionIfNeeded() {
-    // refresh every 5 mins
+    // refresh every 30 seconds
     if (System.currentTimeMillis() - lastTimeUpdate > 1000 * PARTITIONS_REFRESH_INTERVAL_IN_SECONDS) {
       try {
         badPartitions.clear();
         partitionInfoList = this.kafkaProducer.partitionsFor(topic);
         lastTimeUpdate = System.currentTimeMillis();
-        OpenTsdbMetricConverter
-            .incr(LoggingAuditClientMetrics.AUDIT_CLIENT_SENDER_KAFKA_PARTITIONS_REFRESH_COUNT, 1,
+        OpenTsdbMetricConverter.incr(
+            LoggingAuditClientMetrics.AUDIT_CLIENT_SENDER_KAFKA_PARTITIONS_REFRESH_COUNT, 1,
                 "host=" + host, "stage=" + stage.toString());
       } catch (Exception e) {
-        OpenTsdbMetricConverter
-            .incr(LoggingAuditClientMetrics.AUDIT_CLIENT_SENDER_KAFKA_PARTITIONS_REFRESH_ERROR, 1,
+        OpenTsdbMetricConverter.incr(
+            LoggingAuditClientMetrics.AUDIT_CLIENT_SENDER_KAFKA_PARTITIONS_REFRESH_ERROR, 1,
                 "host=" + host, "stage=" + stage.toString());
       }
     }
@@ -235,9 +236,8 @@ public class AuditEventKafkaSender implements LoggingAuditEventSender {
         if (event != null) {
           try {
             value = serializer.serialize(event);
-            record =
-                new ProducerRecord<>(this.topic, getAlternatePartition(partitionInfoList.size()),
-                    null, value);
+            record = new ProducerRecord<>(this.topic, getAlternatePartition(
+                partitionInfoList.size()), null, value);
             kafkaProducer.send(record, new KafkaProducerCallback(event));
           } catch (TException e) {
             LOG.debug("[{}] failed to construct ProducerRecord because of serialization exception.",
@@ -252,8 +252,8 @@ public class AuditEventKafkaSender implements LoggingAuditEventSender {
       } catch (InterruptedException e) {
         LOG.warn("[{}] got interrupted when polling the queue and while loop is ended!",
             Thread.currentThread().getName(), e);
-        OpenTsdbMetricConverter
-            .incr(LoggingAuditClientMetrics.AUDIT_CLIENT_SENDER_DEQUEUE_INTERRUPTED_EXCEPTION, 1,
+        OpenTsdbMetricConverter.incr(
+            LoggingAuditClientMetrics.AUDIT_CLIENT_SENDER_DEQUEUE_INTERRUPTED_EXCEPTION, 1,
                 "host=" + host, "stage=" + stage.toString());
         break;
       } catch (Exception e) {
@@ -293,8 +293,7 @@ public class AuditEventKafkaSender implements LoggingAuditEventSender {
                 eventTriedCount.size(), "host=" + host, "stage=" + stage.toString(),
                 "topic=" + topic);
       } else if (count >= NUM_OF_PARTITIONS_TO_TRY_SENDING) {
-          LOG.debug("Failed to send audit event after trying {} partitions. Drop this event.",
-              count);
+          LOG.debug("Failed to send audit event after trying {} partitions. Drop event.", count);
           OpenTsdbMetricConverter
               .incr(LoggingAuditClientMetrics.AUDIT_CLIENT_SENDER_KAFKA_EVENTS_DROPPED, 1,
                   "host=" + host, "stage=" + stage.toString(),
@@ -305,8 +304,7 @@ public class AuditEventKafkaSender implements LoggingAuditEventSender {
           try {
             boolean success = queue.offerFirst(event, 3, TimeUnit.SECONDS);
             if (!success) {
-              LOG.debug(
-                  "Failed to enqueue LoggingAuditEvent at head of the queue when executing "
+              LOG.debug("Failed to enqueue LoggingAuditEvent at head of the queue when executing "
                       + "producer send callback. Drop this event.");
               eventTriedCount.remove(event.getLoggingAuditHeaders());
             }
@@ -375,21 +373,12 @@ public class AuditEventKafkaSender implements LoggingAuditEventSender {
       i += 1;
       try {
         Thread.sleep(THREAD_SLEEP_IN_SECONDS * 1000);
-        int qSize = queue.size();
-        double qUsagePercent = qSize * 1.0 / (qSize + queue.remainingCapacity());
-        OpenTsdbMetricConverter
-            .gauge(LoggingAuditClientMetrics.AUDIT_CLIENT_QUEUE_SIZE, qSize, "host=" + host,
-                "stage=" + stage.toString());
-        OpenTsdbMetricConverter
-            .gauge(LoggingAuditClientMetrics.AUDIT_CLIENT_QUEUE_USAGE_PERCENT, qUsagePercent,
-                "host=" + host, "stage=" + stage.toString());
+        CommonUtils.reportQueueUsage(queue.size(), queue.remainingCapacity(), host, stage.toString());
         LOG.info("In {} round, [{}] waited {} seconds and the current queue size is {}", i,
             Thread.currentThread().getName(), THREAD_SLEEP_IN_SECONDS, queue.size());
       } catch (InterruptedException e) {
-        LOG.warn(
-            "[{}] got interrupted while waiting for [{}] to send out LoggingAuditEvents left in "
-                + "the queue.",
-            Thread.currentThread().getName(), name, e);
+        LOG.warn("[{}] got interrupted while waiting for [{}] to send out LoggingAuditEvents left "
+            + "in the queue.", Thread.currentThread().getName(), name, e);
       }
     }
     cancelled.set(true);
@@ -403,15 +392,6 @@ public class AuditEventKafkaSender implements LoggingAuditEventSender {
     }
     LOG.warn("[{}] is stopped and the number of LoggingAuditEvents left in the queue is {}.", name,
         queue.size());
-  }
-
-
-  public int getStopGracePeriodInSeconds() {
-    return stopGracePeriodInSeconds;
-  }
-
-  public void setStopGracePeriodInSeconds(int stopGracePeriodInSeconds) {
-    this.stopGracePeriodInSeconds = stopGracePeriodInSeconds;
   }
 
 }

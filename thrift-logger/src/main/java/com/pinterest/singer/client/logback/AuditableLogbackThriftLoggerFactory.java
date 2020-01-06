@@ -74,7 +74,7 @@ public class AuditableLogbackThriftLoggerFactory extends LogbackThriftLoggerFact
     }
   }
 
-  public static void createLoggingAuditClientFromKVs(Map<String, String> properties){
+  public static void createLoggingAuditClientFromMap(Map<String, String> properties){
     if (loggingAuditClient != null){
       return;
     }
@@ -137,7 +137,7 @@ public class AuditableLogbackThriftLoggerFactory extends LogbackThriftLoggerFact
 
     if (loggingAuditClient != null && (thriftLoggerConfig.getThriftClazz()  != null || thriftLoggerConfig.isEnableLoggingAudit())){
       Map<String, String> properties = createProperties(thriftLoggerConfig.getAuditSamplingRate());
-      AuditConfig auditConfig = loggingAuditClient.addAuditConfigFromKVs(thriftLoggerConfig.getKafkaTopic(), properties);
+      AuditConfig auditConfig = loggingAuditClient.addAuditConfigFromMap(thriftLoggerConfig.getKafkaTopic(), properties);
       LOG.info("Add AuditConfig ({}) for {} ",  auditConfig, thriftLoggerConfig.getKafkaTopic());
     }
 

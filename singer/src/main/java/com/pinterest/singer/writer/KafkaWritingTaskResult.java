@@ -26,6 +26,10 @@ public class KafkaWritingTaskResult {
   public final Exception exception;
   private int writtenBytesSize;
   private int kafkaBatchWriteLatencyInMillis;
+  /**
+   *  a list of the RecordMetadata for every producer record in a KafkaWritingTask. Initialization
+   *  is needed to prevent NullPointerException when KafkaWritingTask fails.
+   */
   private List<RecordMetadata> recordMetadataList = new ArrayList<>();
   private int partition = -1;
 
@@ -49,8 +53,7 @@ public class KafkaWritingTaskResult {
     return kafkaBatchWriteLatencyInMillis;
   }
 
-  public void setRecordMetadataList(
-      List<RecordMetadata> recordMetadataList) {
+  public void setRecordMetadataList(List<RecordMetadata> recordMetadataList) {
     this.recordMetadataList = recordMetadataList;
   }
 

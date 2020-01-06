@@ -28,14 +28,16 @@ public class AuditableLogbackThriftLoggerFactoryTest {
 
   @Test
   public void testAuditLogbackThriftFactoryInitialization() {
-    ThriftLoggerFactory.initializeAuditLogbackThriftLoggerFactory();
+    //ThriftLoggerFactory.initializeAuditLogbackThriftLoggerFactory();
+    ThriftLoggerFactory.initialize();
     assertTrue(ThriftLoggerFactory.getThriftLoggerFactoryInstance().getClass().isAssignableFrom
         (AuditableLogbackThriftLoggerFactory.class));
   }
 
   @Test
   public void testFactoryCreateAuditLogbackThriftLogger() {
-    ThriftLoggerFactory.initializeAuditLogbackThriftLoggerFactory();
+   // ThriftLoggerFactory.initializeAuditLogbackThriftLoggerFactory();
+    ThriftLoggerFactory.initialize();
     ThriftLogger l1 = ThriftLoggerFactory.getLogger(newConfig("topic1", ThriftMessage.class));
     assertTrue(l1.getClass().isAssignableFrom(AuditableLogbackThriftLogger.class));
   }
@@ -44,7 +46,8 @@ public class AuditableLogbackThriftLoggerFactoryTest {
   public void testFactoryRemembersThriftLoggers() {
     // Make sure that the factory creates a new logger
     // for each topic and reuses the same object on subsequent calls.
-    ThriftLoggerFactory.initializeAuditLogbackThriftLoggerFactory();
+   // ThriftLoggerFactory.initializeAuditLogbackThriftLoggerFactory();
+    ThriftLoggerFactory.initialize();
     ThriftLogger l1 = ThriftLoggerFactory.getLogger(newConfig("topic1", ThriftMessage.class));
     ThriftLogger l2 = ThriftLoggerFactory.getLogger(newConfig("topic1", ThriftMessage.class));
     ThriftLogger l3 = ThriftLoggerFactory.getLogger(newConfig("topic2", Event.class));

@@ -79,17 +79,13 @@ public class ConfigUtils {
       throw new ConfigurationException("kafka bootstrap servers are not properly set!");
     }
 
-    Set<String>
-        brokerSet =
-        Sets.newHashSet(properties.get(LoggingAuditClientConfigDef.BOOTSTRAP_SERVERS).split(","));
-    String
-        acks =
-        properties.containsKey(LoggingAuditClientConfigDef.ACKS) ? properties
-            .get(LoggingAuditClientConfigDef.ACKS) : LoggingAuditClientConfigDef.DEFAULT_ACKS;
+    Set<String> brokerSet = Sets.newHashSet(properties.get(
+        LoggingAuditClientConfigDef.BOOTSTRAP_SERVERS).split(","));
+    String acks = properties.containsKey(LoggingAuditClientConfigDef.ACKS) ? properties.get(
+        LoggingAuditClientConfigDef.ACKS) : LoggingAuditClientConfigDef.DEFAULT_ACKS;
     acks = acks.toLowerCase();
-    KafkaProducerConfig
-        kafkaProducerConfig =
-        new KafkaProducerConfig("", Lists.newArrayList(brokerSet), acks);
+    KafkaProducerConfig kafkaProducerConfig = new KafkaProducerConfig("",
+        Lists.newArrayList(brokerSet), acks);
 
     KafkaSenderConfig kafkaSenderConfig = new KafkaSenderConfig();
     if (properties.containsKey(LoggingAuditClientConfigDef.KAFKA_TOPIC)) {
@@ -184,7 +180,7 @@ public class ConfigUtils {
     }
   }
 
-  public static AuditConfig createAuditConfigFromKVs(Map<String, String> properties)
+  public static AuditConfig createAuditConfigFromMap(Map<String, String> properties)
       throws ConfigurationException {
     AuditConfig topicAuditConfig = new AuditConfig();
     try {
@@ -210,15 +206,14 @@ public class ConfigUtils {
       throws ConfigurationException {
     try {
       LoggingAuditEventSenderConfig senderConfig = new LoggingAuditEventSenderConfig();
-      SenderType
-          senderType =
-          SenderType.valueOf(conf.getString(LoggingAuditClientConfigDef.SENDER_TYPE).toUpperCase());
+      SenderType senderType = SenderType.valueOf(conf.getString(
+          LoggingAuditClientConfigDef.SENDER_TYPE).toUpperCase());
       if (!senderType.equals(SenderType.KAFKA)) {
         throw new ConfigurationException("Only Kafka Sender is supported now.");
       }
       senderConfig.setSenderType(senderType);
-      senderConfig.setKafkaSenderConfig(parseKafkaSenderConfig(
-          new SubsetConfiguration(conf, LoggingAuditClientConfigDef.KAFKA_SENDER_PREFIX)));
+      senderConfig.setKafkaSenderConfig(parseKafkaSenderConfig(new SubsetConfiguration(conf,
+          LoggingAuditClientConfigDef.KAFKA_SENDER_PREFIX)));
       return senderConfig;
     } catch (Exception e) {
       throw new ConfigurationException(
@@ -245,23 +240,18 @@ public class ConfigUtils {
   public static KafkaProducerConfig parseProducerConfig(AbstractConfiguration producerConfiguration)
       throws ConfigurationException {
     producerConfiguration.setThrowExceptionOnMissing(true);
-    Set<String>
-        brokerSet =
-        Sets.newHashSet(
-            producerConfiguration.getStringArray(LoggingAuditClientConfigDef.BOOTSTRAP_SERVERS));
-    String
-        acks =
-        producerConfiguration.containsKey(LoggingAuditClientConfigDef.ACKS) ? producerConfiguration
-            .getString(LoggingAuditClientConfigDef.ACKS) : LoggingAuditClientConfigDef.DEFAULT_ACKS;
+    Set<String> brokerSet = Sets.newHashSet(producerConfiguration.getStringArray(
+        LoggingAuditClientConfigDef.BOOTSTRAP_SERVERS));
+    String acks = producerConfiguration.containsKey(LoggingAuditClientConfigDef.ACKS) ?
+                  producerConfiguration.getString(LoggingAuditClientConfigDef.ACKS) :
+                  LoggingAuditClientConfigDef.DEFAULT_ACKS;
     acks = acks.toLowerCase();
-    KafkaProducerConfig
-        kafkaProducerConfig =
-        new KafkaProducerConfig("", Lists.newArrayList(brokerSet), acks);
+    KafkaProducerConfig kafkaProducerConfig = new KafkaProducerConfig(
+        "", Lists.newArrayList(brokerSet), acks);
 
     if (producerConfiguration.containsKey(LoggingAuditClientConfigDef.COMPRESSION_TYPE)) {
-      String
-          compressionType =
-          producerConfiguration.getString(LoggingAuditClientConfigDef.COMPRESSION_TYPE);
+      String compressionType = producerConfiguration.getString(
+          LoggingAuditClientConfigDef.COMPRESSION_TYPE);
       if (compressionType != null && !compressionType.isEmpty()) {
         try {
           CompressionType.forName(compressionType);
@@ -278,9 +268,8 @@ public class ConfigUtils {
     }
 
     if (producerConfiguration.containsKey(LoggingAuditClientConfigDef.SSL_ENABLED_CONFIG)) {
-      boolean
-          enabled =
-          producerConfiguration.getBoolean(LoggingAuditClientConfigDef.SSL_ENABLED_CONFIG);
+      boolean enabled = producerConfiguration.getBoolean(
+          LoggingAuditClientConfigDef.SSL_ENABLED_CONFIG);
       kafkaProducerConfig.setSslEnabled(enabled);
       if (enabled) {
         List<String> brokers = kafkaProducerConfig.getBrokerLists();
@@ -299,10 +288,8 @@ public class ConfigUtils {
         }
         kafkaProducerConfig.setBrokerLists(updated);
 
-        Iterator<String>
-            sslKeysIterator =
-            producerConfiguration
-                .getKeys(LoggingAuditClientConfigDef.SECURE_KAFKA_PRODUCER_CONFIG_PREFIX);
+        Iterator<String> sslKeysIterator = producerConfiguration.getKeys(
+            LoggingAuditClientConfigDef.SECURE_KAFKA_PRODUCER_CONFIG_PREFIX);
         kafkaProducerConfig.setSslSettings(new HashMap<>());
         while (sslKeysIterator.hasNext()) {
           String key = sslKeysIterator.next();
@@ -317,11 +304,10 @@ public class ConfigUtils {
     if (producerConfiguration.containsKey(LoggingAuditClientConfigDef.TRANSACTION_ENABLED_CONFIG)) {
       kafkaProducerConfig.setTransactionEnabled(true);
     }
-    if (producerConfiguration
-        .containsKey(LoggingAuditClientConfigDef.TRANSACTION_TIMEOUT_MS_CONFIG)) {
-      int
-          timeoutMs =
-          producerConfiguration.getInt(LoggingAuditClientConfigDef.TRANSACTION_TIMEOUT_MS_CONFIG);
+    if (producerConfiguration.containsKey(
+        LoggingAuditClientConfigDef.TRANSACTION_TIMEOUT_MS_CONFIG)) {
+      int timeoutMs = producerConfiguration.getInt(
+          LoggingAuditClientConfigDef.TRANSACTION_TIMEOUT_MS_CONFIG);
       kafkaProducerConfig.setTransactionTimeoutMs(timeoutMs);
     }
     if (producerConfiguration.containsKey(LoggingAuditClientConfigDef.RETRIES_CONFIG)) {

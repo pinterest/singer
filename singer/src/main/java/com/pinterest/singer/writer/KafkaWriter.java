@@ -163,7 +163,7 @@ public class KafkaWriter implements LogStreamWriter {
     this.clusterThreadPool = SingerSettings.getLogWritingExecutors().get(kafkaClusterSig);
     this.writeTimeoutInSeconds = writeTimeoutInSeconds;
     this.serializer = new TSerializer();
-    if (logStream != null && logStream.getSingerLog().getSingerLogConfig().isEnableLoggingAudit()){
+    if (logStream.getSingerLog().getSingerLogConfig().isEnableLoggingAudit()){
       this.enableLoggingAudit = true;
       this.auditConfig = logStream.getSingerLog().getSingerLogConfig().getAuditConfig();
       this.auditHeadersGenerator = new AuditHeadersGenerator(CommonUtils.getHostName(), logName);
@@ -306,7 +306,7 @@ public class KafkaWriter implements LogStreamWriter {
         // headersMap in mapOfHeadersMaps.
         int partitionId = validPartitions.get(i).partition();
         buckets.put(partitionId, new ArrayList<>());
-        mapOfHeadersMaps.put(partitionId ,new HashMap<Integer, LoggingAuditHeaders>());
+        mapOfHeadersMaps.put(partitionId, new HashMap<Integer, LoggingAuditHeaders>());
       }
 
       for (LogMessage msg : logMessages) {
@@ -421,6 +421,7 @@ public class KafkaWriter implements LogStreamWriter {
             // and the audit events sent out is indeed corresponding to those log messages that
             // are audited.
             if (bucketIndex >= 0 && result.getRecordMetadataList().size() != buckets.get(bucketIndex).size()){
+              // this should never happen!
               LOG.warn("Number of ProducerRecord does not match the number of RecordMetadata, "
                   + "LogName:{}, Topic:{}, BucketIndex:{}, result_size:{}, bucket_size:{}",
                   logName, topic, bucketIndex, result.getRecordMetadataList().size(),
@@ -428,9 +429,10 @@ public class KafkaWriter implements LogStreamWriter {
               OpenTsdbMetricConverter.incr(SingerMetrics.AUDIT_HEADERS_METADATA_COUNT_MISMATCH, 1,
                   "topic=" + topic, "host=" + HOSTNAME, "logStreamName=" + logName, "partition=" + bucketIndex);
             } else {
+              // regular code execution path
               enqueueLoggingAuditEvents(result, mapOfHeadersMap.get(bucketIndex));
               OpenTsdbMetricConverter.incr(SingerMetrics.AUDIT_HEADERS_METADATA_COUNT_MATCH, 1,
-                  "topic=" + topic, "host=" + HOSTNAME, "logStreamName=" + logName, "partition=" + bucketIndex);
+                  "host=" + HOSTNAME, "logStreamName=" + logName);
             }
           }
         }

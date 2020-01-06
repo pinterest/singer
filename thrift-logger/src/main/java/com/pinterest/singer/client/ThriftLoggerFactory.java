@@ -67,7 +67,13 @@ public class ThriftLoggerFactory {
       LOGGER.info("Already initialized factory instance. Not initializing another instance.");
       return;
     }
-    THRIFT_LOGGER_FACTORY_INSTANCE = new AuditableLogbackThriftLoggerFactory(outputDirectory, rotateThresholdKilobytes);
+
+    if (outputDirectory == null) {
+       THRIFT_LOGGER_FACTORY_INSTANCE = new AuditableLogbackThriftLoggerFactory();
+    } else {
+      THRIFT_LOGGER_FACTORY_INSTANCE = new AuditableLogbackThriftLoggerFactory(outputDirectory,
+          rotateThresholdKilobytes);
+    }
     LOGGER.info(SUCCESSFUL_INITIALIZATION_MSG + THRIFT_LOGGER_FACTORY_INSTANCE);
 
     // Add a hook to shutdown loggers on program exit.
@@ -79,48 +85,8 @@ public class ThriftLoggerFactory {
     });
   }
 
-  /**
-   * Refactoring: Let initialize() method create AuditableLogbackThriftLoggerFactory by default.
-   * AuditableLogbackThriftLoggerFactory will create AuditableLogbackThriftLogger if audit
-   * configurations are used, otherwise it will create LogbackThriftLogger. Call this at the start
-   * of your server to initialize the thrift logging layer.
-   */
   public static synchronized void initialize() {
-    if (THRIFT_LOGGER_FACTORY_INSTANCE != null) {
-      LOGGER.info("Already initialized factory instance. Not initializing another instance.");
-      return;
-    }
-    THRIFT_LOGGER_FACTORY_INSTANCE = new AuditableLogbackThriftLoggerFactory();
-    LOGGER.info(SUCCESSFUL_INITIALIZATION_MSG + THRIFT_LOGGER_FACTORY_INSTANCE);
-
-    // Add a hook to shutdown loggers on program exit.
-    Runtime.getRuntime().addShutdownHook(new Thread() {
-      @Override
-      public void run() {
-        THRIFT_LOGGER_FACTORY_INSTANCE.shutdown();
-      }
-    });
-  }
-
-  /**
-   * Create AuditableLogbackThriftLoggerFactory which create AuditableLogbackThriftLogger
-   * Call this at the start of your server to initialize the audit thrift logging layer.
-   */
-  public static synchronized void initializeAuditLogbackThriftLoggerFactory() {
-    if (THRIFT_LOGGER_FACTORY_INSTANCE != null) {
-      LOGGER.info("Already initialized factory instance. Not initializing another instance.");
-      return;
-    }
-    THRIFT_LOGGER_FACTORY_INSTANCE = new AuditableLogbackThriftLoggerFactory();
-    LOGGER.info(SUCCESSFUL_INITIALIZATION_MSG + THRIFT_LOGGER_FACTORY_INSTANCE);
-
-    // Add a hook to shutdown loggers on program exit.
-    Runtime.getRuntime().addShutdownHook(new Thread() {
-      @Override
-      public void run() {
-        THRIFT_LOGGER_FACTORY_INSTANCE.shutdown();
-      }
-    });
+    initialize(null, -1);
   }
 
   /**

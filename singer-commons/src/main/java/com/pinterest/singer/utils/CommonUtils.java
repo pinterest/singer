@@ -16,6 +16,9 @@
 
 package com.pinterest.singer.utils;
 
+import com.pinterest.singer.loggingaudit.client.common.LoggingAuditClientMetrics;
+import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
+
 import java.lang.management.ManagementFactory;
 import java.net.InetAddress;
 
@@ -45,6 +48,14 @@ public class CommonUtils {
       hostName = System.getenv("HOSTNAME");
     }
     return hostName;
+  }
+
+  public static void reportQueueUsage(int qSize, int remainingCapacity, String host, String stage){
+    double qUsagePercent = qSize * 1.0 / (qSize + remainingCapacity);
+    OpenTsdbMetricConverter.gauge(LoggingAuditClientMetrics.AUDIT_CLIENT_QUEUE_SIZE, qSize,
+        "host=" + host, "stage=" + stage);
+    OpenTsdbMetricConverter.gauge(LoggingAuditClientMetrics.AUDIT_CLIENT_QUEUE_USAGE_PERCENT,
+        qUsagePercent, "host=" + host, "stage=" + stage);
   }
 
 }

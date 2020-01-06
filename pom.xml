@@ -6,7 +6,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.pinterest.singer</groupId>
     <artifactId>singer-package</artifactId>
-    <version>0.8.0-rc.5</version>
+    <version>0.8.0</version>
     <packaging>pom</packaging>
     <description>Singer Logging Agent modules</description>
     <inceptionYear>2013</inceptionYear>
@@ -36,6 +36,10 @@
         <developer>
             <id>ambud</id>
             <name>Ambud Sharma</name>
+        </developer>
+        <developer>
+            <id>zzhhhzz</id>
+            <name>Heng Zhang</name>
         </developer>
     </developers>
     <scm>

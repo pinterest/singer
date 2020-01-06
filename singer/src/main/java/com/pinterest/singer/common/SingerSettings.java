@@ -156,7 +156,8 @@ public final class SingerSettings {
           logWritingExecutors.put(clusterSig, threadPool);
         }
 
-        if (logConfig.isEnableLoggingAudit() && logConfig.getAuditConfig() != null){
+        if (loggingAuditClient != null && logConfig.isEnableLoggingAudit() &&
+            logConfig.getAuditConfig() != null){
           loggingAuditClient.addAuditConfig(logConfig.getName(), logConfig.getAuditConfig());
         }
       }
@@ -348,8 +349,7 @@ public final class SingerSettings {
     return loggingAuditClient;
   }
 
-  public static void setLoggingAuditClient(
-      LoggingAuditClient loggingAuditClient) {
+  public static void setLoggingAuditClient(LoggingAuditClient loggingAuditClient) {
     SingerSettings.loggingAuditClient = loggingAuditClient;
   }
 }

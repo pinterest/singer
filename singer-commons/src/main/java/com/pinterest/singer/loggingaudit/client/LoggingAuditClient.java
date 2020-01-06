@@ -121,12 +121,10 @@ public class LoggingAuditClient {
 
   public void initLoggingAuditEventSender(LoggingAuditEventSenderConfig config,
                                           LinkedBlockingDeque<LoggingAuditEvent> queue) {
-    this.sender =
-        new AuditEventKafkaSender(config.getKafkaSenderConfig(), queue, this.stage, this.host,
-            KAFKA_SENDER_NAME);
-    ((AuditEventKafkaSender) this.sender).setKafkaProducer(KafkaUtils
-        .createKafkaProducer(config.getKafkaSenderConfig().getKafkaProducerConfig(),
-            KAFKA_SENDER_NAME));
+    this.sender = new AuditEventKafkaSender(config.getKafkaSenderConfig(), queue, this.stage,
+        this.host, KAFKA_SENDER_NAME);
+    ((AuditEventKafkaSender) this.sender).setKafkaProducer(KafkaUtils.createKafkaProducer(
+        config.getKafkaSenderConfig().getKafkaProducerConfig(), KAFKA_SENDER_NAME));
     this.sender.start();
   }
 
@@ -189,14 +187,7 @@ public class LoggingAuditClient {
                 "stage=" + stage.toString());
       }
       if (successful) {
-        int qSize = queue.size();
-        double qUsagePercent = qSize * 1.0 / (qSize + queue.remainingCapacity());
-        OpenTsdbMetricConverter
-            .gauge(LoggingAuditClientMetrics.AUDIT_CLIENT_QUEUE_SIZE, qSize, "host=" + host,
-                "stage=" + stage.toString());
-        OpenTsdbMetricConverter
-            .gauge(LoggingAuditClientMetrics.AUDIT_CLIENT_QUEUE_USAGE_PERCENT, qUsagePercent,
-                "host=" + host, "stage=" + stage.toString());
+        CommonUtils.reportQueueUsage(queue.size(), queue.remainingCapacity(), host, stage.toString());
         OpenTsdbMetricConverter.incr(LoggingAuditClientMetrics.AUDIT_CLIENT_ENQUEUE_EVENTS_ADDED,
             "logName=" + loggingAuditHeaders.getLogName(), "host=" + host,
             "stage=" + stage.toString());
@@ -216,10 +207,10 @@ public class LoggingAuditClient {
   /**
    *  add audit config for some topic. config is constructed from the properties.
    */
-  public AuditConfig addAuditConfigFromKVs(String loggingAuditName,
+  public AuditConfig addAuditConfigFromMap(String loggingAuditName,
                                            Map<String, String> properties) {
     try {
-      AuditConfig auditConfig = ConfigUtils.createAuditConfigFromKVs(properties);
+      AuditConfig auditConfig = ConfigUtils.createAuditConfigFromMap(properties);
       return addAuditConfig(loggingAuditName, auditConfig);
     } catch (ConfigurationException e) {
       LOG.error("[{}] couldn't create TopicAuditConfig for {}.", Thread.currentThread().getName(),
