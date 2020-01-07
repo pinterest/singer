@@ -25,6 +25,7 @@ import com.pinterest.singer.monitor.FileSystemMonitor;
 import com.pinterest.singer.monitor.LogStreamManager;
 import com.pinterest.singer.thrift.configuration.SingerConfig;
 import com.pinterest.singer.thrift.configuration.SingerLogConfig;
+import com.pinterest.singer.writer.KafkaProducerMetricsMonitor;
 import com.twitter.ostrich.stats.Stats;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -92,6 +93,8 @@ public final class SingerSettings {
   
   //environment is production by default
   private static Environment environment = new Environment();
+  
+  private static Thread kafkaProducerMonitorThread;
 
   private SingerSettings() {
   }
@@ -148,6 +151,10 @@ public final class SingerSettings {
           logWritingExecutors.put(clusterSig, threadPool);
         }
       }
+      
+      kafkaProducerMonitorThread = new Thread(new KafkaProducerMetricsMonitor());
+      kafkaProducerMonitorThread.setDaemon(true);
+      kafkaProducerMonitorThread.start();
     }
 
     if (singerConfig != null
@@ -318,5 +325,9 @@ public final class SingerSettings {
   @VisibleForTesting
   public static void setEnvironment(Environment environment) {
     SingerSettings.environment = environment;
+  }
+  
+  public static Thread getKafkaProducerMonitorThread() {
+    return kafkaProducerMonitorThread;
   }
 }

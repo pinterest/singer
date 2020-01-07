@@ -54,6 +54,14 @@ public final class SingerMain {
       } catch (Throwable t) {
         LOG.error("Shutdown failure: log monitor : ", t);
       }
+      
+      try {
+        if (SingerSettings.getKafkaProducerMonitorThread() != null) {
+          SingerSettings.getKafkaProducerMonitorThread().interrupt();
+        }
+      }catch(Throwable t) {
+        LOG.error("Shutdown error: kafka producer metrics monitor : ", t);
+      }
 
       try {
         if (SingerSettings.heartbeatGenerator != null) {
@@ -68,7 +76,7 @@ public final class SingerMain {
       } catch (Throwable t) {
         LOG.error("Shutdown failure: kafka producers : ", t);
       }
-
+      
       try {
         OpenTsdbMetricConverter.incr("singer.shutdown", 1);
         if (statsPusher!= null) {
