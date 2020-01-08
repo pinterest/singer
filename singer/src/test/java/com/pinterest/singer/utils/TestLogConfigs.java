@@ -17,20 +17,18 @@ package com.pinterest.singer.utils;
 
 import static org.junit.Assert.assertTrue;
 
+import java.net.InetSocketAddress;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import org.jboss.netty.util.internal.ConcurrentHashMap;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.contrib.java.lang.system.ExpectedSystemExit;
 
 import com.google.common.collect.ImmutableSet;
-import com.twitter.thrift.Endpoint;
-import com.twitter.thrift.ServiceInstance;
-import com.twitter.thrift.Status;
 
 public class TestLogConfigs {
 
@@ -43,18 +41,18 @@ public class TestLogConfigs {
     kafkaServerSets.put("/xyz", new HashSet<>(Arrays.asList("one:9092", "two:9092", "three:9092")));
     BrokerSetChangeListener listener = new BrokerSetChangeListener("/xyz", kafkaServerSets, 100);
     listener.onChange(
-        ImmutableSet.of(new ServiceInstance(new Endpoint("one", 9092), null, Status.ALIVE),
-            new ServiceInstance(new Endpoint("two", 9092), null, Status.ALIVE),
-            new ServiceInstance(new Endpoint("three", 9092), null, Status.ALIVE)));
+        ImmutableSet.of(new InetSocketAddress("one", 9092),
+            new InetSocketAddress("two", 9092),
+            new InetSocketAddress("three", 9092)));
     assertTrue(true);
     listener.onChange(
-        ImmutableSet.of(new ServiceInstance(new Endpoint("one", 9092), null, Status.ALIVE),
-            new ServiceInstance(new Endpoint("two", 9092), null, Status.ALIVE)));
+        ImmutableSet.of(new InetSocketAddress("one", 9092),
+            new InetSocketAddress("two", 9092)));
     assertTrue(true);
     exit.expectSystemExitWithStatus(0);
     listener.onChange(
-        ImmutableSet.of(new ServiceInstance(new Endpoint("one", 9092), null, Status.ALIVE),
-            new ServiceInstance(new Endpoint("four", 9092), null, Status.ALIVE)));
+        ImmutableSet.of(new InetSocketAddress("one", 9092),
+            new InetSocketAddress("four", 9092)));
   }
 
 }

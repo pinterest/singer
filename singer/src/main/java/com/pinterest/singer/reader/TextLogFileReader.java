@@ -39,7 +39,6 @@ import java.util.regex.Pattern;
 public class TextLogFileReader implements LogFileReader {
 
   private static final Logger LOG = LoggerFactory.getLogger(TextLogFileReader.class);
-  private static final String HOSTNAME = SingerUtils.getHostname();
 
   protected boolean closed;
   private final LogFile logFile;
@@ -55,6 +54,8 @@ public class TextLogFileReader implements LogFileReader {
   // The text log message format, can be TextMessage, or String;
   private final TextLogMessageType textLogMessageType;
 
+  private String hostname;
+
   public TextLogFileReader(
       LogFile logFile,
       String path,
@@ -66,10 +67,12 @@ public class TextLogFileReader implements LogFileReader {
       TextLogMessageType messageType,
       boolean prependTimestamp,
       boolean prependHostName,
+      String hostname,
       String prependFieldDelimiter) throws Exception {
     Preconditions.checkArgument(!Strings.isNullOrEmpty(path));
     Preconditions.checkArgument(byteOffset >= 0);
 
+    this.hostname = hostname;
     this.logFile = Preconditions.checkNotNull(logFile);
     this.path = path;
     this.numMessagesPerLogMessage = numMessagesPerLogMessage;
@@ -118,7 +121,7 @@ public class TextLogFileReader implements LogFileReader {
           prependStr += System.currentTimeMillis() + prependFieldDelimiter;
         }
         if (prependHostname) {
-          prependStr += HOSTNAME + prependFieldDelimiter;
+          prependStr += hostname + prependFieldDelimiter;
         }
         if (prependStr.length() > 0) {
           maxBuffer.put(prependStr.getBytes());
@@ -142,7 +145,7 @@ public class TextLogFileReader implements LogFileReader {
       case THRIFT_TEXT_MESSAGE:
         TextMessage textMessage = new TextMessage();
         textMessage.setFilename(path);
-        textMessage.setHost(HOSTNAME);
+        textMessage.setHost(hostname);
         textMessage.addToMessages(TextMessageReader.bufToString(out));
         logMessage = new LogMessage(ByteBuffer.wrap(serializer.serialize(textMessage)));
         break;

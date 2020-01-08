@@ -18,15 +18,8 @@ package com.pinterest.singer.config;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
-import com.twitter.common.base.Command;
 import com.twitter.common.base.MorePreconditions;
-import com.twitter.common.zookeeper.Group;
-import com.twitter.common.zookeeper.ServerSet;
-import com.twitter.thrift.Endpoint;
-import com.twitter.thrift.ServiceInstance;
-import com.twitter.thrift.Status;
 import com.twitter.util.ExceptionalFunction;
-import org.apache.commons.lang.StringUtils;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
@@ -35,8 +28,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
-import java.util.Collections;
-import java.util.Map;
 
 /**
  * Implementation of the ServerSet interface that uses a file on local disk instead of talking to ZooKeeper directly.
@@ -47,7 +38,7 @@ import java.util.Map;
  * Note that this implementation only supports monitor() and not join(). Use the standard ZooKeeper implementation for
  * join().
  */
-public class ConfigFileServerSet implements ServerSet {
+public class ConfigFileServerSet {
 
   // made public for unit testing only
   public static String SERVERSET_DIR = "/var/serverset";
@@ -83,35 +74,7 @@ public class ConfigFileServerSet implements ServerSet {
     }
   }
 
-  @Override
-  public EndpointStatus join(
-      InetSocketAddress endpoint, Map<String, InetSocketAddress> additionalEndpoints, Status status)
-      throws Group.JoinException, InterruptedException {
-    throw new UnsupportedOperationException("ConfigFileServerSet does not support join()");
-  }
-
-  @Override
-  public EndpointStatus join(
-      InetSocketAddress endpoint, Map<String, InetSocketAddress> additionalEndpoints)
-      throws Group.JoinException, InterruptedException {
-    throw new UnsupportedOperationException("ConfigFileServerSet does not support join()");
-  }
-
-  @Override
-  public EndpointStatus join(
-      InetSocketAddress endpoint, Map<String, InetSocketAddress> additionalEndpoints, int shardId)
-      throws Group.JoinException, InterruptedException {
-    throw new UnsupportedOperationException("ConfigFileServerSet does not support join()");
-  }
-
-  @Override
-  public Command watch(final HostChangeMonitor<ServiceInstance> monitor) throws MonitorException {
-    monitor(monitor);
-    return null;
-  }
-
-  @Override
-  public void monitor(final HostChangeMonitor<ServiceInstance> monitor) throws MonitorException {
+  public void monitor(final ServersetMonitor monitor) throws Exception {
     Preconditions.checkNotNull(monitor);
     try {
       // Each call to monitor registers a new file watch. This is a bit inefficient if there
@@ -122,18 +85,18 @@ public class ConfigFileServerSet implements ServerSet {
           new ExceptionalFunction<byte[], Void>() {
             @Override
             public Void applyE(byte[] newContents) throws Exception {
-              ImmutableSet<ServiceInstance> newServerSet = readServerSet(newContents);
+              ImmutableSet<InetSocketAddress> newServerSet = readServerSet(newContents);
               monitor.onChange(newServerSet);
               return null;
             }
           });
     } catch (IOException e) {
-      throw new MonitorException(
+      throw new Exception(
           "Error setting up watch on dynamic server set file:" + serverSetFilePath, e);
     }
   }
 
-  protected Endpoint getEndPointFromServerSetLine(String line) {
+  protected InetSocketAddress getEndPointFromServerSetLine(String line) {
     // We expect each line to be of the form "hostname:port". Note that host names can
     // contain ':' themselves (e.g. ipv6 addresses).
     int index = line.lastIndexOf(':');
@@ -141,11 +104,11 @@ public class ConfigFileServerSet implements ServerSet {
 
     String host = line.substring(0, index);
     int port = Integer.parseInt(line.substring(index + 1));
-    return new Endpoint(host, port);
+    return new InetSocketAddress(host, port);
   }
 
-  public ImmutableSet<ServiceInstance> readServerSet(byte[] fileContent) throws IOException {
-    ImmutableSet.Builder<ServiceInstance> builder = new ImmutableSet.Builder<>();
+  public ImmutableSet<InetSocketAddress> readServerSet(byte[] fileContent) throws IOException {
+    ImmutableSet.Builder<InetSocketAddress> builder = new ImmutableSet.Builder<>();
     InputStream stream = new ByteArrayInputStream(fileContent);
     BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
     while (true) {
@@ -158,12 +121,9 @@ public class ConfigFileServerSet implements ServerSet {
         continue;
       }
 
-      Endpoint endpoint = getEndPointFromServerSetLine(line);
+      InetSocketAddress endpoint = getEndPointFromServerSetLine(line);
       if (endpoint != null) {
-        builder.add(new ServiceInstance(
-            endpoint,                            // endpoint
-            Collections.<String, Endpoint>emptyMap(),           // additional endpoints
-            Status.ALIVE));                      // status
+        builder.add(endpoint);
       }
     }
     return builder.build();
