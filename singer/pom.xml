@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.pinterest.singer</groupId>
         <artifactId>singer-package</artifactId>
-        <version>0.8.0-rc.5</version>
+        <version>0.8.0-rc.6</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <licenses>
@@ -26,6 +26,10 @@
         <developer>
             <id>ambud</id>
             <name>Ambud Sharma</name>
+        </developer>
+        <developer>
+            <id>zzhhhzz</id>
+            <name>Heng Zhang</name>
         </developer>
     </developers>
     <scm>
@@ -63,38 +67,6 @@
             <version>0.0.116</version>
         </dependency>
         <!-- https://mvnrepository.com/artifact/com.twitter.common/dynamic-host-set -->
-        <dependency>
-            <groupId>com.twitter.common</groupId>
-            <artifactId>dynamic-host-set</artifactId>
-            <version>0.0.56</version>
-        </dependency>
-        <!-- https://mvnrepository.com/artifact/com.twitter.common/service-thrift -->
-        <dependency>
-            <groupId>com.twitter.common</groupId>
-            <artifactId>service-thrift</artifactId>
-            <version>1.0.55</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.apache.thrift</groupId>
-                    <artifactId>libthrift</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>com.twitter</groupId>
-            <artifactId>finagle-core_2.11</artifactId>
-            <version>6.25.0</version>
-        </dependency>
-        <dependency>
-            <groupId>com.twitter</groupId>
-            <artifactId>finagle-serversets_2.11</artifactId>
-            <version>6.25.0</version>
-        </dependency>
-        <dependency>
-            <groupId>com.twitter</groupId>
-            <artifactId>util-core_2.11</artifactId>
-            <version>6.25.0</version>
-        </dependency>
         <dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>kafka_2.11</artifactId>

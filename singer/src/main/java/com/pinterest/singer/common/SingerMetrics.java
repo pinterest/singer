@@ -75,6 +75,7 @@ public class SingerMetrics {
   public static final String KAFKA_LATENCY = SINGER_WRITER + "max_kafka_batch_write_latency";
   public static final String NUM_COMMITED_TRANSACTIONS = SINGER_WRITER + "num_committed_transactions";
   public static final String NUM_ABORTED_TRANSACTIONS = SINGER_WRITER + "num_aborted_transactions";
+  public static final String NUM_KAFKA_PRODUCERS = SINGER_WRITER + "num_kafka_producers";
 
   public static final String KUBE_PREFIX           = SINGER_PREIX + "kube.";
   public static final String KUBE_API_ERROR        = KUBE_PREFIX  + "api_error";

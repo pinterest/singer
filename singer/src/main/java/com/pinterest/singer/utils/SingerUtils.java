@@ -15,6 +15,7 @@
  */
 package com.pinterest.singer.utils;
 
+import com.pinterest.singer.common.LogStream;
 import com.pinterest.singer.common.SingerSettings;
 import com.pinterest.singer.config.DirectorySingerConfigurator;
 import com.pinterest.singer.config.PropertyFileSingerConfigurator;
@@ -22,12 +23,13 @@ import com.pinterest.singer.config.SingerConfigurator;
 import com.pinterest.singer.thrift.configuration.SingerConfig;
 
 import com.pinterest.singer.config.SingerDirectoryWatcher;
-
+import com.pinterest.singer.monitor.LogStreamManager;
 import com.google.common.base.Preconditions;
 import java.nio.file.StandardWatchEventKinds;
 import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
+import java.util.Arrays;
 import java.util.Comparator;
 import org.apache.commons.configuration.ConfigurationException;
 import org.apache.commons.io.comparator.LastModifiedFileComparator;
@@ -108,11 +110,7 @@ public class SingerUtils {
   }
   
   public static void printStackTrace() {
-	  StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
-	  for(StackTraceElement e:stackTraceElements) {
-		  System.out.println(e.getClassName()+"."+e.getMethodName()+":"+e.getLineNumber());
-	  }
-	  System.out.println();
+	  LOG.warn(Arrays.toString(Thread.currentThread().getStackTrace()));
   }
 
   /**
@@ -300,4 +298,16 @@ public class SingerUtils {
           throw new IOException(e);
       }
   }
+
+  public static String getHostNameBasedOnConfig(LogStream logStream,
+                                                     SingerConfig singerConfig) {
+    if (singerConfig.isKubernetesEnabled()) {
+      if (logStream.getSingerLog().getPodUid() !=null 
+          && logStream.getSingerLog().getPodUid() != LogStreamManager.NON_KUBERNETES_POD_ID) {
+        return logStream.getSingerLog().getPodUid();
+      }
+    }
+    return SingerUtils.getHostname();
+  }
+  
 }

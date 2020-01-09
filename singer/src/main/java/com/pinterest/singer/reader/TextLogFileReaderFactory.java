@@ -16,6 +16,7 @@
 package com.pinterest.singer.reader;
 
 import com.pinterest.singer.common.LogStream;
+import com.pinterest.singer.common.SingerSettings;
 import com.pinterest.singer.thrift.LogFile;
 import com.pinterest.singer.thrift.configuration.TextReaderConfig;
 import com.pinterest.singer.utils.LogFileUtils;
@@ -40,9 +41,9 @@ public class TextLogFileReaderFactory implements LogFileReaderFactory {
     this.readerConfig = Preconditions.checkNotNull(readerConfig);
   }
 
+  @SuppressWarnings("resource")
   public LogFileReader getLogFileReader(
       LogStream logStream, LogFile logFile, String path, long byteOffset) throws Exception {
-
     LogFileReader reader;
     try {
       long inode = SingerUtils.getFileInode(FileSystems.getDefault().getPath(path));
@@ -60,6 +61,7 @@ public class TextLogFileReaderFactory implements LogFileReaderFactory {
           readerConfig.getTextLogMessageType(),
           readerConfig.isPrependTimestamp(),
           readerConfig.isPrependHostname(),
+          SingerUtils.getHostNameBasedOnConfig(logStream, SingerSettings.getSingerConfig()),
           readerConfig.getPrependFieldDelimiter());
     } catch (LogFileReaderException e) {
       LOG.warn("Exception in getLogFileReader", e);

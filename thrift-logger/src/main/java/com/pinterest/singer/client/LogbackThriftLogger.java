@@ -39,7 +39,7 @@ public class LogbackThriftLogger extends BaseThriftLogger {
   protected static final String THRIFT_LOGGER_ERROR_LOGBACKEXCEPTION
       = "thrift_logger.error.logbackexception";
 
-  protected static String HOST_NAME;
+  protected static String HOST_NAME = "n/a";
 
   static {
     try {
