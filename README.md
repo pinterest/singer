@@ -1,3 +1,4 @@
+Hello
 # <img src="docs/icons/icon-singer-sk-small.png" alt="Singer logo" width="22" align="bottom"> &nbsp; Singer
 
 ## High-performance, reliable and extensible logging agent
