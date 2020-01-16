@@ -3,6 +3,8 @@
 namespace py schemas.singer
 namespace java com.pinterest.singer.thrift
 
+include "loggingaudit.thrift"
+
 /**
  * Log message that applications pass to logger.
  **/
@@ -15,6 +17,7 @@ struct LogMessage {
   3: optional i64 timestampInNanos;
   // The CRC-32 checksum for the message
   4: optional i64 checksum;
+  5: optional loggingaudit.LoggingAuditHeaders loggingAuditHeaders;
 }
 
 

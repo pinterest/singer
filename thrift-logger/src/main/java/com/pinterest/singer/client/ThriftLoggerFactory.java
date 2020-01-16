@@ -15,6 +15,7 @@
  */
 package com.pinterest.singer.client;
 
+import com.pinterest.singer.client.logback.AuditableLogbackThriftLoggerFactory;
 import com.pinterest.singer.client.logback.LogbackThriftLoggerFactory;
 
 import org.slf4j.Logger;
@@ -56,19 +57,23 @@ public class ThriftLoggerFactory {
   }
 
   /**
-   * Create a default implementation of the ThriftLoggerFactory.
-   * Right now we only support the logback-based thrift logger.
-   * Call this at the start of your server to initialize the thrift logging layer.
+   * Refactoring: Let initialize() method create AuditableLogbackThriftLoggerFactory by default.
+   * AuditableLogbackThriftLoggerFactory will create AuditableLogbackThriftLogger if audit
+   * configurations are used, otherwise it will create LogbackThriftLogger. Call this at the start
+   * of your server to initialize the thrift logging layer.
    */
-  @Deprecated
-  public static synchronized void initialize(
-      File outputDirectory, int rotateThresholdKilobytes) {
+  public static synchronized void initialize(File outputDirectory, int rotateThresholdKilobytes) {
     if (THRIFT_LOGGER_FACTORY_INSTANCE != null) {
-      throw new IllegalStateException("Cannot initialize ThriftLoggerFactory more than once.");
+      LOGGER.info("Already initialized factory instance. Not initializing another instance.");
+      return;
     }
-    LOGGER.info(LOGGER_MSG_OUT_DIR + outputDirectory);
-    THRIFT_LOGGER_FACTORY_INSTANCE =
-        new LogbackThriftLoggerFactory(outputDirectory, rotateThresholdKilobytes);
+
+    if (outputDirectory == null) {
+       THRIFT_LOGGER_FACTORY_INSTANCE = new AuditableLogbackThriftLoggerFactory();
+    } else {
+      THRIFT_LOGGER_FACTORY_INSTANCE = new AuditableLogbackThriftLoggerFactory(outputDirectory,
+          rotateThresholdKilobytes);
+    }
     LOGGER.info(SUCCESSFUL_INITIALIZATION_MSG + THRIFT_LOGGER_FACTORY_INSTANCE);
 
     // Add a hook to shutdown loggers on program exit.
@@ -80,26 +85,8 @@ public class ThriftLoggerFactory {
     });
   }
 
-  /**
-   * Create a default implementation of the ThriftLoggerFactory.
-   * Right now we only support the logback-based thrift logger.
-   * Call this at the start of your server to initialize the thrift logging layer.
-   */
   public static synchronized void initialize() {
-    if (THRIFT_LOGGER_FACTORY_INSTANCE != null) {
-      LOGGER.info("Already initialized factory instance. Not initializing another instance.");
-      return;
-    }
-    THRIFT_LOGGER_FACTORY_INSTANCE = new LogbackThriftLoggerFactory();
-    LOGGER.info(SUCCESSFUL_INITIALIZATION_MSG + THRIFT_LOGGER_FACTORY_INSTANCE);
-
-    // Add a hook to shutdown loggers on program exit.
-    Runtime.getRuntime().addShutdownHook(new Thread() {
-      @Override
-      public void run() {
-        THRIFT_LOGGER_FACTORY_INSTANCE.shutdown();
-      }
-    });
+    initialize(null, -1);
   }
 
   /**
@@ -153,5 +140,9 @@ public class ThriftLoggerFactory {
       throw new IllegalStateException("ThriftLoggerFactory.initialize() not called.");
     }
     return THRIFT_LOGGER_FACTORY_INSTANCE.getLogger(thriftLoggerConfig);
+  }
+
+  public static ThriftLoggerFactoryInterface getThriftLoggerFactoryInstance() {
+    return THRIFT_LOGGER_FACTORY_INSTANCE;
   }
 }

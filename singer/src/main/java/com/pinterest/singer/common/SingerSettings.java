@@ -21,10 +21,12 @@ import com.pinterest.singer.environment.Environment;
 import com.pinterest.singer.environment.EnvironmentProvider;
 import com.pinterest.singer.heartbeat.HeartbeatGenerator;
 import com.pinterest.singer.kubernetes.KubeService;
+import com.pinterest.singer.loggingaudit.client.LoggingAuditClient;
 import com.pinterest.singer.monitor.FileSystemMonitor;
 import com.pinterest.singer.monitor.LogStreamManager;
 import com.pinterest.singer.thrift.configuration.SingerConfig;
 import com.pinterest.singer.thrift.configuration.SingerLogConfig;
+
 import com.twitter.ostrich.stats.Stats;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -93,6 +95,10 @@ public final class SingerSettings {
   //environment is production by default
   private static Environment environment = new Environment();
 
+  // loggingAuditClient is used to send LoggingAuditEvent if LoggingAudit feature is enabled and
+  // a TopicAuditConfig is set for a given logStream.
+  private static LoggingAuditClient loggingAuditClient = null;
+
   private SingerSettings() {
   }
 
@@ -107,6 +113,8 @@ public final class SingerSettings {
 
     loadAndSetSingerEnvironmentIfConfigured(config);
     LOG.warn("Singer environment has been configured to:" + environment);
+
+    loadAndSetLoggingAuditClientIfEnabled(config);
     
     SingerSettings.logProcessorExecutor = Executors.newScheduledThreadPool(
         singerConfig.getThreadPoolSize(),
@@ -146,6 +154,11 @@ public final class SingerSettings {
           LOG.debug("Initialized writer thread pool with {} as cluster signature.", clusterSig);
 
           logWritingExecutors.put(clusterSig, threadPool);
+        }
+
+        if (loggingAuditClient != null && logConfig.isEnableLoggingAudit() &&
+            logConfig.getAuditConfig() != null){
+          loggingAuditClient.addAuditConfig(logConfig.getName(), logConfig.getAuditConfig());
         }
       }
     }
@@ -194,6 +207,18 @@ public final class SingerSettings {
 
     globalFsm.start();
   }
+
+  protected static void loadAndSetLoggingAuditClientIfEnabled(SingerConfig config) {
+    if (config.isLoggingAuditEnabled() && config.getLoggingAuditClientConfig() != null) {
+      try {
+        loggingAuditClient = new LoggingAuditClient(config.getLoggingAuditClientConfig());
+        LOG.info("LoggingAudit client has been created.");
+      } catch (Exception e) {
+        LOG.error("Failed to create LoggingAuditClient.", e);
+      }
+    }
+  }
+
 
   public static Method getLogMonitorStaticInstanceMethod(String monitorClassName) throws ClassNotFoundException,
                                                            NoSuchMethodException {
@@ -318,5 +343,13 @@ public final class SingerSettings {
   @VisibleForTesting
   public static void setEnvironment(Environment environment) {
     SingerSettings.environment = environment;
+  }
+
+  public static LoggingAuditClient getLoggingAuditClient() {
+    return loggingAuditClient;
+  }
+
+  public static void setLoggingAuditClient(LoggingAuditClient loggingAuditClient) {
+    SingerSettings.loggingAuditClient = loggingAuditClient;
   }
 }

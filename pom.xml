@@ -6,7 +6,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.pinterest.singer</groupId>
     <artifactId>singer-package</artifactId>
-    <version>0.7.3.32</version>
+    <version>0.8.0</version>
     <packaging>pom</packaging>
     <description>Singer Logging Agent modules</description>
     <inceptionYear>2013</inceptionYear>
@@ -37,6 +37,10 @@
             <id>ambud</id>
             <name>Ambud Sharma</name>
         </developer>
+        <developer>
+            <id>zzhhhzz</id>
+            <name>Heng Zhang</name>
+        </developer>
     </developers>
     <scm>
         <connection>https://github.com/pinterest/singer.git</connection>
@@ -47,6 +51,7 @@
     <modules>
         <module>singer</module>
         <module>thrift-logger</module>
+        <module>singer-commons</module>
     </modules>
 
     <repositories>

@@ -16,8 +16,6 @@
 package com.pinterest.singer.client;
 
 import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
-import com.pinterest.singer.client.ThriftCodec;
-import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
 import com.pinterest.singer.thrift.LogMessage;
 
 import ch.qos.logback.core.Appender;
@@ -36,13 +34,12 @@ import java.net.InetAddress;
  */
 public class LogbackThriftLogger extends BaseThriftLogger {
 
-  private static final String THRIFT_LOGGER_COUNT_METRIC = "thrift_logger.count";
-  private static final String THRIFT_LOGGER_ERROR_TEXCEPTION = "thrift_logger.error.texception";
-  private static final String THRIFT_LOGGER_ERROR_LOGBACKEXCEPTION
+  protected static final String THRIFT_LOGGER_COUNT_METRIC = "thrift_logger.count";
+  protected static final String THRIFT_LOGGER_ERROR_TEXCEPTION = "thrift_logger.error.texception";
+  protected static final String THRIFT_LOGGER_ERROR_LOGBACKEXCEPTION
       = "thrift_logger.error.logbackexception";
 
-  private static String HOST_NAME;
-
+  protected static String HOST_NAME = "n/a";
   static {
     try {
       String hostName = InetAddress.getLocalHost().getHostName();
@@ -56,8 +53,8 @@ public class LogbackThriftLogger extends BaseThriftLogger {
     }
   }
 
-  private final Appender<LogMessage> appender;
-  private final String topic;
+  protected final Appender<LogMessage> appender;
+  protected final String topic;
 
   @Deprecated
   public LogbackThriftLogger(Appender<LogMessage> appender) {
@@ -70,13 +67,13 @@ public class LogbackThriftLogger extends BaseThriftLogger {
     this.appender = appender;
   }
 
-  @Override
-  public void append(byte[] partitionKey, byte[] message, long timeNanos) {
+  /**
+   * This method is also called in AuditableLogackThriftLogger to minimize boilerplate code.
+   * @param logMessage  logMessage
+   * @param partitionKey partition key
+   */
+  protected void append(LogMessage logMessage, byte[] partitionKey) {
     try {
-      LogMessage logMessage = new LogMessage()
-          .setTimestampInNanos(timeNanos)
-          .setMessage(message);
-
       if (partitionKey != null) {
         logMessage.setKey(partitionKey);
       }
@@ -88,6 +85,12 @@ public class LogbackThriftLogger extends BaseThriftLogger {
           THRIFT_LOGGER_ERROR_LOGBACKEXCEPTION, "topic=" + topic, "host=" + HOST_NAME);
       throw e;
     }
+  }
+
+  @Override
+  public void append(byte[] partitionKey, byte[] message, long timeNanos) {
+      LogMessage logMessage = new LogMessage().setTimestampInNanos(timeNanos).setMessage(message);
+      append(logMessage, partitionKey);
   }
 
   @Override

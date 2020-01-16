@@ -101,5 +101,12 @@ public class SingerMetrics {
   public static final String MISSING_LOCAL_PARTITIONS = "singer.locality.missing_local_partitions";
   public static final String MISSING_DIR_CHECKER_INTERRUPTED = "singer.missing_dir_checker.thread_interrupted";
   public static final String NUMBER_OF_MISSING_DIRS = "singer.missing_dir_checker.num_of_missing_dirs";
-  
+  public static final String NUMBER_OF_SERIALIZING_HEADERS_ERRORS = "singer.headers_injector.num_of_serializing_headers_errors";
+  public static final String AUDIT_HEADERS_INJECTED = "singer.audit.num_of_headers_injected";
+  public static final String AUDIT_HEADERS_METADATA_COUNT_MISMATCH = "singer.audit.headers_metadata_count_mismatch";
+  public static final String AUDIT_HEADERS_METADATA_COUNT_MATCH = "singer.audit.headers_metadata_count_match";
+
+  // Used when logging audit is enabled and is started at Singer instead of ThriftLogger.
+  public static final String AUDIT_HEADERS_SET_FOR_LOG_MESSAGE = "singer.audit.log_message_headers_set";
+  public static final String AUDIT_HEADERS_SET_FOR_LOG_MESSAGE_EXCEPTION = "singer.audit.log_message_headers_set.exception";
 }
