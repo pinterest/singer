@@ -288,6 +288,7 @@ public class AuditEventKafkaSender implements LoggingAuditEventSender {
       Integer count = eventTriedCount.get(event.getLoggingAuditHeaders());
       if (count == null){
         eventTriedCount.put(event.getLoggingAuditHeaders(), 1);
+        insertEvent(event);
         OpenTsdbMetricConverter
             .gauge(LoggingAuditClientMetrics.AUDIT_CLIENT_SENDER_KAFKA_EVENTS_RETRIED,
                 eventTriedCount.size(), "host=" + host, "stage=" + stage.toString(),
@@ -301,19 +302,23 @@ public class AuditEventKafkaSender implements LoggingAuditEventSender {
           eventTriedCount.remove(event.getLoggingAuditHeaders());
       } else {
           eventTriedCount.put(event.getLoggingAuditHeaders(), count + 1);
-          try {
-            boolean success = queue.offerFirst(event, 3, TimeUnit.SECONDS);
-            if (!success) {
-              LOG.debug("Failed to enqueue LoggingAuditEvent at head of the queue when executing "
-                      + "producer send callback. Drop this event.");
-              eventTriedCount.remove(event.getLoggingAuditHeaders());
-            }
-          } catch (InterruptedException ex) {
-            LOG.debug(
-                "Enqueuing LoggingAuditEvent at head of the queue was interrupted in callback. "
-                    + "Drop this event");
-            eventTriedCount.remove(event.getLoggingAuditHeaders());
-          }
+          insertEvent(event);
+      }
+    }
+
+    public void insertEvent(LoggingAuditEvent event){
+      try {
+        boolean success = queue.offerFirst(event, 3, TimeUnit.SECONDS);
+        if (!success) {
+          LOG.debug("Failed to enqueue LoggingAuditEvent at head of the queue when executing "
+              + "producer send callback. Drop this event.");
+          eventTriedCount.remove(event.getLoggingAuditHeaders());
+        }
+      } catch (InterruptedException ex) {
+        LOG.debug(
+            "Enqueuing LoggingAuditEvent at head of the queue was interrupted in callback. "
+                + "Drop this event");
+        eventTriedCount.remove(event.getLoggingAuditHeaders());
       }
     }
 
