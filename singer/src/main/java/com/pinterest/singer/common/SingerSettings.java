@@ -26,7 +26,7 @@ import com.pinterest.singer.monitor.FileSystemMonitor;
 import com.pinterest.singer.monitor.LogStreamManager;
 import com.pinterest.singer.thrift.configuration.SingerConfig;
 import com.pinterest.singer.thrift.configuration.SingerLogConfig;
-
+import com.pinterest.singer.writer.KafkaProducerMetricsMonitor;
 import com.twitter.ostrich.stats.Stats;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -98,6 +98,8 @@ public final class SingerSettings {
   // loggingAuditClient is used to send LoggingAuditEvent if LoggingAudit feature is enabled and
   // a TopicAuditConfig is set for a given logStream.
   private static LoggingAuditClient loggingAuditClient = null;
+  
+  private static Thread kafkaProducerMonitorThread;
 
   private SingerSettings() {
   }
@@ -155,6 +157,10 @@ public final class SingerSettings {
 
           logWritingExecutors.put(clusterSig, threadPool);
         }
+        
+        kafkaProducerMonitorThread = new Thread(new KafkaProducerMetricsMonitor());
+        kafkaProducerMonitorThread.setDaemon(true);
+        kafkaProducerMonitorThread.start();
 
         if (loggingAuditClient != null && logConfig.isEnableLoggingAudit() &&
             logConfig.getAuditConfig() != null){
@@ -351,5 +357,9 @@ public final class SingerSettings {
 
   public static void setLoggingAuditClient(LoggingAuditClient loggingAuditClient) {
     SingerSettings.loggingAuditClient = loggingAuditClient;
+  }
+  
+  public static Thread getKafkaProducerMonitorThread() {
+    return kafkaProducerMonitorThread;
   }
 }

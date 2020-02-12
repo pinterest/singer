@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.pinterest.singer</groupId>
         <artifactId>singer-package</artifactId>
-        <version>0.8.0.1</version>
+        <version>0.8.0.2</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <licenses>
@@ -189,6 +189,12 @@
             <artifactId>aws-java-sdk-s3</artifactId>
             <version>1.11.35</version>
         </dependency>
+        <dependency>
+		    <groupId>com.salesforce.kafka.test</groupId>
+		    <artifactId>kafka-junit4</artifactId>
+		    <version>3.2.0</version>
+		    <scope>test</scope>
+		</dependency>
     </dependencies>
     <build>
         <resources>
