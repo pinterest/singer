@@ -119,7 +119,7 @@ import java.util.Arrays;
 public class LogConfigUtils {
 
   private static final Logger LOG = LoggerFactory.getLogger(LogConfigUtils.class);
-  private static final String DEFAULT_SERVERSET_DIR = "/var/serverset";
+  public static final String DEFAULT_SERVERSET_DIR = "/var/serverset";
   private static final String DEFAULT_ACKS = "1";
   private static final String ACKS_ALL = "all";
   private static final long MaximumProcessingTimeSliceInMilliseconds = 864000000L;

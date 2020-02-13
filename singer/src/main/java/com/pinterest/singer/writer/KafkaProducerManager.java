@@ -24,6 +24,7 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -124,5 +125,9 @@ public class KafkaProducerManager {
         LOG.error("Shutdown failure : ", e);
       }
     }
+  }
+  
+  public Map<KafkaProducerConfig, KafkaProducer<byte[], byte[]>> getProducers() {
+    return producers;
   }
 }
