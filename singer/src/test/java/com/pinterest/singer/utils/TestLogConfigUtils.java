@@ -213,4 +213,19 @@ public class TestLogConfigUtils {
       throw e;
     }
   }
+  
+  @Test
+  public void testProducerBufferMemory() throws ConfigurationException {
+    Map<String, Object> map = new HashMap<>();
+    map.put("bootstrap.servers", "localhost:9092");
+    map.put("buffer.memory", "2048");
+    AbstractConfiguration config = new MapConfiguration(map);
+    try {
+      KafkaProducerConfig producerConfig = LogConfigUtils.parseProducerConfig(config);
+      assertEquals(2048, producerConfig.getBufferMemory());
+    } catch (ConfigurationException e) {
+      // fail since no exception should be thrown
+      throw e;
+    }
+  }
 }

@@ -48,6 +48,7 @@ public class SingerConfigDef {
   public static final String KAFKA_WRITE_TIMEOUT_IN_SECONDS = "writeTimeoutInSeconds";
   public static final String LOG_RETENTION_SECONDS = "logRetentionInSeconds";
 
+  public static final String PRODUCER_BUFFER_MEMORY = ProducerConfig.BUFFER_MEMORY_CONFIG;
   public static final String BOOTSTRAP_SERVERS = "bootstrap.servers";
   public static final String BOOTSTRAP_SERVERS_FILE = "bootstrap.servers.file";
   @Deprecated

@@ -780,6 +780,10 @@ public class LogConfigUtils {
       int retries = producerConfiguration.getInt(SingerConfigDef.RETRIES_CONFIG);
       kafkaProducerConfig.setRetries(retries);
     }
+    if (producerConfiguration.containsKey(SingerConfigDef.PRODUCER_BUFFER_MEMORY)) {
+      int bufferMemory = producerConfiguration.getInt(SingerConfigDef.PRODUCER_BUFFER_MEMORY);
+      kafkaProducerConfig.setBufferMemory(bufferMemory);
+    }
     return kafkaProducerConfig;
   }
 
