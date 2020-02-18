@@ -47,8 +47,9 @@ import scala.collection.Seq;
 public class KafkaUtils {
 
   private static final String DEFAULT_NAME_PREFIX = "singer_";
+  public static final int DEFAULT_PRODUCER_BUFFER_MEMORY = 1024;
 
-  private static Map<String, ZkUtils> zkUtilsMap = new HashMap();
+  private static Map<String, ZkUtils> zkUtilsMap = new HashMap<>();
 
   public static KafkaProducer<byte[], byte[]> createKafkaProducer(KafkaProducerConfig config){
     return createKafkaProducer(config, DEFAULT_NAME_PREFIX);
@@ -62,6 +63,11 @@ public class KafkaUtils {
     properties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList);
     properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, config.getKeySerializerClass());
     properties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, config.getValueSerializerClass());
+    if (config.getBufferMemory() >= DEFAULT_PRODUCER_BUFFER_MEMORY) {
+      // make sure that there is at least some reasonable amount of memory buffer
+      // if that's not the case use Kafka producer default
+      properties.put(ProducerConfig.BUFFER_MEMORY_CONFIG, config.getBufferMemory());
+    }
 
     if (config.isTransactionEnabled()) {
       properties.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
