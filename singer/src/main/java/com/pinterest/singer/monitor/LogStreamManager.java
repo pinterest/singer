@@ -72,6 +72,7 @@ import com.twitter.ostrich.stats.Stats;
  */
 public class LogStreamManager implements PodWatcher {
 
+  private static final String POD_LOGNAME_SEPARATOR = "..";
   // use an empty string as non-kubernetes pod id for backward compatibility
   public static final String NON_KUBERNETES_POD_ID = "";
   private static final Logger LOG = LoggerFactory.getLogger(LogStreamManager.class);
@@ -635,7 +636,7 @@ public class LogStreamManager implements PodWatcher {
           // logstreams from two different pods were getting dropped
           // since the DefaultLogMonitor de-duplicates this using hashcode
           // which is dependent on LogStream name
-          clone.setName(podUid + ":" + clone.getName());
+          clone.setName(podUid + POD_LOGNAME_SEPARATOR + clone.getName());
           singerLog = new SingerLog(clone, podUid);
 
           if (!singerLogPaths.containsKey(logPathKey)) {
