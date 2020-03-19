@@ -15,44 +15,32 @@
  */
 package com.pinterest.singer.utils;
 
-import com.pinterest.singer.common.LogStream;
-import com.pinterest.singer.common.SingerSettings;
-import com.pinterest.singer.config.DirectorySingerConfigurator;
-import com.pinterest.singer.config.PropertyFileSingerConfigurator;
-import com.pinterest.singer.config.SingerConfigurator;
-import com.pinterest.singer.thrift.configuration.SingerConfig;
-
-import com.pinterest.singer.config.SingerDirectoryWatcher;
-import com.pinterest.singer.monitor.LogStreamManager;
-import com.google.common.base.Preconditions;
-import java.nio.file.StandardWatchEventKinds;
-import java.nio.file.WatchEvent;
-import java.nio.file.WatchKey;
-import java.nio.file.WatchService;
-import java.util.Arrays;
-import java.util.Comparator;
-import org.apache.commons.configuration.ConfigurationException;
-import org.apache.commons.io.comparator.LastModifiedFileComparator;
-import org.apache.commons.io.comparator.NameFileComparator;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.MalformedURLException;
+import java.nio.ByteBuffer;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardWatchEventKinds;
+import java.nio.file.WatchEvent;
+import java.nio.file.WatchKey;
+import java.nio.file.WatchService;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.net.MalformedURLException;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.Date;
 
+import org.apache.commons.configuration.ConfigurationException;
+import org.apache.commons.io.comparator.LastModifiedFileComparator;
+import org.apache.commons.io.comparator.NameFileComparator;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.config.RequestConfig;
@@ -63,6 +51,18 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.base.Preconditions;
+import com.pinterest.singer.common.LogStream;
+import com.pinterest.singer.common.SingerSettings;
+import com.pinterest.singer.config.DirectorySingerConfigurator;
+import com.pinterest.singer.config.PropertyFileSingerConfigurator;
+import com.pinterest.singer.config.SingerConfigurator;
+import com.pinterest.singer.config.SingerDirectoryWatcher;
+import com.pinterest.singer.monitor.LogStreamManager;
+import com.pinterest.singer.thrift.configuration.SingerConfig;
 
 /**
  * The utility methods for Singer
@@ -111,6 +111,18 @@ public class SingerUtils {
   
   public static void printStackTrace() {
 	  LOG.warn(Arrays.toString(Thread.currentThread().getStackTrace()));
+  }
+  
+  /**
+   * Convert a {@link ByteBuffer} to byte array.
+   * Reads all bytes from current position to the limit of the buffer into a byte array.
+   * @param buf
+   * @return
+   */
+  public static byte[] readFromByteBuffer(ByteBuffer buf) {
+    byte[] bytes = new byte[buf.limit()-buf.position()];
+    buf.get(bytes);
+    return bytes;
   }
 
   /**
@@ -308,6 +320,17 @@ public class SingerUtils {
       }
     }
     return SingerUtils.getHostname();
+  }
+
+  public static void deleteRecursively(File baseDir) {
+    if (baseDir!=null && baseDir.listFiles()!=null) {
+      for (File file : baseDir.listFiles()) {
+        if (file.isDirectory()) {
+          deleteRecursively(file);
+        }
+        file.delete();
+      }
+    }
   }
   
 }

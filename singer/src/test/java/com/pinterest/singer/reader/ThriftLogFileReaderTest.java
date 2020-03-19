@@ -32,6 +32,37 @@ import java.util.List;
 public class ThriftLogFileReaderTest extends SingerTestBase {
 
   @Test
+  public void testReadBadMessage() throws Exception {
+    String path = FilenameUtils.concat(getTempPath(), "thrift.log");
+
+    SimpleThriftLogger<LogMessage> logger = new SimpleThriftLogger<>(path);
+
+    try {
+      // Write messages to be skipped.
+      writeThriftLogMessages(logger, 200, 1, 50);
+      writeThriftLogMessages(logger, 3, 1, 4980);
+      writeThriftLogMessages(logger, 200, 1, 50);
+    } finally {
+      logger.close();
+    }
+
+    // Open reader which cap the log message at 500 bytes
+    LogFileReader reader = new ThriftLogFileReader(logger.getLogFile(), path, 0L, 16000, 500);
+    int count = 0;
+    for (int i = 0; i < 403; i++) {
+      try {
+        // Seek to start offset.
+        reader.readLogMessageAndPosition();
+        count++;
+      } catch (LogFileReaderException exception) {
+        // Ignore the exception.
+      }
+    }
+    assertEquals(403, count);
+    reader.close();
+  }
+
+  @Test
   public void testReadLogMessageAndPosition() throws Exception {
     String path = FilenameUtils.concat(getTempPath(), "thrift.log");
 
@@ -51,12 +82,12 @@ public class ThriftLogFileReaderTest extends SingerTestBase {
     }
 
     // Open reader which cap the log message at 500 bytes
-    LogFileReader reader = new ThriftLogFileReader(
-        logger.getLogFile(), path, 0L, 16000, 500);
+    LogFileReader reader = new ThriftLogFileReader(logger.getLogFile(), path, 0L, 16000, 500);
     try {
       // Seek to start offset.
       reader.setByteOffset(startOffset);
-      // Read one log message (500 message + 50 message key) which is bigger than the max message
+      // Read one log message (500 message + 50 message key) which is bigger than the
+      // max message
       // size.
       LogMessageAndPosition message = reader.readLogMessageAndPosition();
       fail("Should throw when thrift message is bigger than max message size");
@@ -67,8 +98,7 @@ public class ThriftLogFileReaderTest extends SingerTestBase {
     }
 
     // Open reader.
-    reader = new ThriftLogFileReader(
-        logger.getLogFile(), path, 0L, 16000, 16000);
+    reader = new ThriftLogFileReader(logger.getLogFile(), path, 0L, 16000, 16000);
     List<LogMessageAndPosition> messagesRead = Lists.newArrayListWithExpectedSize(3);
     try {
       // Seek to start offset.
