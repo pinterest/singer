@@ -1,12 +1,12 @@
 /**
  * Copyright 2019 Pinterest, Inc.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *    http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -18,6 +18,7 @@ package com.pinterest.singer.client;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -33,6 +34,16 @@ public abstract class BaseThriftLoggerFactory
 
   protected ConcurrentHashMap<String, ThriftLogger> loggersByTopic
       = new ConcurrentHashMap<String, ThriftLogger>();
+
+  private int sleepInSecBeforeCloseLoggers = -1;
+
+  public int getSleepInSecBeforeCloseLoggers() {
+    return sleepInSecBeforeCloseLoggers;
+  }
+
+  public void setSleepInSecBeforeCloseLoggers(int sleepInSecBeforeCloseLoggers) {
+    this.sleepInSecBeforeCloseLoggers = sleepInSecBeforeCloseLoggers;
+  }
 
   @Deprecated
   public ThriftLogger getLogger(String topic, int maxRetentionHours) {
@@ -93,8 +104,19 @@ public abstract class BaseThriftLoggerFactory
   protected abstract ThriftLogger createLogger(ThriftLoggerConfig thriftLoggerConfig);
 
   public synchronized void shutdown() {
-    for (ThriftLogger logger : loggersByTopic.values()) {
-      logger.close();
+    try {
+      if (sleepInSecBeforeCloseLoggers > 0) {
+        LOGGER.info("Before closing loggers, sleep {} seconds", sleepInSecBeforeCloseLoggers);
+        Thread.sleep(sleepInSecBeforeCloseLoggers * 1000);
+        LOGGER.info("After {} seconds, start to close loggers", sleepInSecBeforeCloseLoggers);
+      }
+    } catch (InterruptedException e) {
+      LOGGER.warn("Thread got interrupted", e);
+    } finally {
+      for (Map.Entry<String, ThriftLogger> entry : loggersByTopic.entrySet()) {
+        entry.getValue().close();
+        LOGGER.info("Logger for topic {} is closed.", entry.getKey());
+      }
     }
   }
 }

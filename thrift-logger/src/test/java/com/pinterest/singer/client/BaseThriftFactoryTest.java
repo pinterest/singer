@@ -17,6 +17,7 @@ package com.pinterest.singer.client;
 
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.apache.thrift.TBase;
 import org.apache.thrift.TException;
@@ -114,6 +115,7 @@ public class BaseThriftFactoryTest {
         new ThriftLoggerConfig(new File("/tmp/test2"), topic, retentionSecs, thresholdBytes));
 
     assertSame(logger1, logger2);
+    factory.shutdown();
   }
 
   @Test
@@ -129,6 +131,16 @@ public class BaseThriftFactoryTest {
         new ThriftLoggerConfig(new File("/tmp/test2"), topic + "2", retentionSecs, thresholdBytes));
 
     assertNotSame(logger1, logger2);
+    factory.shutdown();
+  }
+
+  @Test
+  public void testSleepInSecBeforeCloseLoggers(){
+    SampleFactory factory = new SampleFactory();
+    assertEquals(-1, factory.getSleepInSecBeforeCloseLoggers());
+    factory.setSleepInSecBeforeCloseLoggers(5);
+    assertEquals(5, factory.getSleepInSecBeforeCloseLoggers());
+    factory.shutdown();
   }
 
   private ThriftLoggerConfig newConfig(String topic) {

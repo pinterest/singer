@@ -23,6 +23,7 @@ import ch.qos.logback.core.encoder.EncoderBase;
 import ch.qos.logback.core.rolling.RollingFileAppender;
 import ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP;
 import ch.qos.logback.core.rolling.TimeBasedRollingPolicy;
+import ch.qos.logback.core.util.FileSize;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.protocol.TProtocol;
@@ -92,7 +93,7 @@ public class AppenderUtils {
   public static Appender<LogMessage> createFileRollingThriftAppender(
       File basePath,
       String topic,
-      int rotateThresholdKBytes,
+      long rotateThresholdKBytes,
       Context context,
       int maxRetentionHours) {
     RollingFileAppender<LogMessage> appender = new RollingFileAppender<LogMessage>();
@@ -115,7 +116,7 @@ public class AppenderUtils {
     SizeAndTimeBasedFNATP fnatp = new SizeAndTimeBasedFNATP();
     fnatp.setContext(context);
     fnatp.setTimeBasedRollingPolicy(policy);
-    fnatp.setMaxFileSize(String.format("%sKB", rotateThresholdKBytes));
+    fnatp.setMaxFileSize(FileSize.valueOf(String.format("%sKB", rotateThresholdKBytes)));
 
     policy.setTimeBasedFileNamingAndTriggeringPolicy(fnatp);
     appender.setRollingPolicy(policy);
