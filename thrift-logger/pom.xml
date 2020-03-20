@@ -4,7 +4,7 @@
   <parent>
     <groupId>com.pinterest.singer</groupId>
     <artifactId>singer-package</artifactId>
-    <version>0.8.0.4</version>
+    <version>0.8.0.5</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
   <artifactId>thrift-logger</artifactId>
@@ -24,7 +24,7 @@
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-core</artifactId>
-      <version>1.0.13</version>
+      <version>1.1.8</version>
     </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>

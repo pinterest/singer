@@ -32,6 +32,7 @@ public class AuditableLogbackThriftLoggerFactoryTest {
     ThriftLoggerFactory.initialize();
     assertTrue(ThriftLoggerFactory.getThriftLoggerFactoryInstance().getClass().isAssignableFrom
         (AuditableLogbackThriftLoggerFactory.class));
+    ThriftLoggerFactory.getThriftLoggerFactoryInstance().shutdown();
   }
 
   @Test
@@ -40,6 +41,7 @@ public class AuditableLogbackThriftLoggerFactoryTest {
     ThriftLoggerFactory.initialize();
     ThriftLogger l1 = ThriftLoggerFactory.getLogger(newConfig("topic1", ThriftMessage.class));
     assertTrue(l1.getClass().isAssignableFrom(AuditableLogbackThriftLogger.class));
+    ThriftLoggerFactory.getThriftLoggerFactoryInstance().shutdown();
   }
 
   @Test
@@ -53,6 +55,18 @@ public class AuditableLogbackThriftLoggerFactoryTest {
     ThriftLogger l3 = ThriftLoggerFactory.getLogger(newConfig("topic2", Event.class));
     assertSame(l1, l2);
     assertNotSame(l1, l3);
+    ThriftLoggerFactory.getThriftLoggerFactoryInstance().shutdown();
+  }
+
+  @Test
+  public void testSleepInSecBeforeCloseLoggers(){
+    ThriftLoggerFactory.initialize();
+    AuditableLogbackThriftLoggerFactory factory = (AuditableLogbackThriftLoggerFactory)
+        ThriftLoggerFactory.getThriftLoggerFactoryInstance();
+    assertEquals(-1, factory.getSleepInSecBeforeCloseLoggers());
+    factory.setSleepInSecBeforeCloseLoggers(5);
+    assertEquals(5, factory.getSleepInSecBeforeCloseLoggers());
+    factory.shutdown();
   }
 
   public ThriftLoggerConfig newConfig(String topic, Class<?> thriftClazz ){
