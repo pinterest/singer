@@ -26,7 +26,7 @@ import java.io.RandomAccessFile;
  * The byteOffset will be from the beginning of the file.
  * Note that the file can be appended as it is being read.
  */
-final class ByteOffsetInputStream extends BufferedInputStream {
+public final class ByteOffsetInputStream extends BufferedInputStream {
 
   private final RandomAccessFile randomAccessFile;
   // Byte offset of current read position.
