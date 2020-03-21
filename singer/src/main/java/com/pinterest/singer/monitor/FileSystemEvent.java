@@ -34,4 +34,20 @@ public class FileSystemEvent {
   public WatchEvent<?> event() {
     return this.event;
   }
+
+  @Override
+  public int hashCode() {
+    return logDir.hashCode() * 31 + event.hashCode();
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (obj instanceof FileSystemEvent) {
+      FileSystemEvent fse = (FileSystemEvent) obj;
+      return fse.logDir().equals(logDir)
+          && ((Path) fse.event.context()).equals((Path) event.context())
+          && (fse.event.kind().equals(event.kind()));
+    }
+    return false;
+  }
 }

@@ -318,4 +318,8 @@ struct SingerConfig {
 
   20: optional loggingaudit_config.LoggingAuditClientConfig loggingAuditClientConfig;
 
+  /**
+   * To configure whether the FSEventFetcher queue uses deduplication
+   */
+  21: optional bool useDedupedQueueForFSEventFetcher = false;
 }

@@ -15,6 +15,9 @@ KUBERNETES_POLL_START_DELAY_SECONDS=${KUBERNETES_POLL_START_DELAY_SECONDS:=10}
 KUBERNETES_POLL_FREQUENCY_SECONDS=${KUBERNETES_POLL_FREQUENCY_SECONDS:=30}
 SINGER_LOG_CONFIG_PATH=${SINGER_LOG_CONFIG_PATH:=conf.d}
 
+# Singer memory configuration
+HEAP_SIZE=${HEAP_SIZE:=800M}
+
 # SERVER_CONF_DIR (usually "/etc/singer") will override SERVER_CONFIG
 SINGER_CONFIG_PROPERTY=-Dconfig=${SERVER_CONFIG}
 if [ -n "$SERVER_CONFIG_DIR" ]; then
@@ -42,7 +45,7 @@ mkdir -p $LOG_DIR
 
 echo "Starting Singer"
 # JAVA options
-JAVA_OPTS="-server -Xmx800M -Xms800M -verbosegc -Xloggc:${LOG_DIR}/gc.log \
+JAVA_OPTS="-server -Xmx${HEAP_SIZE} -Xms${HEAP_SIZE} -verbosegc -Xloggc:${LOG_DIR}/gc.log \
 	-XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=100 -XX:GCLogFileSize=2M \
 	-XX:+PrintGCDetails -XX:+PrintGCTimeStamps -XX:+PrintGCDateStamps -XX:+PrintClassHistogram \
 	-XX:+UseG1GC -XX:MaxGCPauseMillis=250 -XX:G1ReservePercent=10 -XX:ConcGCThreads=4 \

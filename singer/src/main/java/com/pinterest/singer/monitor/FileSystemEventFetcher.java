@@ -17,7 +17,9 @@ package com.pinterest.singer.monitor;
 
 import com.pinterest.singer.common.SingerConfigDef;
 import com.pinterest.singer.common.SingerMetrics;
+import com.pinterest.singer.common.SingerSettings;
 import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
+import com.pinterest.singer.thrift.configuration.SingerConfig;
 import com.pinterest.singer.utils.SingerUtils;
 
 import com.twitter.ostrich.stats.Stats;
@@ -53,7 +55,12 @@ public class FileSystemEventFetcher implements Runnable {
   private String name;
 
   public FileSystemEventFetcher() throws IOException {
-    fileSystemEvents = new LinkedBlockingQueue<>();
+    SingerConfig singerConfig = SingerSettings.getSingerConfig();
+    if (singerConfig==null || !singerConfig.isUseDedupedQueueForFSEventFetcher()) {
+      fileSystemEvents = new LinkedBlockingQueue<>();
+    } else {
+      fileSystemEvents = new FilteredLinkedBlockingQueue(StandardWatchEventKinds.ENTRY_MODIFY);
+    }
     watchService = FileSystems.getDefault().newWatchService();
   }
 
