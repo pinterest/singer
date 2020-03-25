@@ -129,7 +129,7 @@ public class KafkaWritingTask implements Callable<KafkaWritingTaskResult> {
       OpenTsdbMetricConverter.incrGranular(SingerMetrics.BROKER_WRITE_FAILURE, 1, "broker=" + leaderNode);
       result = new KafkaWritingTaskResult(false, e);
     } finally {
-      if (!result.success) {
+      if (result!=null && !result.success) {
         for (Future<RecordMetadata> future : futures) {
           if (!future.isCancelled() && !future.isDone()) {
             future.cancel(true);
