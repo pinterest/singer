@@ -74,6 +74,7 @@ public class SingerUtils {
   private static final Logger LOG = LoggerFactory.getLogger(SingerUtils.class);
 
   public static final FileSystem defaultFileSystem = FileSystems.getDefault();
+  public static String HOSTNAME = getHostname();
 
   public static String getHostname() {
     String hostName;
@@ -319,7 +320,7 @@ public class SingerUtils {
         return logStream.getSingerLog().getPodUid();
       }
     }
-    return SingerUtils.getHostname();
+    return HOSTNAME;
   }
 
   public static void deleteRecursively(File baseDir) {
