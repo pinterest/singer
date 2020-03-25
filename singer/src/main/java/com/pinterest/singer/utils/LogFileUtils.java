@@ -19,21 +19,13 @@ import com.pinterest.singer.common.LogStream;
 import com.pinterest.singer.thrift.configuration.FileNameMatchMode;
 import com.pinterest.singer.thrift.configuration.SingerLogConfig;
 
-import com.google.common.base.Preconditions;
-import com.google.common.base.Splitter;
-import com.google.common.collect.Lists;
 import org.apache.commons.io.filefilter.RegexFileFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.util.List;
-import java.util.regex.Pattern;
 
 /**
  * Utility class for LogFile

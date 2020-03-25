@@ -25,7 +25,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 
 import com.pinterest.singer.utils.SingerUtils;
-import com.pinterest.singer.writer.KafkaWriter;
 import com.twitter.ostrich.stats.Stats;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
@@ -65,7 +64,6 @@ public class ThriftLogFileReader implements LogFileReader {
   private final LogFile logFile;
   private final String path;
   private final ThriftReader<com.pinterest.singer.thrift.LogMessage> thriftReader;
-  private final int readbufferSize;
 
   /*
    * The maximum message size that is defined in singer configuration file
@@ -82,6 +80,7 @@ public class ThriftLogFileReader implements LogFileReader {
 
   protected boolean closed;
 
+  @SuppressWarnings({ "rawtypes", "unchecked" })
   public ThriftLogFileReader(
       LogFile logFile,
       String path,
@@ -93,7 +92,6 @@ public class ThriftLogFileReader implements LogFileReader {
 
     this.logFile = Preconditions.checkNotNull(logFile);
     this.path = path;
-    this.readbufferSize = readBufferSize;
     this.maxMessageSize = maxMessageSize;
     this.maxMessageSizeInternal = maxMessageSize * 10;
 

@@ -16,40 +16,27 @@
 
 package com.pinterest.singer.utils;
 
-
-import com.pinterest.singer.thrift.configuration.KafkaProducerConfig;
-
-import com.google.common.base.Joiner;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import kafka.cluster.Broker;
-import kafka.utils.ZkUtils;
-import org.I0Itec.zkclient.ZkClient;
-import org.I0Itec.zkclient.ZkConnection;
-import org.apache.kafka.clients.CommonClientConfigs;
-import org.apache.kafka.clients.producer.KafkaProducer;
-
 import java.util.Properties;
 import java.util.UUID;
+
+import org.apache.kafka.clients.CommonClientConfigs;
+import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.config.SslConfigs;
 import org.apache.kafka.common.config.internals.BrokerSecurityConfigs;
-import org.apache.kafka.common.network.ListenerName;
-import org.apache.kafka.common.security.auth.SecurityProtocol;
-import scala.Tuple2;
-import scala.collection.Seq;
+
+import com.google.common.base.Joiner;
+import com.pinterest.singer.thrift.configuration.KafkaProducerConfig;
 
 
 public class KafkaUtils {
 
   private static final String DEFAULT_NAME_PREFIX = "singer_";
   public static final int DEFAULT_PRODUCER_BUFFER_MEMORY = 1024;
-
-  private static Map<String, ZkUtils> zkUtilsMap = new HashMap<>();
 
   public static KafkaProducer<byte[], byte[]> createKafkaProducer(KafkaProducerConfig config){
     return createKafkaProducer(config, DEFAULT_NAME_PREFIX);
@@ -143,26 +130,4 @@ public class KafkaUtils {
     return producer;
   }
 
-
-  public static ZkUtils getZkUtils(String zkUrl) {
-    if (!zkUtilsMap.containsKey(zkUrl)) {
-      Tuple2<ZkClient, ZkConnection> zkClientAndConnection = ZkUtils.createZkClientAndConnection(zkUrl, 300, 3000000);
-      ZkUtils zkUtils = new ZkUtils(zkClientAndConnection._1(), zkClientAndConnection._2(), true);
-      zkUtilsMap.put(zkUrl, zkUtils);
-    }
-    return zkUtilsMap.get(zkUrl);
-  }
-
-  public static String getBrokers(String zkUrl, SecurityProtocol securityProtocol) {
-    ZkUtils zkUtils = getZkUtils(zkUrl);
-    Seq<Broker> brokersSeq = zkUtils.getAllBrokersInCluster();
-    Broker[] brokers = new Broker[brokersSeq.size()];
-    brokersSeq.copyToArray(brokers);
-    String brokersStr = Arrays.stream(brokers).map((b) -> {
-      return b.brokerEndPoint(ListenerName.forSecurityProtocol(securityProtocol)).connectionString();
-    }).reduce(null, (a, b) -> {
-      return a == null ? b : a + "," + b;
-    });
-    return brokersStr;
-  }
 }

@@ -20,6 +20,8 @@ package com.pinterest.singer.common.errors;
  */
 public class LogStreamWriterException extends Exception {
 
+  private static final long serialVersionUID = 1L;
+  
   public LogStreamWriterException(String message) {
     super(message);
   }

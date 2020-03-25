@@ -41,6 +41,7 @@ public class ThriftLogFileReaderFactory implements LogFileReaderFactory {
     this.readerConfig = Preconditions.checkNotNull(readerConfig);
   }
 
+  @SuppressWarnings("resource")
   public LogFileReader getLogFileReader(LogStream logStream, LogFile logFile, String path, long byteOffset)
       throws Exception {
     LogFileReader reader;

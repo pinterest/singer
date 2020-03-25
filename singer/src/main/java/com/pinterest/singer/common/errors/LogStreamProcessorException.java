@@ -20,6 +20,8 @@ package com.pinterest.singer.common.errors;
  */
 public class LogStreamProcessorException extends Exception {
 
+  private static final long serialVersionUID = 1L;
+  
   public LogStreamProcessorException(String message) {
     super(message);
   }

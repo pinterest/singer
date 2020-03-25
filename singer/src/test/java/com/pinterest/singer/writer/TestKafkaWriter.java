@@ -257,6 +257,7 @@ public class TestKafkaWriter extends SingerTestBase {
     KafkaProducerManager.injectTestProducer(config, producer);
     // set wrong headerInjectorClass name, headerInjector will be null if enableHeaderInjector is true
     logStream.getSingerLog().getSingerLogConfig().setHeadersInjectorClass("com.pinterest.x.y.z");
+    @SuppressWarnings("resource")
     KafkaWriter writer = new KafkaWriter(logStream, config, partitioner, "topicx", false,
         Executors.newCachedThreadPool(), true);
     assertNull(writer.getHeadersInjector());
@@ -347,6 +348,7 @@ public class TestKafkaWriter extends SingerTestBase {
     writer.close();
   }
 
+  @SuppressWarnings("resource")
   @Test
   public void testCheckAndSetLoggingAuditHeadersForLogMessage() throws Exception{
     // prepare log messages
@@ -354,7 +356,6 @@ public class TestKafkaWriter extends SingerTestBase {
     List<LoggingAuditHeaders> originalHeaders = new ArrayList<>();
     int pid = new Random().nextInt();
     long session = System.currentTimeMillis();
-    TSerializer serializer = new TSerializer();
     for (int i = 0; i < NUM_EVENTS; i++) {
       LogMessage logMessage = new LogMessage();
       logMessage.setKey(ByteBuffer.allocate(100).put(String.valueOf(i).getBytes()));

@@ -19,15 +19,11 @@ import com.pinterest.singer.thrift.configuration.SingerConfig;
 import com.pinterest.singer.utils.LogConfigUtils;
 
 import org.apache.commons.configuration.ConfigurationException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * PropertyFileSingerConfigurator will get singer configuration from property files.
  */
 public class PropertyFileSingerConfigurator implements SingerConfigurator {
-
-  private static final Logger LOG = LoggerFactory.getLogger(PropertyFileSingerConfigurator.class);
 
   private final String singerPropertiesFile;
 

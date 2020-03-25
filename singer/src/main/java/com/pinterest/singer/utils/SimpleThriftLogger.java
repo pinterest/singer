@@ -39,6 +39,7 @@ import java.nio.file.FileSystems;
  * This class is used by unit test and ThriftLogGenerator to write log messages to thrift log
  * file. It provides APIs for client to control the flush behavior and log file rotation.
  */
+@SuppressWarnings("rawtypes")
 public final class SimpleThriftLogger<T extends TBase> implements Closeable {
 
   private static final class ByteOffsetTFramedTransport extends TFramedTransport {
@@ -74,14 +75,11 @@ public final class SimpleThriftLogger<T extends TBase> implements Closeable {
   private ByteOffsetTFramedTransport transport;
   private TProtocol protocol;
 
-  private long byteOffset;
-
   public SimpleThriftLogger(String filename) throws Exception {
     this.fileName = filename;
     bufferedOutputStream = new BufferedOutputStream(new FileOutputStream(fileName, true));
     transport = new ByteOffsetTFramedTransport(new TIOStreamTransport(bufferedOutputStream));
     protocol = new TBinaryProtocol(transport);
-    byteOffset = 0;
   }
 
   /**

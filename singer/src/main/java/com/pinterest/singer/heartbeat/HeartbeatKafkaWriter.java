@@ -22,17 +22,13 @@ import com.pinterest.singer.utils.KafkaUtils;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 
 public class HeartbeatKafkaWriter implements HeartbeatWriter {
 
-  private static final Logger LOG = LoggerFactory.getLogger(HeartbeatKafkaWriter.class);
-
-  private final KafkaProducer kafkaProducer;
+  private final KafkaProducer<byte[], byte[]> kafkaProducer;
   private final String topic;
 
   public HeartbeatKafkaWriter(HeartbeatWriterConfig writerConfig) {

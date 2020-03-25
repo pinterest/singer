@@ -257,6 +257,9 @@ public class Decider {
    * Exception for when a decider has been turned off
    */
   public static class DeciderOffException extends RuntimeException {
+
+    private static final long serialVersionUID = 1L;
+
     public DeciderOffException(String deciderName, String customizedErrorMessage) {
       super(Strings.isNullOrEmpty(customizedErrorMessage)
             ? String.format("Decider %s has been turned off", deciderName)
@@ -269,6 +272,9 @@ public class Decider {
   }
 
   public static class ServiceDeciderOffException extends DeciderOffException {
+
+    private static final long serialVersionUID = 1L;
+
     public ServiceDeciderOffException(String serviceName) {
       super(String.format("Service %s has been decidered off", serviceName));
     }

@@ -91,7 +91,7 @@ public class LogDirectoryScannerTest extends com.pinterest.singer.SingerTestBase
       List<LogFileAndPath> logFileAndPaths = toMonitor.getLogFileAndPaths();
 
       // rotate files
-      List<File> rotatedFiles = rotateFile(testDir, filePrefix, NUM_FILES, files);
+      rotateFile(testDir, filePrefix, NUM_FILES, files);
 
       File newHeader = new File(testDir, filePrefix);
       if (!newHeader.createNewFile()) {
@@ -140,9 +140,9 @@ public class LogDirectoryScannerTest extends com.pinterest.singer.SingerTestBase
       assertEquals(NUM_FILES, stream.getLogFileAndPaths().size());
 
       Thread.sleep(4000);
-      List<LogFileAndPath> logFileAndPaths = toMonitor.getLogFileAndPaths();
+      toMonitor.getLogFileAndPaths();
       // rotate files
-      List<File> rotatedFiles = rotateFile(testDir, filePrefix, NUM_FILES, files);
+      rotateFile(testDir, filePrefix, NUM_FILES, files);
 
       File newHeader = new File(testDir, filePrefix);
       if (!newHeader.createNewFile()) {

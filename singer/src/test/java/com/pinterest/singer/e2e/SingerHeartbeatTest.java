@@ -26,6 +26,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 
 import java.io.File;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Properties;
 
@@ -113,7 +114,7 @@ public class SingerHeartbeatTest {
       Thread.sleep(20 * 1000);
 
       Properties properties = SingerTestHelper.createKafkaConsumerConfig();
-      KafkaConsumer<byte[], byte[]> kafkaConsumer = new KafkaConsumer(properties);
+      KafkaConsumer<byte[], byte[]> kafkaConsumer = new KafkaConsumer<>(properties);
       kafkaConsumer.subscribe(Arrays.asList(heartbeatTopic));
 
       SingerStatus status = null;
@@ -124,7 +125,7 @@ public class SingerHeartbeatTest {
         String hostName = SingerUtils.getHostname();
         System.out.println("Fetching heartbeat messages from " + hostName + " : ");
 
-        ConsumerRecords<byte[], byte[]> records = kafkaConsumer.poll(500L);
+        ConsumerRecords<byte[], byte[]> records = kafkaConsumer.poll(Duration.ofMillis(500L));
         for (ConsumerRecord<byte[], byte[]> record : records) {
           String msg = new String(record.value());
           status = new Gson().fromJson(msg, SingerStatus.class);
