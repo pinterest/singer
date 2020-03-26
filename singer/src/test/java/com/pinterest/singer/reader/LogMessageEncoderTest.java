@@ -59,6 +59,7 @@ public class LogMessageEncoderTest {
       // read from the file now
       long offset = 0;
       for (int i = 0; i < 10; i++) {
+        @SuppressWarnings({ "unchecked", "rawtypes" })
         ThriftReader<LogMessage> thriftReader = new ThriftReader(
             logFilePath, new LogMessageFactory(), new BinaryProtocolFactory(), 1000, 1000);
         thriftReader.setByteOffset(offset);
@@ -98,6 +99,7 @@ public class LogMessageEncoderTest {
       // read from the file now
       long offset = 0;
       for (int i = 0; i < 10; i++) {
+        @SuppressWarnings({ "unchecked", "rawtypes" })
         ThriftReader<LogMessage> thriftReader = new ThriftReader(
             logFilePath, new LogMessageFactory(), new BinaryProtocolFactory(), 1000, 1000);
         thriftReader.setByteOffset(offset);

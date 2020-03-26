@@ -25,7 +25,6 @@ import com.pinterest.singer.thrift.configuration.SingerLogConfig;
 import com.pinterest.singer.utils.SingerUtils;
 
 import java.util.ArrayList;
-import java.util.stream.Collectors;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -124,7 +123,7 @@ public class FileSystemMonitorTest extends com.pinterest.singer.SingerTestBase {
     config.setLogStreamRegex("test_(\\d+).tmp");
 
     SingerSettings.setSingerConfig(new SingerConfig());
-    FileSystemMonitor fs = SingerSettings.getOrCreateFileSystemMonitor("");
+    SingerSettings.getOrCreateFileSystemMonitor("");
     LogStreamManager.initializeLogStreams(new SingerLog(config));
 
     List<LogStream> logStreams = LogStreamManager.getLogStreamsFor(testDir.toPath(), created[0].toPath());
@@ -160,7 +159,7 @@ public class FileSystemMonitorTest extends com.pinterest.singer.SingerTestBase {
     singerConfig.setLogConfigs(logStreamConfigs);
 
     SingerSettings.setSingerConfig(singerConfig);
-    FileSystemMonitor fs = SingerSettings.getOrCreateFileSystemMonitor("");
+    SingerSettings.getOrCreateFileSystemMonitor("");
     LogStreamManager.initializeLogStreams();
 
     List<LogStream> logStreams = LogStreamManager.getLogStreamsFor(testDir.toPath(), created[0].toPath());

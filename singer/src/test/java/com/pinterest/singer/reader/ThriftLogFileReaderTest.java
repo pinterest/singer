@@ -89,7 +89,7 @@ public class ThriftLogFileReaderTest extends SingerTestBase {
       // Read one log message (500 message + 50 message key) which is bigger than the
       // max message
       // size.
-      LogMessageAndPosition message = reader.readLogMessageAndPosition();
+      reader.readLogMessageAndPosition();
       fail("Should throw when thrift message is bigger than max message size");
     } catch (LogFileReaderException exception) {
       // Ignore the exception.

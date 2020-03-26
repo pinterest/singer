@@ -244,6 +244,7 @@ public class SingerStatus {
     }
   }
 
+  @SuppressWarnings("unchecked")
   private static TreeMap<String, String> getMapFromJson(String message) {
     Gson gson = new Gson();
     return gson.fromJson(message, TreeMap.class);
@@ -252,6 +253,7 @@ public class SingerStatus {
   private Double getGaugeValue(Map<String, Object> gauges, String gaugeName) {
     Double result = 0.0;
     if (gauges.contains(gaugeName)) {
+      @SuppressWarnings("rawtypes")
       Option option = gauges.get(gaugeName);
       result = option.isDefined() ? (Double) option.get() : 0.0;
     }
@@ -261,6 +263,7 @@ public class SingerStatus {
   private Long getCounterValue(Map<String, Object> counters, String counterName) {
     Long result = 0L;
     if (counters.contains(counterName)) {
+      @SuppressWarnings("rawtypes")
       Option option = counters.get(counterName);
       result = option.isDefined() ? (Long) option.get() : 0L;
     }

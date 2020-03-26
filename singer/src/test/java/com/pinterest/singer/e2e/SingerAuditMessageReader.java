@@ -15,13 +15,11 @@
  */
 package com.pinterest.singer.e2e;
 
-
 import com.pinterest.singer.thrift.AuditMessage;
 import com.pinterest.singer.utils.SingerTestHelper;
 import com.pinterest.singer.utils.SingerUtils;
 
 import java.time.Duration;
-import java.util.concurrent.TimeUnit;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -68,7 +66,7 @@ public class SingerAuditMessageReader implements Runnable {
       // read audit messages from kafka
       Properties properties = SingerTestHelper.createKafkaConsumerConfig();
 
-      kafkaConsumer = new KafkaConsumer(properties);
+      kafkaConsumer = new KafkaConsumer<>(properties);
       kafkaConsumer.subscribe(Arrays.asList(auditTopic));
 
       String hostName = SingerUtils.getHostname();

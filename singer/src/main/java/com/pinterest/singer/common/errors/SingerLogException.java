@@ -20,6 +20,8 @@ package com.pinterest.singer.common.errors;
  */
 public class SingerLogException extends Exception {
 
+  private static final long serialVersionUID = 1L;
+  
   public SingerLogException(String message) {
     super(message);
   }

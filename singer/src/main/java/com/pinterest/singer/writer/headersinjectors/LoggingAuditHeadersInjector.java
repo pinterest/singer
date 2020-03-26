@@ -33,8 +33,7 @@ public class LoggingAuditHeadersInjector implements HeadersInjector {
     } catch (TException e) {
       Stats.incr(SingerMetrics.NUMBER_OF_SERIALIZING_HEADERS_ERRORS);
       LOG.warn("Exception thrown while serializing loggingAuditHeaders", e);
-    } finally {
-      return headers;
     }
+    return headers;
   }
 }

@@ -16,7 +16,6 @@
 package com.pinterest.singer.e2e;
 
 import com.google.gson.JsonObject;
-import com.pinterest.singer.thrift.Event;
 import com.pinterest.singer.client.ThriftLogger;
 import com.pinterest.singer.client.ThriftLoggerConfig;
 import com.pinterest.singer.client.ThriftLoggerFactory;

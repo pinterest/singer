@@ -33,6 +33,7 @@ import java.io.RandomAccessFile;
  * <p/>
  * This class is NOT thread-safe.
  */
+@SuppressWarnings("rawtypes")
 public class ThriftReader<T extends TBase> implements Closeable {
 
   /**
@@ -65,10 +66,6 @@ public class ThriftReader<T extends TBase> implements Closeable {
   // TProtocol implementation.
   private final TProtocol protocol;
 
-  private final int readBufferSize;
-
-  private final int maxMessageSize;
-
   public ThriftReader(
       String path,
       TBaseFactory<T> baseFactory,
@@ -84,9 +81,6 @@ public class ThriftReader<T extends TBase> implements Closeable {
         .byteOffsetInputStream), maxMessageSize);
     this.baseFactory = Preconditions.checkNotNull(baseFactory);
     this.protocol = protocolFactory.get(this.framedTransport);
-
-    this.readBufferSize = readBufferSize;
-    this.maxMessageSize = maxMessageSize;
   }
 
   /**

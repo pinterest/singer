@@ -49,7 +49,7 @@ public class DirectorySingerConfiguratorTest extends SingerTestBase {
     // Make two log config properties files in the logConfigDir.
     createLogConfigPropertiesFile("ads.mohawk.properties", ImmutableMap.of(
         "writer.kafka.producerConfig.bootstrap.servers", "127.0.0.1:9092"));
-    File searchLogConfig = createLogConfigPropertiesFile("search.discovery.properties",
+    createLogConfigPropertiesFile("search.discovery.properties",
         ImmutableMap.of("writer.kafka.producerConfig.bootstrap.servers", "127.0.0.1:9092"));
 
     // Check the configurator can load two log configs.
@@ -57,7 +57,7 @@ public class DirectorySingerConfiguratorTest extends SingerTestBase {
         .getParent());
     SingerConfig singerConfig = configurator.parseSingerConfig();
     final AtomicInteger exitCode = new AtomicInteger(-1);
-    SingerDirectoryWatcher watcher = new SingerDirectoryWatcher(configurator.parseSingerConfig()
+    new SingerDirectoryWatcher(configurator.parseSingerConfig()
         , configurator, new SingerDirectoryWatcher.ExitManager() {
       @Override
       public void exit(int status) {
@@ -102,7 +102,7 @@ public class DirectorySingerConfiguratorTest extends SingerTestBase {
     // Check the configurator can load two log configs.
     DirectorySingerConfigurator configurator = new DirectorySingerConfigurator(singerConfigFile.getParent());
     try {
-      SingerConfig singerConfig = configurator.parseSingerConfig();
+      configurator.parseSingerConfig();
       assertEquals(true,false);
     } catch (ConfigurationException x) {
       assertEquals(SingerConfigDef.MONITOR_INTERVAL_IN_SECS + IS_MISSING_ELEMENT, x.getMessage());
@@ -112,7 +112,7 @@ public class DirectorySingerConfiguratorTest extends SingerTestBase {
     DirectorySingerConfigurator configuratorTwo = new DirectorySingerConfigurator(singerConfigFileTwo
             .getParent());
     try {
-      SingerConfig singerConfigTwo = configuratorTwo.parseSingerConfig();
+      configuratorTwo.parseSingerConfig();
       assertEquals(true,false);
     } catch (ConfigurationException x) {
       assertEquals("singer.setLogConfigPollIntervalSecs" + IS_MISSING_ELEMENT, x.getMessage());
@@ -122,7 +122,7 @@ public class DirectorySingerConfiguratorTest extends SingerTestBase {
     DirectorySingerConfigurator configuratorThree = new DirectorySingerConfigurator(singerConfigFileThree
             .getParent());
     try {
-      SingerConfig singerConfigThree = configuratorThree.parseSingerConfig();
+      configuratorThree.parseSingerConfig();
       assertEquals(true,false);
     } catch (ConfigurationException x) {
       assertEquals("monitorIntervalInSecs" + IS_MISSING_ELEMENT + "\n" +
@@ -148,6 +148,8 @@ public class DirectorySingerConfiguratorTest extends SingerTestBase {
 
     if (propertyNum == 4) {
       return new TreeMap<String, String>() {
+        private static final long serialVersionUID = 1L;
+
         {
           put("singer.threadPoolSize", "8");
           put("singer.ostrichPort", "9896");
@@ -158,6 +160,7 @@ public class DirectorySingerConfiguratorTest extends SingerTestBase {
     }
     else if (propertyNum == 5) {
       return new TreeMap<String, String>() {
+        private static final long serialVersionUID = 1L;
         {
           put("singer.threadPoolSize", "8");
           put("singer.ostrichPort", "9896");
@@ -168,6 +171,7 @@ public class DirectorySingerConfiguratorTest extends SingerTestBase {
     }
     else {
       return new TreeMap<String, String>() {
+        private static final long serialVersionUID = 1L;
         {
           put("singer.threadPoolSize", "8");
           put("singer.ostrichPort", "9896");
@@ -179,6 +183,7 @@ public class DirectorySingerConfiguratorTest extends SingerTestBase {
 
   Map<String, String> makeDirectorySingerConfigProperties() {
     return new TreeMap<String, String>() {
+      private static final long serialVersionUID = 1L;
       {
         put("singer.threadPoolSize", "8");
         put("singer.ostrichPort", "9896");

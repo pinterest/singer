@@ -20,6 +20,11 @@ package com.pinterest.singer.reader;
  */
 public class LogFileReaderException extends Exception {
 
+  /**
+   * 
+   */
+  private static final long serialVersionUID = 1L;
+
   public LogFileReaderException(String message) {
     super(message);
   }

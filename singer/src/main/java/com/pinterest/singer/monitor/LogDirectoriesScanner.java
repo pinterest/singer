@@ -64,7 +64,7 @@ public class LogDirectoriesScanner implements  Runnable {
   }
 
   public List<Path> getMonitoredPaths() {
-    List<Path> result = new ArrayList();
+    List<Path> result = new ArrayList<>();
     result.addAll(monitoredPaths);
     return result;
   }
@@ -74,7 +74,7 @@ public class LogDirectoriesScanner implements  Runnable {
 
     // Sort the file first by last_modified timestamp and then by name in case two files have
     // the same mtime due to precision (mtime is up to seconds).
-    Ordering ordering = Ordering.from(new SingerUtils.LogFileComparator());
+    Ordering<File> ordering = Ordering.from(new SingerUtils.LogFileComparator());
     List<File> logFiles = ordering.sortedCopy(Arrays.asList(files));
     return logFiles;
   }
@@ -90,7 +90,6 @@ public class LogDirectoriesScanner implements  Runnable {
    * do not belong to any existing log streams, but matches the regex of some singer
    * configurations.
    */
-  @SuppressWarnings({ "unchecked", "rawtypes" })
   public void run() {
     LOG.info("Start updating inode info for all log directories");
     for (Path dirPath : monitoredPaths) {

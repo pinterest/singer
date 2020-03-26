@@ -104,6 +104,7 @@ public final class WatermarkUtils {
     }
   }
 
+  @SuppressWarnings("resource")
   static void debugCorruptedFile(String srcFileName) {
     String dstFileName = srcFileName + ".debug";
     FileChannel dstChannel = null;

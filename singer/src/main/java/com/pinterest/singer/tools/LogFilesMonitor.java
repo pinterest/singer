@@ -18,17 +18,12 @@ package com.pinterest.singer.tools;
 
 import com.pinterest.singer.common.LogStream;
 import com.pinterest.singer.common.SingerSettings;
-import com.pinterest.singer.monitor.DefaultLogMonitor;
-import com.pinterest.singer.monitor.FileSystemMonitor;
 import com.pinterest.singer.monitor.LogStreamManager;
 import com.pinterest.singer.thrift.configuration.SingerConfig;
-import com.pinterest.singer.thrift.configuration.SingerLogConfig;
 import com.pinterest.singer.utils.SingerUtils;
 
 import java.util.Collection;
-import java.util.Enumeration;
 import java.util.List;
-import java.util.logging.LogManager;
 
 /**
  * The tool for checking the file system events from log directories
@@ -63,10 +58,9 @@ public class LogFilesMonitor {
     try {
       String configDir = args[0];
       SingerConfig singerConfig = SingerUtils.loadSingerConfig(configDir, null, false);
-      List<SingerLogConfig> logConfigs = singerConfig.getLogConfigs();
 
       SingerSettings.initialize(singerConfig);
-      LogStreamManager.getInstance().initializeLogStreams();
+      LogStreamManager.initializeLogStreams();
 
       System.out.println(SingerSettings.getOrCreateFileSystemMonitor("").toString());
       printLogStreamsInfo();

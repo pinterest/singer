@@ -169,6 +169,7 @@ public class SingerUtils {
     return getFileLastModifiedTime(path.toFile());
   }
 
+  @SuppressWarnings("restriction")
   public static WatchKey registerWatchKey(WatchService watchService, Path logDir) throws IOException {
     WatchKey watchKey;
     // make watcher more senstive for Mac OS X; this should reduce the poll latency from

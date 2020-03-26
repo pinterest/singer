@@ -20,8 +20,6 @@ import com.pinterest.singer.common.SingerStatus;
 import com.pinterest.singer.thrift.Event;
 
 import java.io.InputStream;
-import java.nio.file.FileSystems;
-import java.nio.file.Path;
 import org.apache.commons.io.FileUtils;
 
 import java.io.BufferedWriter;
@@ -233,6 +231,7 @@ public class SingerTestHelper {
   }
   
   public static void createLogStream(String logDir, String logName, int rotateThresholdKilobytes, int numMessages) {
+    @SuppressWarnings("deprecation")
     com.pinterest.singer.client.ThriftLogger logger = ThriftLoggerFactory.getLogger(logName, 24);
     try {
       for (int i = 0; i < numMessages; i++) {

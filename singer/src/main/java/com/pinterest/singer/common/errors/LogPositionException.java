@@ -20,6 +20,8 @@ package com.pinterest.singer.common.errors;
  */
 public class LogPositionException extends Exception {
 
+  private static final long serialVersionUID = 1L;
+  
   public LogPositionException(String message) {
     super(message);
   }

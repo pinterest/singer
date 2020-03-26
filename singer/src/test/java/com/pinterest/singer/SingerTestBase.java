@@ -210,6 +210,7 @@ public class SingerTestBase extends TestCase {
 
   protected Map<String, String> makeCommonLogConfigProperties() {
     return new TreeMap<String, String>() {
+      private static final long serialVersionUID = 1L;
       {
         put("logDir", "/mnt/log/singer/");
         put("logStreamRegex", "mohawk_(\\\\w+)");
@@ -237,6 +238,7 @@ public class SingerTestBase extends TestCase {
 
   protected Map<String, String> makeCommonNewLogConfigProperties () {
     return new TreeMap<String, String>() {
+      private static final long serialVersionUID = 1L;
       {
         put("topic_names", "topic1, topic2");
 

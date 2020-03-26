@@ -24,7 +24,6 @@ import com.pinterest.singer.loggingaudit.client.AuditHeadersGenerator;
 import com.pinterest.singer.loggingaudit.thrift.LoggingAuditHeaders;
 import com.pinterest.singer.loggingaudit.thrift.configuration.AuditConfig;
 import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
-import com.pinterest.singer.thrift.AuditMessage;
 import com.pinterest.singer.thrift.LogMessage;
 import com.pinterest.singer.thrift.configuration.KafkaProducerConfig;
 import com.pinterest.singer.thrift.configuration.SingerRestartConfig;
@@ -39,7 +38,6 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.header.Headers;
-import org.apache.thrift.TSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -82,15 +80,11 @@ public class KafkaWriter implements LogStreamWriter {
 
   private final boolean auditingEnabled;
 
-  private final String auditTopic;
-
   private final KafkaProducerConfig producerConfig;
 
   private final String kafkaClusterSig;
 
   private final ExecutorService clusterThreadPool;
-
-  private final TSerializer serializer;
 
   private final int writeTimeoutInSeconds;
 
@@ -147,7 +141,6 @@ public class KafkaWriter implements LogStreamWriter {
     this.topic = topic;
     this.skipNoLeaderPartitions = skipNoLeaderPartitions;
     this.auditingEnabled = auditingEnabled && !Strings.isNullOrEmpty(auditTopic);
-    this.auditTopic = auditTopic;
     this.producerConfig = producerConfig;
     // cache the class and instance instead of doing reflections each time 
     try {
@@ -162,7 +155,6 @@ public class KafkaWriter implements LogStreamWriter {
     this.kafkaClusterSig = producerConfig.getKafkaClusterSignature();
     this.clusterThreadPool = SingerSettings.getLogWritingExecutors().get(kafkaClusterSig);
     this.writeTimeoutInSeconds = writeTimeoutInSeconds;
-    this.serializer = new TSerializer();
     if (logStream.getSingerLog().getSingerLogConfig().isEnableLoggingAudit()){
       this.enableLoggingAudit = true;
       this.auditConfig = logStream.getSingerLog().getSingerLogConfig().getAuditConfig();
@@ -184,6 +176,7 @@ public class KafkaWriter implements LogStreamWriter {
     if (this.enableHeadersInjector) {
       try{
         String headersInjectorClass = logStream.getSingerLog().getSingerLogConfig().getHeadersInjectorClass();
+        @SuppressWarnings("unchecked")
         Class<HeadersInjector> cls = (Class<HeadersInjector>)Class.forName(headersInjectorClass);
         headersInjector = cls.newInstance();
         LOG.warn("HeadersInjector has been configured to: " + headersInjector.getClass().getName());
@@ -210,13 +203,12 @@ public class KafkaWriter implements LogStreamWriter {
     this.enableHeadersInjector = enableHeadersInjector;
     logName = logStream.getSingerLog().getSingerLogConfig().getName();
     writeTimeoutInSeconds = 0;
-    serializer = null;
     auditingEnabled = false;
-    auditTopic = null;
     kafkaClusterSig = null;
     if (this.enableHeadersInjector){
       try{
         String headersInjectorClass = logStream.getSingerLog().getSingerLogConfig().getHeadersInjectorClass();
+        @SuppressWarnings("unchecked")
         Class<HeadersInjector> cls = (Class<HeadersInjector>)Class.forName(headersInjectorClass);
         headersInjector = cls.newInstance();
         LOG.warn("HeadersInjector has been configured to: " + headersInjector.getClass().getName());
@@ -244,9 +236,7 @@ public class KafkaWriter implements LogStreamWriter {
     logStream = null;
     logName = null;
     writeTimeoutInSeconds = 0;
-    serializer = null;
     auditingEnabled = false;
-    auditTopic = null;
     kafkaClusterSig = null;
   }
   @Override

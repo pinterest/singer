@@ -15,7 +15,6 @@
  */
 package com.pinterest.singer.e2e;
 
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.pinterest.singer.utils.SingerTestHelper;
@@ -50,8 +49,6 @@ public class SingerLatencyTest {
   private static int numTestMessages = 2000;
   private static int batchSize = 400;
   private static int numExpectedMessages = 2000;
-
-  private final static int NUM_TEST_PARTITIONS = 1;
 
   public static void main(String[] args) throws Exception {
     SingerLatencyTest test = new SingerLatencyTest();
@@ -94,7 +91,7 @@ public class SingerLatencyTest {
 
     // read messages from kafka
     Properties properties = SingerTestHelper.createKafkaConsumerConfig();
-    KafkaConsumer<byte[], byte[]> kafkaConsumer = new KafkaConsumer(properties);
+    KafkaConsumer<byte[], byte[]> kafkaConsumer = new KafkaConsumer<>(properties);
     kafkaConsumer.subscribe(Arrays.asList(testTopic));
 
     List<Long> latencyCounts = new ArrayList<>();
