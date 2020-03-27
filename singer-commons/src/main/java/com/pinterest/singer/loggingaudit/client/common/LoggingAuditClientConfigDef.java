@@ -41,6 +41,8 @@ public class LoggingAuditClientConfigDef {
 
   public static final String KAFKA_PRODUCER_CONFIG_PREFIX = "producerConfig.";
   public static final String BOOTSTRAP_SERVERS = "bootstrap.servers";
+  public static final String BOOTSTRAP_SERVERS_FILE = "bootstrap.servers.file";
+  public static final String BROKER_SERVERSET_DEPRECATED = "metadata.broker.serverset";
   public static final String SSL_ENABLED_CONFIG = "ssl.enabled";
   public static final String TRANSACTION_ENABLED_CONFIG = "transaction.enabled";
   public static final String TRANSACTION_TIMEOUT_MS_CONFIG = "transaction.timeout.ms";

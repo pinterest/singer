@@ -1,8 +1,8 @@
 package com.pinterest.singer.config;
 
-import java.net.InetSocketAddress;
-
 import com.google.common.collect.ImmutableSet;
+
+import java.net.InetSocketAddress;
 
 public interface ServersetMonitor {
 

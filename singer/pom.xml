@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.pinterest.singer</groupId>
         <artifactId>singer-package</artifactId>
-        <version>0.8.0.5</version>
+        <version>0.8.0.6</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <licenses>
@@ -43,6 +43,12 @@
             <groupId>com.pinterest.singer</groupId>
             <artifactId>singer-commons</artifactId>
             <version>${project.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.twitter.common</groupId>
+                    <artifactId>base</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>com.pinterest.singer</groupId>
@@ -64,7 +70,7 @@
         <dependency>
             <groupId>com.twitter.common</groupId>
             <artifactId>base</artifactId>
-            <version>0.0.116</version>
+            <version>0.0.115</version>
         </dependency>
         <!-- https://mvnrepository.com/artifact/com.twitter.common/dynamic-host-set -->
         <dependency>

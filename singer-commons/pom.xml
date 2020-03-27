@@ -20,7 +20,7 @@
   <parent>
     <groupId>com.pinterest.singer</groupId>
     <artifactId>singer-package</artifactId>
-    <version>0.8.0.5</version>
+    <version>0.8.0.6</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
   <developers>
@@ -49,6 +49,11 @@
       <groupId>com.twitter</groupId>
       <artifactId>ostrich_2.11</artifactId>
       <version>9.27.0</version>
+    </dependency>
+    <dependency>
+      <groupId>com.twitter.common</groupId>
+      <artifactId>base</artifactId>
+      <version>0.0.115</version>
     </dependency>
     <dependency>
       <groupId>commons-configuration</groupId>

@@ -46,7 +46,7 @@ public class AuditableLogbackThriftLogger extends LogbackThriftLogger {
 
   private static final String AUDIT_THRIFT_LOGGER_HEADERS_ADDED_TO_ORIGINAL_COUNT = "audit.thrift_logger.headers_added_to_original.count";
   private static final String AUDIT_THRIFT_LOGGER_HEADERS_ADDED_TO_LOG_MESSAGE_COUNT = "audit.thrift_logger.headers_added_to_log_message.count";
-  private static final String AUDIT_THRIFT_LOGGER_AUDITED_MESSAGE_COUNT = "audit.thrift_logger.audited_message_count";
+  private static final String AUDIT_THRIFT_LOGGER_AUDITED_MESSAGE_COUNT = "audit.thrift_logger.audited_message.count";
   private static final String AUDIT_THRIFT_LOGGER_ERROR_INIT = "audit.thrift_logger.error.init";
 
   private Class<?> thriftClazz;

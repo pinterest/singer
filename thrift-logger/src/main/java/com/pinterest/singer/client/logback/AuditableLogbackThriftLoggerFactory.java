@@ -61,11 +61,15 @@ public class AuditableLogbackThriftLoggerFactory extends LogbackThriftLoggerFact
   }
 
   public static void createLoggingAuditClientFromConfigFile(String filePath){
+    createLoggingAuditClientFromConfigFile(filePath, "");
+  }
+
+  public static void createLoggingAuditClientFromConfigFile(String filePath, String prefix){
     if (loggingAuditClient != null){
       return;
     }
     try {
-      LoggingAuditClientConfig config = ConfigUtils.parseFileBasedLoggingAuditClientConfig(filePath);
+      LoggingAuditClientConfig config = ConfigUtils.parseFileBasedLoggingAuditClientConfig(filePath, prefix);
       loggingAuditClient = new LoggingAuditClient(config);
     } catch (ConfigurationException e){
       loggingAuditClient = null;
@@ -141,7 +145,6 @@ public class AuditableLogbackThriftLoggerFactory extends LogbackThriftLoggerFact
       LOG.info("Add AuditConfig ({}) for {} ",  auditConfig, thriftLoggerConfig.getKafkaTopic());
     }
 
-    LOG.info("Create AuditableLogbackThriftLogger based on config: " + thriftLoggerConfig.toString());
     return new AuditableLogbackThriftLogger(appender, thriftLoggerConfig.getKafkaTopic(),
         thriftLoggerConfig.getThriftClazz(), thriftLoggerConfig.isEnableLoggingAudit(),
         thriftLoggerConfig.getAuditSamplingRate());
