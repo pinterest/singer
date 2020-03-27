@@ -15,6 +15,7 @@
  */
 package com.pinterest.singer.loggingaudit.client.utils;
 
+import com.pinterest.singer.config.ConfigFileServerSet;
 import com.pinterest.singer.loggingaudit.client.common.LoggingAuditClientConfigDef;
 import com.pinterest.singer.loggingaudit.thrift.LoggingAuditStage;
 import com.pinterest.singer.loggingaudit.thrift.configuration.LoggingAuditEventSenderConfig;
@@ -23,19 +24,26 @@ import com.pinterest.singer.loggingaudit.thrift.configuration.KafkaSenderConfig;
 import com.pinterest.singer.loggingaudit.thrift.configuration.LoggingAuditClientConfig;
 import com.pinterest.singer.loggingaudit.thrift.configuration.SenderType;
 import com.pinterest.singer.loggingaudit.thrift.configuration.AuditConfig;
+import com.pinterest.singer.utils.BrokerSetChangeListener;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.twitter.common.base.MorePreconditions;
 import org.apache.commons.configuration.AbstractConfiguration;
 import org.apache.commons.configuration.ConfigurationException;
 import org.apache.commons.configuration.PropertiesConfiguration;
 import org.apache.commons.configuration.SubsetConfiguration;
+import org.apache.commons.lang.StringUtils;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.config.SslConfigs;
 import org.apache.kafka.common.record.CompressionType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+
+import java.io.File;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -44,11 +52,14 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentMap;
 
 
 public class ConfigUtils {
 
   private static final Logger LOG = LoggerFactory.getLogger(ConfigUtils.class);
+  public static final String DEFAULT_SERVERSET_DIR = "/var/serverset";
+  private static final ConcurrentMap<String, Set<String>> KAFKA_SERVER_SETS = Maps.newConcurrentMap();
 
   public static LoggingAuditClientConfig createLoggingAuditClientConfigFromKVs(
       Map<String, String> properties) throws ConfigurationException {
@@ -102,12 +113,21 @@ public class ConfigUtils {
 
   public static LoggingAuditClientConfig parseFileBasedLoggingAuditClientConfig(
       String loggingAuditClientConfigFile) throws ConfigurationException {
-    PropertiesConfiguration conf = new PropertiesConfiguration(loggingAuditClientConfigFile);
-    return parseLoggingAuditClientConfig(conf);
+    return parseFileBasedLoggingAuditClientConfig(loggingAuditClientConfigFile, "");
   }
 
-  public static LoggingAuditClientConfig parseLoggingAuditClientConfig(AbstractConfiguration conf)
-      throws ConfigurationException {
+  public static LoggingAuditClientConfig parseFileBasedLoggingAuditClientConfig(
+      String loggingAuditClientConfigFile, String prefix) throws ConfigurationException {
+    PropertiesConfiguration conf = new PropertiesConfiguration(loggingAuditClientConfigFile);
+    return parseLoggingAuditClientConfig(conf, prefix);
+  }
+
+
+  public static LoggingAuditClientConfig parseLoggingAuditClientConfig(
+      AbstractConfiguration conf, String prefix) throws ConfigurationException {
+    if (prefix != null && prefix != ""){
+      conf = new SubsetConfiguration(conf, prefix);
+    }
     LoggingAuditClientConfig loggingAuditClientConfig = parseCommonConfig(conf);
     loggingAuditClientConfig.setAuditConfigs(parseAllAuditConfigs(
         new SubsetConfiguration(conf, LoggingAuditClientConfigDef.AUDITED_TOPICS_PREFIX)));
@@ -145,7 +165,7 @@ public class ConfigUtils {
 
   public static Map<String, AuditConfig> parseAllAuditConfigs(AbstractConfiguration conf) {
     Map<String, AuditConfig> auditConfigs = new HashMap<>();
-    if (conf.containsKey(LoggingAuditClientConfigDef.AUDITED_TOPIC_NAMES)) {
+    if (conf != null && conf.containsKey(LoggingAuditClientConfigDef.AUDITED_TOPIC_NAMES)) {
       for (String name : conf.getStringArray(LoggingAuditClientConfigDef.AUDITED_TOPIC_NAMES)) {
         try {
           auditConfigs.put(name, parseAuditConfig(new SubsetConfiguration(conf, name + ".")));
@@ -242,12 +262,48 @@ public class ConfigUtils {
     producerConfiguration.setThrowExceptionOnMissing(true);
     Set<String> brokerSet = Sets.newHashSet(producerConfiguration.getStringArray(
         LoggingAuditClientConfigDef.BOOTSTRAP_SERVERS));
+
+    String serverSetFilePath = null;
+    if (producerConfiguration.containsKey(LoggingAuditClientConfigDef.BOOTSTRAP_SERVERS_FILE)) {
+      serverSetFilePath = producerConfiguration.getString(
+          LoggingAuditClientConfigDef.BOOTSTRAP_SERVERS_FILE);
+    } else if (producerConfiguration.containsKey(
+        LoggingAuditClientConfigDef.BROKER_SERVERSET_DEPRECATED)) {
+      String serversetZkPath = producerConfiguration.getString(
+          LoggingAuditClientConfigDef.BROKER_SERVERSET_DEPRECATED);
+      serverSetFilePath = filePathFromZKPath(serversetZkPath);
+    }
+
+    // Broker list will take precedence over broker serverset if both are set.
+    if (brokerSet.isEmpty() && Strings.isNullOrEmpty(serverSetFilePath)) {
+      throw new ConfigurationException(
+          "bootstrap.servers or bootstrap.servers.file or metadata.broker.serverset needs to be set.");
+    }
+
+    if (brokerSet.isEmpty()) {
+      if (!KAFKA_SERVER_SETS.containsKey(serverSetFilePath)) {
+        try {
+          ConfigFileServerSet serverSet = new ConfigFileServerSet(serverSetFilePath);
+          final String monitoredServersetFilePath = serverSetFilePath;
+          // ConfigFileServerSet.monitor() guarantee that initial load will be done before
+          // return.
+          serverSet.monitor(new BrokerSetChangeListener(monitoredServersetFilePath, KAFKA_SERVER_SETS));
+        } catch (Exception e) {
+          throw new ConfigurationException("Cannot get broker list from serverset.", e);
+        }
+      }
+      LOG.debug("Initial loading kafka broker serverset OK.");
+      brokerSet = KAFKA_SERVER_SETS.get(serverSetFilePath);
+    } else if (!Strings.isNullOrEmpty(serverSetFilePath)) {
+      LOG.warn("Ignoring metadata.broker.serverset when metadata.broker.list is configured.");
+    }
+
     String acks = producerConfiguration.containsKey(LoggingAuditClientConfigDef.ACKS) ?
                   producerConfiguration.getString(LoggingAuditClientConfigDef.ACKS) :
                   LoggingAuditClientConfigDef.DEFAULT_ACKS;
     acks = acks.toLowerCase();
     KafkaProducerConfig kafkaProducerConfig = new KafkaProducerConfig(
-        "", Lists.newArrayList(brokerSet), acks);
+        serverSetFilePath, Lists.newArrayList(brokerSet), acks);
 
     if (producerConfiguration.containsKey(LoggingAuditClientConfigDef.COMPRESSION_TYPE)) {
       String compressionType = producerConfiguration.getString(
@@ -315,6 +371,19 @@ public class ConfigUtils {
       kafkaProducerConfig.setRetries(retries);
     }
     return kafkaProducerConfig;
+  }
+
+  /**
+   * Returns the file path on local disk corresponding to a ZooKeeper server set
+   * path.
+   *
+   * E.g. /discovery/service/prod => /var/serverset/discovery.service.prod
+   */
+  public static String filePathFromZKPath(String serverSetZKPath) {
+    MorePreconditions.checkNotBlank(serverSetZKPath);
+    String filename = serverSetZKPath.replace('/', '.');
+    filename = StringUtils.strip(filename, "."); // strip any leading or trailing dots.
+    return new File(DEFAULT_SERVERSET_DIR, filename).getPath();
   }
 
 }

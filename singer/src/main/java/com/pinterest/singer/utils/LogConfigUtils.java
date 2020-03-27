@@ -207,7 +207,7 @@ public class LogConfigUtils {
     if (result.isLoggingAuditEnabled()){
       AbstractConfiguration loggingAuditConf = new SubsetConfiguration(configHeader, "singer.loggingAudit.");
       try{
-        LoggingAuditClientConfig loggingAuditClientConfig = ConfigUtils.parseLoggingAuditClientConfig(loggingAuditConf);
+        LoggingAuditClientConfig loggingAuditClientConfig = ConfigUtils.parseLoggingAuditClientConfig(loggingAuditConf, "");
         if (loggingAuditClientConfig.getStage() != LoggingAuditStage.SINGER){
           LOG.warn("LoggingAudit stage should be SINGER.");
           loggingAuditClientConfig.setStage(LoggingAuditStage.SINGER);

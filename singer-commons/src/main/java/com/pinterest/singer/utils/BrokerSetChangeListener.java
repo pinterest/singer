@@ -15,18 +15,18 @@
  */
 package com.pinterest.singer.utils;
 
-import java.net.InetSocketAddress;
-import java.util.Set;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ThreadLocalRandom;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.pinterest.singer.config.ServersetMonitor;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import com.pinterest.singer.config.ServersetMonitor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.net.InetSocketAddress;
+import java.util.Set;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ThreadLocalRandom;
 
 public final class BrokerSetChangeListener implements ServersetMonitor {
   
@@ -39,13 +39,13 @@ public final class BrokerSetChangeListener implements ServersetMonitor {
   private int restartTimeLimit = RESTART_WAIT_MAX_DELAY;
 
   public BrokerSetChangeListener(String monitoredServersetFilePath,
-      ConcurrentMap<String, Set<String>> kafkaServerSets) {
+                                 ConcurrentMap<String, Set<String>> kafkaServerSets) {
     this.monitoredServersetFilePath = monitoredServersetFilePath;
     this.kafkaServerSets = kafkaServerSets;
   }
 
   public BrokerSetChangeListener(String monitoredServersetFilePath,
-      ConcurrentMap<String, Set<String>> kafkaServerSets, int randomTimeLimit) {
+                                 ConcurrentMap<String, Set<String>> kafkaServerSets, int randomTimeLimit) {
     this.monitoredServersetFilePath = monitoredServersetFilePath;
     this.kafkaServerSets = kafkaServerSets;
     this.restartTimeLimit = randomTimeLimit;
