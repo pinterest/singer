@@ -30,6 +30,7 @@ import com.pinterest.singer.thrift.LogFileAndPath;
 import com.pinterest.singer.thrift.LogMessage;
 import com.pinterest.singer.thrift.LogMessageAndPosition;
 import com.pinterest.singer.thrift.LogPosition;
+import com.pinterest.singer.utils.LogConfigUtils;
 import com.pinterest.singer.utils.WatermarkUtils;
 
 import com.google.common.base.Preconditions;
@@ -409,6 +410,9 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
     // Get the globally unique watermark file name
     String watermarkFilename = "." + logStream.getSingerLog().getLogName()
         + "." + logStream.getLogStreamName();
+    if (LogConfigUtils.SHADOW_MODE_ENABLED) {
+      watermarkFilename = ".shadow" + watermarkFilename;
+    }
     return FilenameUtils.concat(path, watermarkFilename);
   }
 

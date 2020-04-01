@@ -299,11 +299,6 @@ struct SingerConfig {
    */ 
   15: optional KubeConfig kubeConfig;
   
-  /**
-   * Active or deactivate command server
-   */
-  16: optional bool runCommandServer = false;
-  
   /** 
    * Class name for stats pusher
    */
@@ -317,5 +312,15 @@ struct SingerConfig {
   19: optional bool loggingAuditEnabled = false;
 
   20: optional loggingaudit_config.LoggingAuditClientConfig loggingAuditClientConfig;
-
+  
+  /**
+   * Run singer in shadow mode
+   */
+  21: optional bool shadowModeEnabled = false;
+  
+  /**
+   * Run singer in shadow mode
+   */
+  22: optional string shadowModeServersetMappingFile;
+  
 }

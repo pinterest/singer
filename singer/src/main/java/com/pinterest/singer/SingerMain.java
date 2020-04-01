@@ -35,6 +35,7 @@ import org.slf4j.LoggerFactory;
 public final class SingerMain {
 
   private static final String SINGER_METRICS_PREFIX = "singer";
+  private static final String SHADOW_METRICS_PREFIX = SINGER_METRICS_PREFIX + ".shadow";
   private static final Logger LOG = LoggerFactory.getLogger(SingerMain.class);
   private static final int STATS_PUSH_INTERVAL_IN_MILLISECONDS = 10 * 1000;
   protected static final String hostName = SingerUtils.getHostname();
@@ -114,7 +115,7 @@ public final class SingerMain {
         HostAndPort pushHostPort = HostAndPort.fromString(singerConfig.getStatsPusherHostPort());
         // allows hostname to be overridden based on environment
         statsPusher.configure(SingerSettings.getEnvironment().getHostname()
-            , SINGER_METRICS_PREFIX
+            , singerConfig.isShadowModeEnabled()? SHADOW_METRICS_PREFIX : SINGER_METRICS_PREFIX
             , pushHostPort.getHost()
             , pushHostPort.getPort()
             , STATS_PUSH_INTERVAL_IN_MILLISECONDS);

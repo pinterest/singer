@@ -76,4 +76,13 @@ public class Environment {
     this.hostname = hostname;
   }
 
+  /* (non-Javadoc)
+   * @see java.lang.Object#toString()
+   */
+  @Override
+  public String toString() {
+    return "Environment [locality=" + locality + ", deploymentStage=" + deploymentStage
+        + ", hostname=" + hostname + "]";
+  }
+
 }

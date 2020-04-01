@@ -112,6 +112,12 @@ public final class SingerSettings {
              NoSuchMethodException,
       SingerLogException {
     setSingerConfig(config);
+    
+    // mark metric if Singer is running in shadowMode
+    if (config.isShadowModeEnabled()) {
+      Stats.setGauge(SingerMetrics.SHADOW_MODE_ENABLED, 1);
+      LOG.warn("################Singer is running in shadow mode################");
+    }
 
     loadAndSetSingerEnvironmentIfConfigured(config);
     LOG.warn("Singer environment has been configured to:" + environment);

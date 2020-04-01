@@ -53,7 +53,6 @@ public class SingerConfigDef {
   public static final String BOOTSTRAP_SERVERS_FILE = "bootstrap.servers.file";
   @Deprecated
   public static final String BROKER_SERVERSET = "broker.serverset";
-  @Deprecated
   public static final String BROKER_SERVERSET_DEPRECATED = "metadata.broker.serverset";
   public static final String ACKS = "acks";
 

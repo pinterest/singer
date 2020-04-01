@@ -19,6 +19,9 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -27,6 +30,7 @@ import org.apache.commons.configuration.AbstractConfiguration;
 import org.apache.commons.configuration.ConfigurationException;
 import org.apache.commons.configuration.MapConfiguration;
 import org.apache.commons.configuration.PropertiesConfiguration;
+import org.junit.After;
 import org.junit.Test;
 
 import com.pinterest.singer.common.SingerConfigDef;
@@ -34,7 +38,13 @@ import com.pinterest.singer.thrift.configuration.KafkaProducerConfig;
 import com.pinterest.singer.thrift.configuration.RealpinWriterConfig;
 
 public class TestLogConfigUtils {
-
+  
+  @After
+  public void after() {
+    LogConfigUtils.SHADOW_MODE_ENABLED = false;
+    LogConfigUtils.DEFAULT_SERVERSET_DIR = "/var/serverset";
+  }
+  
   @Test
   public void testRealPinTTLParsing() throws ConfigurationException {
     String CONFIG = "" + "topic=test\n" + "objectType=mobile_perf_log\n"
@@ -212,6 +222,34 @@ public class TestLogConfigUtils {
       // fail since no exception should be thrown
       throw e;
     }
+  }
+  
+  @Test
+  public void testShadowKafkaProducerConfigs() throws ConfigurationException, IOException {
+    LogConfigUtils.DEFAULT_SERVERSET_DIR = "target/serversets";
+    new File(LogConfigUtils.DEFAULT_SERVERSET_DIR).mkdirs();
+    Files.write(new File(LogConfigUtils.DEFAULT_SERVERSET_DIR+"/discovery.xyz.prod").toPath(), "xyz:9092".getBytes());
+    Files.write(new File(LogConfigUtils.DEFAULT_SERVERSET_DIR+"/discovery.test.prod").toPath(), "test:9092".getBytes());
+    Files.write(new File(LogConfigUtils.DEFAULT_SERVERSET_DIR+"/discovery.test2.prod").toPath(), "test2:9092".getBytes());
+    Map<String, Object> map = new HashMap<>();
+    map.put(SingerConfigDef.BROKER_SERVERSET_DEPRECATED, "/discovery/xyz/prod");
+    AbstractConfiguration config = new MapConfiguration(map);
+    
+    KafkaProducerConfig producerConfig = null;
+    // without shadow mode activation regular serverset file should be sourced
+    producerConfig = LogConfigUtils.parseProducerConfig(config);
+    assertEquals(Arrays.asList("xyz:9092"), producerConfig.getBrokerLists());
+
+    // with shadow mode override should be sourced
+    LogConfigUtils.SHADOW_MODE_ENABLED = true;
+    LogConfigUtils.SHADOW_SERVERSET_MAPPING.put(LogConfigUtils.DEFAULT_SHADOW_SERVERSET, "discovery.test.prod");
+
+    producerConfig = LogConfigUtils.parseProducerConfig(config);
+    assertEquals(Arrays.asList("test:9092"), producerConfig.getBrokerLists());
+    
+    LogConfigUtils.SHADOW_SERVERSET_MAPPING.put("/discovery/xyz/prod", "discovery.test2.prod");
+    producerConfig = LogConfigUtils.parseProducerConfig(config);
+    assertEquals(Arrays.asList("test2:9092"), producerConfig.getBrokerLists());
   }
   
   @Test
