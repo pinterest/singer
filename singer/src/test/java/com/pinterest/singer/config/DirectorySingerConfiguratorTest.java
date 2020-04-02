@@ -43,7 +43,7 @@ public class DirectorySingerConfiguratorTest extends SingerTestBase {
 
   @Test
   public void testConfiguratorLoadConfigsAndReceiveLiveChanges() throws Exception {
-	dumpServerSetFiles();
+    dumpServerSetFiles();
     // Make the singer config property file
     File singerConfigFile = createSingerConfigFile(makeDirectorySingerConfigProperties());
     // Make two log config properties files in the logConfigDir.

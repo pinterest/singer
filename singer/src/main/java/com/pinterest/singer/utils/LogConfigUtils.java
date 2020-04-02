@@ -73,10 +73,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 import java.util.regex.Pattern;
@@ -118,14 +121,16 @@ import java.util.Arrays;
 
 public class LogConfigUtils {
 
+  public static final String DEFAULT_SHADOW_SERVERSET = "default";
   private static final Logger LOG = LoggerFactory.getLogger(LogConfigUtils.class);
-  public static final String DEFAULT_SERVERSET_DIR = "/var/serverset";
+  public static String DEFAULT_SERVERSET_DIR = "/var/serverset";
   private static final String DEFAULT_ACKS = "1";
   private static final String ACKS_ALL = "all";
   private static final long MaximumProcessingTimeSliceInMilliseconds = 864000000L;
   private static final ConcurrentMap<String, Set<String>> KAFKA_SERVER_SETS = Maps
       .newConcurrentMap();
-
+  public static final Properties SHADOW_SERVERSET_MAPPING = new Properties();
+  public static boolean SHADOW_MODE_ENABLED;
 
   private LogConfigUtils() {
   }
@@ -500,6 +505,25 @@ public class LogConfigUtils {
     if (singerConfiguration.containsKey("loggingAuditEnabled")) {
       singerConfig.setLoggingAuditEnabled(singerConfiguration.getBoolean("loggingAuditEnabled"));
     }
+    
+    if (singerConfiguration.containsKey("shadowModeEnabled")) {
+      if (!singerConfiguration.containsKey("shadowModeServersetMappingFile")) {
+        throw new ConfigurationException("Invalid shadow mode configuration, missing shadowModeServersetMappingFile");
+      }
+      SHADOW_MODE_ENABLED = singerConfiguration.getBoolean("shadowModeEnabled");
+      singerConfig.setShadowModeEnabled(SHADOW_MODE_ENABLED);
+      if (SHADOW_MODE_ENABLED) {
+        singerConfig.setShadowModeServersetMappingFile(singerConfiguration.getString("shadowModeServersetMappingFile"));
+        try {
+          SHADOW_SERVERSET_MAPPING.load(new FileInputStream(new File(singerConfig.getShadowModeServersetMappingFile())));
+          if (!SHADOW_SERVERSET_MAPPING.containsKey(DEFAULT_SHADOW_SERVERSET)) {
+            throw new ConfigurationException("Missing default shadow serverset");
+          }
+        } catch (IOException e) {
+          throw new ConfigurationException("Error reading shadow mapping file", e);
+        }
+      }
+    }
     return singerConfig;
   }
 
@@ -664,6 +688,12 @@ public class LogConfigUtils {
     } else if (producerConfiguration.containsKey(SingerConfigDef.BROKER_SERVERSET_DEPRECATED)) {
       String serversetZkPath = producerConfiguration
           .getString(SingerConfigDef.BROKER_SERVERSET_DEPRECATED);
+      // if singer is in shadow mode then lookup the serverset mapping table to override
+      // serverset with custom routing this way data will be directed to an alternate cluster
+      if (SHADOW_MODE_ENABLED) {
+        serversetZkPath = SHADOW_SERVERSET_MAPPING.getProperty(serversetZkPath, 
+            SHADOW_SERVERSET_MAPPING.getProperty(DEFAULT_SHADOW_SERVERSET));
+      }
       serverSetFilePath = filePathFromZKPath(serversetZkPath);
     }
 

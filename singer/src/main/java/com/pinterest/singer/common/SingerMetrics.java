@@ -109,4 +109,5 @@ public class SingerMetrics {
   // Used when logging audit is enabled and is started at Singer instead of ThriftLogger.
   public static final String AUDIT_HEADERS_SET_FOR_LOG_MESSAGE = "singer.audit.log_message_headers_set";
   public static final String AUDIT_HEADERS_SET_FOR_LOG_MESSAGE_EXCEPTION = "singer.audit.log_message_headers_set.exception";
+  public static final String SHADOW_MODE_ENABLED = "singer.shadow_mode_enabled";
 }
