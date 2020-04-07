@@ -323,4 +323,9 @@ struct SingerConfig {
    */
   22: optional string shadowModeServersetMappingFile;
   
+  /**
+   * Configure metrics pusher frequency
+   */
+  23: optional i32 statsPusherFrequencyInSeconds = 60;
+  
 }
