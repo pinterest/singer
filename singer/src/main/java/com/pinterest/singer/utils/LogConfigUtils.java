@@ -500,6 +500,12 @@ public class LogConfigUtils {
       } catch (ClassNotFoundException e) {
         throw new ConfigurationException("Couldn't find statsPusherClass " + statsPusherClass);
       }
+      if (singerConfiguration.containsKey("statsPusherFrequencyInSeconds")) {
+        int frequency = singerConfiguration.getInt("statsPusherFrequencyInSeconds");
+        if (frequency > 0) {
+          singerConfig.setStatsPusherFrequencyInSeconds(frequency);
+        }
+      }
     }
 
     if (singerConfiguration.containsKey("loggingAuditEnabled")) {

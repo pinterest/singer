@@ -37,7 +37,6 @@ public final class SingerMain {
   private static final String SINGER_METRICS_PREFIX = "singer";
   private static final String SHADOW_METRICS_PREFIX = SINGER_METRICS_PREFIX + ".shadow";
   private static final Logger LOG = LoggerFactory.getLogger(SingerMain.class);
-  private static final int STATS_PUSH_INTERVAL_IN_MILLISECONDS = 10 * 1000;
   protected static final String hostName = SingerUtils.getHostname();
   private static  StatsPusher statsPusher = null;
   private static String singerPath = "";
@@ -118,7 +117,7 @@ public final class SingerMain {
             , singerConfig.isShadowModeEnabled()? SHADOW_METRICS_PREFIX : SINGER_METRICS_PREFIX
             , pushHostPort.getHost()
             , pushHostPort.getPort()
-            , STATS_PUSH_INTERVAL_IN_MILLISECONDS);
+            , singerConfig.getStatsPusherFrequencyInSeconds() * 1000);
         statsPusher.start();
         LOG.info("Stats pusher started!");
       } catch (Throwable t) {
