@@ -236,9 +236,9 @@ public class AuditEventKafkaSender implements LoggingAuditEventSender {
         if (event != null) {
           try {
             value = serializer.serialize(event);
-            record = new ProducerRecord<>(this.topic, getAlternatePartition(
-                partitionInfoList.size()), null, value);
-            kafkaProducer.send(record, new KafkaProducerCallback(event));
+            int partition = getAlternatePartition(partitionInfoList.size());
+            record = new ProducerRecord<>(this.topic, partition , null, value);
+            kafkaProducer.send(record, new KafkaProducerCallback(event, partition));
           } catch (TException e) {
             LOG.debug("[{}] failed to construct ProducerRecord because of serialization exception.",
                 Thread.currentThread().getName(), e);
@@ -269,18 +269,20 @@ public class AuditEventKafkaSender implements LoggingAuditEventSender {
   public class KafkaProducerCallback implements Callback {
 
     private LoggingAuditEvent event;
+    private int partition;
 
-    public KafkaProducerCallback(LoggingAuditEvent event) {
+    public KafkaProducerCallback(LoggingAuditEvent event, int partition) {
       this.event = event;
+      this.partition = partition;
     }
 
-    public void checkAndEnqueueWhenSendFailed(RecordMetadata recordMetadata, Exception e) {
+    public void checkAndEnqueueWhenSendFailed() {
       // if exception thrown (i.e. the send failed), the partition is added to badPartitions.
-      badPartitions.add(recordMetadata.partition());
+      badPartitions.add(this.partition);
       OpenTsdbMetricConverter
           .incr(LoggingAuditClientMetrics.AUDIT_CLIENT_SENDER_KAFKA_PARTITION_ERROR, 1,
               "host=" + host, "stage=" + stage.toString(), "topic=" + topic,
-              "partition=" + recordMetadata.partition());
+              "partition=" + this.partition);
 
       // retry the failed event by inserting it at the beginning of the deque.
       // If number of tries reaches 3, meaning that 3 partitions have been tried sending to but
@@ -337,7 +339,7 @@ public class AuditEventKafkaSender implements LoggingAuditEventSender {
           // if send out successfully, remove the partition from the badPartitions if it was added.
           badPartitions.remove(recordMetadata.partition());
         } else {
-          checkAndEnqueueWhenSendFailed(recordMetadata, e);
+          checkAndEnqueueWhenSendFailed();
         }
       } catch (Throwable t) {
         LOG.warn("Exception throws in the callback. Drop this event {}", event, t);
