@@ -196,27 +196,27 @@ struct KubeConfig {
    * Poll frequency for kubelet metadata
    */
   1: optional i32 pollFrequencyInSeconds = 10;
-  
+
   /**
    * Location of pod log mounts on kubelet
    */
   2: optional string podLogDirectory = "";
-   
+
   /**
    * Enable if running singer on kubernetes
    */
   3: optional i32 defaultDeletionTimeoutInSeconds = 3600;
-  
+
   /**
    * Frequency to check if all pod logs have been processed
    */
   4: optional i32 deletionCheckIntervalInSeconds = 20;
-  
+
   /**
-   * Kube Poll start delay; this is to prevent pod deletion 
+   * Kube Poll start delay; this is to prevent pod deletion
    * events from being triggered too quickly
    */
-  5: optional i32 kubePollStartDelaySeconds = 10; 
+  5: optional i32 kubePollStartDelaySeconds = 10;
 
 }
 
@@ -288,22 +288,22 @@ struct SingerConfig {
    * logmonitor setting
    */
   13: optional string logMonitorClass = "com.pinterest.singer.monitor.DefaultLogMonitor";
- 
+
   /**
    * if running on kubernetes host
    */
   14: optional bool kubernetesEnabled = false;
- 
+
   /**
    * Kubernetes config
-   */ 
+   */
   15: optional KubeConfig kubeConfig;
-  
-  /** 
+
+  /**
    * Class name for stats pusher
    */
   17: optional string statsPusherClass = "com.pinterest.singer.metrics.OpenTsdbStatsPusher";
-  
+
   /**
    * Singer Environment provider class
    */
@@ -312,20 +312,20 @@ struct SingerConfig {
   19: optional bool loggingAuditEnabled = false;
 
   20: optional loggingaudit_config.LoggingAuditClientConfig loggingAuditClientConfig;
-  
+
   /**
    * Run singer in shadow mode
    */
   21: optional bool shadowModeEnabled = false;
-  
+
   /**
    * Run singer in shadow mode
    */
   22: optional string shadowModeServersetMappingFile;
-  
+
   /**
    * Configure metrics pusher frequency
    */
-  23: optional i32 statsPusherFrequencyInSeconds = 60;
-  
+  23: optional i32 statsPusherFrequencyInSeconds = 180;
+
 }
