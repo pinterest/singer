@@ -65,6 +65,7 @@ public class AuditableLogbackThriftLoggerFactory extends LogbackThriftLoggerFact
   }
 
   public static void createLoggingAuditClientFromConfigFile(String filePath, String prefix){
+    // check if loggingAuditClient is null
     if (loggingAuditClient != null){
       return;
     }
