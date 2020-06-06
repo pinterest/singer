@@ -43,4 +43,41 @@ public interface LogStreamWriter extends Closeable {
    * @throws LogStreamWriterException when writer fails to write the LogMessages.
    */
   void writeLogMessages(List<LogMessage> messages) throws LogStreamWriterException;
+
+  /**
+   * @return if this writer implementation is committable
+   */
+  default boolean isCommittableWriter() {
+    return false;
+  }
+  
+  /**
+   * Start a new commit and run any pre-commit steps
+   * @throws LogStreamWriterException
+   */
+  default void startCommit() throws LogStreamWriterException {
+    throw new UnsupportedOperationException();
+  }
+
+  /**
+   * Send 1 LogMessage to the writer, note that writer is expected to not finalize
+   * the messages until the commit method is invoked
+   * 
+   * @param message
+   * @throws LogStreamWriterException
+   */
+  default void writeLogMessageToCommit(LogMessage message) throws LogStreamWriterException {
+    throw new UnsupportedOperationException();
+  }
+
+  /**
+   * Commit all logmessages written using {@link LogStreamWriter#writeCommittableLogMessage}
+   * 
+   * NOTE: by default this method throws UnsupportedOperationException
+   * @param numLogMessagesRead 
+   * @throws LogStreamWriterException
+   */
+  default void endCommit(int numLogMessagesRead) throws LogStreamWriterException {
+    throw new UnsupportedOperationException();
+  }
 }

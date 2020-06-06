@@ -952,6 +952,10 @@ public class LogConfigUtils {
 
     LogStreamProcessorConfig config;
     config = new LogStreamProcessorConfig(minIntervalInMillis, maxIntervalInMillis, batchSize);
+    if (processorConfiguration.containsKey(SingerConfigDef.PROCESS_ENABLE_MEMORY_EFFICIENCY)) {
+      config.setEnableMemoryEfficientProcessor(
+          processorConfiguration.getBoolean(SingerConfigDef.PROCESS_ENABLE_MEMORY_EFFICIENCY));
+    }
     config.setProcessingTimeSliceInMilliseconds(processingTimeSliceInMilliseconds);
     return config;
   }

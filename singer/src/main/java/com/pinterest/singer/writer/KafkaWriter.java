@@ -64,45 +64,45 @@ public class KafkaWriter implements LogStreamWriter {
 
   public static final String HOSTNAME = SingerSettings.getEnvironment().getHostname();
   private static final Logger LOG = LoggerFactory.getLogger(KafkaWriter.class);
-  private static final PartitionComparator COMPARATOR = new PartitionComparator();
+  protected static final PartitionComparator COMPARATOR = new PartitionComparator();
 
   // Counter for the number of batch message writing failures
-  private static AtomicInteger failureCounter = new AtomicInteger(0);
+  protected static AtomicInteger failureCounter = new AtomicInteger(0);
 
-  private final LogStream logStream;
+  protected final LogStream logStream;
 
   // Topic to which this LogWriter writes.
-  private final String topic;
+  protected final String topic;
 
-  private final String logName;
+  protected final String logName;
 
-  private final boolean skipNoLeaderPartitions;
+  protected final boolean skipNoLeaderPartitions;
 
-  private final boolean auditingEnabled;
+  protected final boolean auditingEnabled;
 
-  private final KafkaProducerConfig producerConfig;
+  protected final KafkaProducerConfig producerConfig;
 
-  private final String kafkaClusterSig;
+  protected final String kafkaClusterSig;
 
-  private final ExecutorService clusterThreadPool;
+  protected final ExecutorService clusterThreadPool;
 
-  private final int writeTimeoutInSeconds;
+  protected final int writeTimeoutInSeconds;
 
-  private KafkaMessagePartitioner partitioner;
+  protected KafkaMessagePartitioner partitioner;
 
-  public boolean enableHeadersInjector = false;
+  protected boolean enableHeadersInjector = false;
 
-  private boolean enableLoggingAudit = false;
+  protected boolean enableLoggingAudit = false;
 
-  private AuditHeadersGenerator auditHeadersGenerator = null;
+  protected AuditHeadersGenerator auditHeadersGenerator = null;
 
-  private AuditConfig auditConfig = null;
+  protected AuditConfig auditConfig = null;
 
   /**
    *  HeadersInjector will be set if enableHeadersInjector is set to true.
    *  Default is
   */
-  private HeadersInjector headersInjector = null;
+  protected HeadersInjector headersInjector = null;
 
 
   public boolean isEnableLoggingAudit() {
@@ -471,7 +471,7 @@ public class KafkaWriter implements LogStreamWriter {
     }
   }
 
-  private boolean isLoggingAuditEnabledAndConfigured(){
+  protected boolean isLoggingAuditEnabledAndConfigured(){
     return this.enableLoggingAudit && SingerSettings.getLoggingAuditClient() != null;
   }
 

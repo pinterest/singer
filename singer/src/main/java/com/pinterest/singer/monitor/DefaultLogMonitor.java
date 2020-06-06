@@ -43,6 +43,7 @@ import com.pinterest.singer.thrift.configuration.ThriftReaderConfig;
 import com.pinterest.singer.utils.SingerUtils;
 import com.pinterest.singer.writer.DummyLogStreamWriter;
 import com.pinterest.singer.writer.KafkaWriter;
+import com.pinterest.singer.writer.kafka.CommittableKafkaWriter;
 import com.pinterest.singer.writer.pulsar.PulsarWriter;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -318,9 +319,10 @@ public class DefaultLogMonitor implements LogMonitor, Runnable {
       throws ConfigurationException {
     KafkaProducerConfig producerConfig = kafkaWriterConfig.getProducerConfig();
 
+    SingerLogConfig singerLogConfig = logStream.getSingerLog().getSingerLogConfig();
     String topic = extractTopicNameFromLogStreamName(
         logStream.getLogStreamName(),
-        logStream.getSingerLog().getSingerLogConfig().getLogStreamRegex(),
+        singerLogConfig.getLogStreamRegex(),
         kafkaWriterConfig.getTopic());
 
     boolean auditingEnabled = kafkaWriterConfig.isAuditingEnabled();
@@ -328,18 +330,24 @@ public class DefaultLogMonitor implements LogMonitor, Runnable {
     if (auditingEnabled) {
       auditTopic = extractTopicNameFromLogStreamName(
           logStream.getLogStreamName(),
-          logStream.getSingerLog().getSingerLogConfig().getLogStreamRegex(),
+          singerLogConfig.getLogStreamRegex(),
           kafkaWriterConfig.getAuditTopic());
     }
 
     int writeTimeoutInSeconds = kafkaWriterConfig.getWriteTimeoutInSeconds();
     String partitionerClass = producerConfig.getPartitionerClass();
-    boolean enableHeadersInjector = logStream.getSingerLog().getSingerLogConfig().isEnableHeadersInjector();
+    boolean enableHeadersInjector = singerLogConfig.isEnableHeadersInjector();
 
     try {
-      KafkaWriter kafkaWriter =
-          new KafkaWriter(logStream, producerConfig, topic, kafkaWriterConfig.isSkipNoLeaderPartitions(),
-              auditingEnabled, auditTopic, partitionerClass, writeTimeoutInSeconds, enableHeadersInjector);
+      KafkaWriter kafkaWriter = null;
+      if (!singerLogConfig.getLogStreamProcessorConfig().isEnableMemoryEfficientProcessor()) {
+        kafkaWriter = new KafkaWriter(logStream, producerConfig, topic, kafkaWriterConfig.isSkipNoLeaderPartitions(),
+            auditingEnabled, auditTopic, partitionerClass, writeTimeoutInSeconds, enableHeadersInjector);
+      } else {
+        // only enable committable writer for selective streams
+        kafkaWriter = new CommittableKafkaWriter(logStream, producerConfig, topic, kafkaWriterConfig.isSkipNoLeaderPartitions(),
+            auditingEnabled, auditTopic, partitionerClass, writeTimeoutInSeconds, enableHeadersInjector);
+      }
       LOG.info("Created kafka writer : " + kafkaWriterConfig.toString());
       return kafkaWriter;
     } catch (Exception e) {
