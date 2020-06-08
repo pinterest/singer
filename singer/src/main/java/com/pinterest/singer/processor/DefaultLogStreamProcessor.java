@@ -69,16 +69,16 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
   private final String logDecider;
 
   // LogStream to be processed.
-  private final LogStream logStream;
+  protected final LogStream logStream;
 
   // Reader for the LogStream.
-  private final LogStreamReader reader;
+  protected final LogStreamReader reader;
 
   // Writer for the LogStream.
-  private final LogStreamWriter writer;
+  protected final LogStreamWriter writer;
 
   // Processor batch size.
-  private int batchSize;
+  protected int batchSize;
   private final int batchSizeOriginal;
 
   // Randomizer for initial processing delay.
@@ -118,10 +118,10 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
   private ScheduledFuture<?> scheduledFuture;
 
   // Committed LogPosition so far in the LogStream.
-  private LogPosition committedPosition;
+  protected LogPosition committedPosition;
 
   // Counter of LogMessages that have been committed since this processor starts.
-  private long numOfLogMessagesCommitted;
+  protected long numOfLogMessagesCommitted;
 
   // The last modification time of the stream which we have already successfully processed up to. -1
   // if no processing happened.
@@ -474,7 +474,7 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
    * @return number of LogMessage processed.
    * @throws Exception when failed to process the message batch.
    */
-  private int processLogMessageBatch() throws IOException, LogStreamWriterException, TException {
+  protected int processLogMessageBatch() throws IOException, LogStreamWriterException, TException {
     LOG.debug("Start processing a batch of log messages in log stream: {} starting at position: {}",
         logStream, committedPosition);
     LogPosition batchStartPosition = committedPosition;
@@ -565,7 +565,7 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
    * @param persistent Whether the position should be saved to watermark file.
    * @throws Exception when fail to commit the LogPosition.
    */
-  private void commitLogPosition(LogPosition position, boolean persistent)
+  protected void commitLogPosition(LogPosition position, boolean persistent)
       throws IOException, TException {
     this.committedPosition = position;
     if (persistent) {
