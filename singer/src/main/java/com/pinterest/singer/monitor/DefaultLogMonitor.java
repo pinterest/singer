@@ -26,6 +26,7 @@ import com.pinterest.singer.common.errors.LogStreamWriterException;
 import com.pinterest.singer.common.SingerMetrics;
 import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
 import com.pinterest.singer.processor.DefaultLogStreamProcessor;
+import com.pinterest.singer.processor.MemoryEfficientLogStreamProcessor;
 import com.pinterest.singer.reader.DefaultLogStreamReader;
 import com.pinterest.singer.reader.TextLogFileReaderFactory;
 import com.pinterest.singer.reader.ThriftLogFileReaderFactory;
@@ -244,16 +245,32 @@ public class DefaultLogMonitor implements LogMonitor, Runnable {
     int batchSize = processorConfig.getBatchSize();
     batchSize = writer.isAuditingEnabled() ? batchSize - 1 : batchSize;
 
-    return new DefaultLogStreamProcessor(
-        logStream,
-        singerLogConfig.getLogDecider(),
-        reader,
-        writer,
-        batchSize,
-        processorConfig.getProcessingIntervalInMillisecondsMin(),
-        processorConfig.getProcessingIntervalInMillisecondsMax(),
-        processorConfig.getProcessingTimeSliceInMilliseconds(),
-        singerLogConfig.getLogRetentionInSeconds());
+    // Enable memory optimization only if the writer supports it and the logstream
+    // is configured for it
+    if (singerLogConfig.getLogStreamProcessorConfig().isEnableMemoryEfficientProcessor() && 
+        writer.isCommittableWriter()) {
+      return new MemoryEfficientLogStreamProcessor(
+          logStream,
+          singerLogConfig.getLogDecider(),
+          reader,
+          writer,
+          batchSize,
+          processorConfig.getProcessingIntervalInMillisecondsMin(),
+          processorConfig.getProcessingIntervalInMillisecondsMax(),
+          processorConfig.getProcessingTimeSliceInMilliseconds(),
+          singerLogConfig.getLogRetentionInSeconds());
+    } else {
+      return new DefaultLogStreamProcessor(
+          logStream,
+          singerLogConfig.getLogDecider(),
+          reader,
+          writer,
+          batchSize,
+          processorConfig.getProcessingIntervalInMillisecondsMin(),
+          processorConfig.getProcessingIntervalInMillisecondsMax(),
+          processorConfig.getProcessingTimeSliceInMilliseconds(),
+          singerLogConfig.getLogRetentionInSeconds());
+    }
   }
 
   /**
