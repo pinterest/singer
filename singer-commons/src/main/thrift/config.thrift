@@ -57,6 +57,8 @@ struct TextReaderConfig {
   7: optional bool prependHostname = false;
   // the delimiter for prepended messages
   8: optional string prependFieldDelimiter = " ";
+  // ability to trim trailing new line character
+  9: optional bool trimTailingNewlineCharacter = false;
 }
 
 struct LogStreamReaderConfig {

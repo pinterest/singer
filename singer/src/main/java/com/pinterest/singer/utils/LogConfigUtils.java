@@ -911,6 +911,12 @@ public class LogConfigUtils {
         config.setPrependFieldDelimiter(str);
       }
     }
+    
+    if (textReaderConfiguration.containsKey("trimTailingNewlineCharacter")) {
+      boolean trimTailingNewlineCharacter = textReaderConfiguration
+          .getBoolean("trimTailingNewlineCharacter");
+      config.setTrimTailingNewlineCharacter(trimTailingNewlineCharacter);
+    }
     return config;
   }
 

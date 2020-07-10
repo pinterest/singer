@@ -56,19 +56,21 @@ public class TextLogFileReader implements LogFileReader {
 
   private String hostname;
 
-  public TextLogFileReader(
-      LogFile logFile,
-      String path,
-      long byteOffset,
-      int readBufferSize,
-      int maxMessageSize,
-      int numMessagesPerLogMessage,
-      Pattern messageStartPattern,
-      TextLogMessageType messageType,
-      boolean prependTimestamp,
-      boolean prependHostName,
-      String hostname,
-      String prependFieldDelimiter) throws Exception {
+  private boolean trimTailingNewlineCharacter;
+
+  public TextLogFileReader(LogFile logFile,
+                           String path,
+                           long byteOffset,
+                           int readBufferSize,
+                           int maxMessageSize,
+                           int numMessagesPerLogMessage,
+                           Pattern messageStartPattern,
+                           TextLogMessageType messageType,
+                           boolean prependTimestamp,
+                           boolean prependHostName,
+                           boolean trimTailingNewlineCharacter,
+                           String hostname,
+                           String prependFieldDelimiter) throws Exception {
     Preconditions.checkArgument(!Strings.isNullOrEmpty(path));
     Preconditions.checkArgument(byteOffset >= 0);
 
@@ -85,11 +87,14 @@ public class TextLogFileReader implements LogFileReader {
     this.prependHostname = prependHostName;
     this.prependFieldDelimiter = prependFieldDelimiter;
     this.maxBuffer = ByteBuffer.allocate(maxMessageSize * numMessagesPerLogMessage);
+    this.trimTailingNewlineCharacter = trimTailingNewlineCharacter;
 
     // Make sure the path is still associated with the LogFile.
-    // This can happen when the path is reused for another LogFile during log rotation.
+    // This can happen when the path is reused for another LogFile during log
+    // rotation.
     if (logFile.getInode() != SingerUtils.getFileInode(SingerUtils.getPath(path))) {
-      LOG.info("Log file {} does not match path: {}. "
+      LOG.info(
+          "Log file {} does not match path: {}. "
               + "This can happen when the path is reused for another log file.",
           logFile.getInode(), path);
 
@@ -139,9 +144,12 @@ public class TextLogFileReader implements LogFileReader {
       // the returned buffer can't be reused since it would lead to data corruption
       ByteBuffer out = ByteBuffer.allocate(maxBuffer.limit()).put(maxBuffer);
       out.flip();
+      if (trimTailingNewlineCharacter && out.get(out.limit() - 1) == '\n') {
+        out.limit(out.limit() - 1);
+      }
 
       LogMessage logMessage = null;
-      switch(textLogMessageType) {
+      switch (textLogMessageType) {
       case THRIFT_TEXT_MESSAGE:
         TextMessage textMessage = new TextMessage();
         textMessage.setFilename(path);
@@ -153,7 +161,8 @@ public class TextLogFileReader implements LogFileReader {
         logMessage = new LogMessage(out);
         break;
       default:
-        throw new UnsupportedOperationException("Unknown text log message type:" + textLogMessageType.name());
+        throw new UnsupportedOperationException(
+            "Unknown text log message type:" + textLogMessageType.name());
       }
       // Get the next message's byte offset
       LogPosition position = new LogPosition(logFile, textMessageReader.getByteOffset());
@@ -188,8 +197,7 @@ public class TextLogFileReader implements LogFileReader {
       return textMessageReader.getByteOffset();
     } catch (Exception e) {
       LOG.error("Exception in getting textMessageReader byte offset of log file: " + logFile, e);
-      throw new LogFileReaderException(
-          "Cannot get byte offset of the thrift textMessageReader", e);
+      throw new LogFileReaderException("Cannot get byte offset of the thrift textMessageReader", e);
     }
   }
 
@@ -202,8 +210,8 @@ public class TextLogFileReader implements LogFileReader {
     try {
       textMessageReader.setByteOffset(byteOffset);
     } catch (Exception e) {
-      LOG.error("Caught exception when set textMessageReader byte offset of log file: "
-          + logFile + " to: " + byteOffset, e);
+      LOG.error("Caught exception when set textMessageReader byte offset of log file: " + logFile
+          + " to: " + byteOffset, e);
       throw new LogFileReaderException("Can not set byte offset on the thrift textMessageReader",
           e);
     }
