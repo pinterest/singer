@@ -61,6 +61,7 @@ public class TextLogFileReaderFactory implements LogFileReaderFactory {
           readerConfig.getTextLogMessageType(),
           readerConfig.isPrependTimestamp(),
           readerConfig.isPrependHostname(),
+          readerConfig.isTrimTailingNewlineCharacter(),
           SingerUtils.getHostNameBasedOnConfig(logStream, SingerSettings.getSingerConfig()),
           readerConfig.getPrependFieldDelimiter());
     } catch (LogFileReaderException e) {
