@@ -12,7 +12,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -102,8 +101,8 @@ public abstract class MemqProducer<H, T> {
   protected Serializer<T> valueSerializer;
 
   public synchronized Future<MemqWriteResult> writeToTopic(H headers, T value) throws IOException {
-    byte[] headerBytes = headerSerializer.serializer(headers);
-    byte[] valueBytes = valueSerializer.serializer(value);
+    byte[] headerBytes = headerSerializer.serialize(headers);
+    byte[] valueBytes = valueSerializer.serialize(value);
     int totalPayloadLength = valueBytes.length + (headerBytes != null ? headerBytes.length : 0);
     TaskRequest request = warmAndGetRequestEntry(getCurrentRequestId().get());
     if (totalPayloadLength > getMaxRequestSize()) {
