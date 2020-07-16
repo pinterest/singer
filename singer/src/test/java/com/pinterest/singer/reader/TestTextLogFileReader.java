@@ -43,14 +43,15 @@ public class TestTextLogFileReader extends SingerTestBase {
     long inode = SingerUtils.getFileInode(SingerUtils.getPath(path));
     LogFile logFile = new LogFile(inode);
     LogFileReader reader = new TextLogFileReader(logFile, path, 0, 8192, 102400, 1,
-        Pattern.compile("^.*$"), TextLogMessageType.PLAIN_TEXT, false, false, true, null, null);
+        Pattern.compile("^.*$"), TextLogMessageType.PLAIN_TEXT, false, false, true, null, null,
+        null);
     for (int i = 0; i < 100; i++) {
       LogMessageAndPosition log = reader.readLogMessageAndPosition();
       assertEquals(dataWritten.get(i).trim(), new String(log.getLogMessage().getMessage()));
     }
     reader.close();
   }
-  
+
   @Test
   public void testReadLogMessageAndPositionWithHostname() throws Exception {
     String path = FilenameUtils.concat(getTempPath(), "test2.log");
@@ -61,7 +62,8 @@ public class TestTextLogFileReader extends SingerTestBase {
     long inode = SingerUtils.getFileInode(SingerUtils.getPath(path));
     LogFile logFile = new LogFile(inode);
     LogFileReader reader = new TextLogFileReader(logFile, path, 0, 8192, 102400, 1,
-        Pattern.compile("^.*$"), TextLogMessageType.PLAIN_TEXT, false, true, false, hostname, delimiter);
+        Pattern.compile("^.*$"), TextLogMessageType.PLAIN_TEXT, false, true, false, hostname,
+        delimiter, null);
     for (int i = 0; i < 100; i++) {
       LogMessageAndPosition log = reader.readLogMessageAndPosition();
       String expected = hostname + delimiter + dataWritten.get(i);
@@ -71,7 +73,7 @@ public class TestTextLogFileReader extends SingerTestBase {
     }
     reader.close();
   }
-  
+
   @Test
   public void testReadLogMessageAndPositionMultiRead() throws Exception {
     String path = FilenameUtils.concat(getTempPath(), "test2.log");
@@ -80,7 +82,8 @@ public class TestTextLogFileReader extends SingerTestBase {
     long inode = SingerUtils.getFileInode(SingerUtils.getPath(path));
     LogFile logFile = new LogFile(inode);
     LogFileReader reader = new TextLogFileReader(logFile, path, 0, 8192, 102400, 2,
-        Pattern.compile("^.*$"), TextLogMessageType.PLAIN_TEXT, false, false, true, null, null);
+        Pattern.compile("^.*$"), TextLogMessageType.PLAIN_TEXT, false, false, true, null, null,
+        null);
     for (int i = 0; i < 100; i = i + 2) {
       LogMessageAndPosition log = reader.readLogMessageAndPosition();
       assertEquals(dataWritten.get(i) + dataWritten.get(i + 1).trim(),
@@ -90,7 +93,28 @@ public class TestTextLogFileReader extends SingerTestBase {
     reader.close();
   }
 
-  private List<String> generateDummyMessagesToFile(String path) throws FileNotFoundException, IOException {
+  @Test
+  public void testEnvironmentVariableInjection() throws Exception {
+    String path = FilenameUtils.concat(getTempPath(), "test3.log");
+    List<String> dataWritten = generateDummyMessagesToFile(path);
+
+    long inode = SingerUtils.getFileInode(SingerUtils.getPath(path));
+    LogFile logFile = new LogFile(inode);
+    LogFileReader reader = new TextLogFileReader(logFile, path, 0, 8192, 102400, 2,
+        Pattern.compile("^.*$"), TextLogMessageType.PLAIN_TEXT, false, false, true, null, null,
+        "test test2");
+    for (int i = 0; i < 100; i = i + 2) {
+      LogMessageAndPosition log = reader.readLogMessageAndPosition();
+      assertEquals(
+          "test test2" + dataWritten.get(i) + "test test2" + dataWritten.get(i + 1).trim(),
+          new String(log.getLogMessage().getMessage()));
+    }
+    assertNull(reader.readLogMessageAndPosition());
+    reader.close();
+  }
+
+  private List<String> generateDummyMessagesToFile(String path) throws FileNotFoundException,
+                                                                IOException {
     TextLogger logger = new TextLogger(path);
     List<String> dataWritten = new ArrayList<>();
     for (int i = 0; i < 100; i++) {
