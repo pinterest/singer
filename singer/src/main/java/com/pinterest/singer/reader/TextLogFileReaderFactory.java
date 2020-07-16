@@ -63,7 +63,8 @@ public class TextLogFileReaderFactory implements LogFileReaderFactory {
           readerConfig.isPrependHostname(),
           readerConfig.isTrimTailingNewlineCharacter(),
           SingerUtils.getHostNameBasedOnConfig(logStream, SingerSettings.getSingerConfig()),
-          readerConfig.getPrependFieldDelimiter());
+          readerConfig.getPrependFieldDelimiter(),
+          readerConfig.getPrependEnvironmentVariableString());
     } catch (LogFileReaderException e) {
       LOG.warn("Exception in getLogFileReader", e);
       long inode = logFile.getInode();

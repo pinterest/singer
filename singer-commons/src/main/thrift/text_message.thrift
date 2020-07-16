@@ -7,4 +7,5 @@ struct TextMessage {
   1: required list<string> messages;
   2: optional string host;
   3: optional string filename;
+  4: optional string prependEnvironmentVariables;
 }

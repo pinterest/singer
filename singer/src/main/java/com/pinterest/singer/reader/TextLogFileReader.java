@@ -58,6 +58,8 @@ public class TextLogFileReader implements LogFileReader {
 
   private boolean trimTailingNewlineCharacter;
 
+  private String prependEnvironmentVariables;
+
   public TextLogFileReader(LogFile logFile,
                            String path,
                            long byteOffset,
@@ -70,7 +72,8 @@ public class TextLogFileReader implements LogFileReader {
                            boolean prependHostName,
                            boolean trimTailingNewlineCharacter,
                            String hostname,
-                           String prependFieldDelimiter) throws Exception {
+                           String prependFieldDelimiter,
+                           String prependEnvironmentVariables) throws Exception {
     Preconditions.checkArgument(!Strings.isNullOrEmpty(path));
     Preconditions.checkArgument(byteOffset >= 0);
 
@@ -86,6 +89,7 @@ public class TextLogFileReader implements LogFileReader {
     this.prependTimestamp = prependTimestamp;
     this.prependHostname = prependHostName;
     this.prependFieldDelimiter = prependFieldDelimiter;
+    this.prependEnvironmentVariables = prependEnvironmentVariables;
     this.maxBuffer = ByteBuffer.allocate(maxMessageSize * numMessagesPerLogMessage);
     this.trimTailingNewlineCharacter = trimTailingNewlineCharacter;
 
@@ -127,6 +131,9 @@ public class TextLogFileReader implements LogFileReader {
         }
         if (prependHostname) {
           prependStr += hostname + prependFieldDelimiter;
+        }
+        if (prependEnvironmentVariables != null) {
+          prependStr += prependEnvironmentVariables;
         }
         if (prependStr.length() > 0) {
           maxBuffer.put(prependStr.getBytes());

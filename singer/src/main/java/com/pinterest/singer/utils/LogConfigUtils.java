@@ -964,6 +964,23 @@ public class LogConfigUtils {
       }
     }
     
+    if (textReaderConfiguration.containsKey("prependEnvironmentVariables")) {
+      String str = textReaderConfiguration.getString("prependEnvironmentVariables");
+      String[] variables = str.split(",");
+      StringBuilder builder = new StringBuilder();
+      for (String variable : variables) {
+        String env = System.getenv(variable);
+        builder.append(variable + "=");
+        if (env != null) {
+          builder.append(env);
+        } else {
+          builder.append("-");
+        }
+        builder.append(config.getPrependFieldDelimiter());
+      }
+      config.setPrependEnvironmentVariableString(builder.toString());
+    }
+    
     if (textReaderConfiguration.containsKey("trimTailingNewlineCharacter")) {
       boolean trimTailingNewlineCharacter = textReaderConfiguration
           .getBoolean("trimTailingNewlineCharacter");
