@@ -81,7 +81,8 @@ enum WriterType {
   KAFKA08 = 1,
   KAFKA = 2,
   REALPIN = 3,
-  PULSAR = 4
+  PULSAR = 4,
+  MEMQ = 5
 }
 
 enum FileNameMatchMode {
@@ -118,6 +119,19 @@ struct RealpinWriterConfig {
   8: optional i32 ttl = -1;
 }
 
+struct MemqWriterConfig {
+  1: required string serverset;
+  2: required string topic;
+  3: optional i32 maxInFlightRequests = 1;
+  4: optional bool auditingEnabled = 0;
+  5: optional i32 maxPayLoadBytes = 1048576;
+  6: optional string compression = "GZIP";
+  7: optional bool disableAcks = false;
+  8: optional i32 ackCheckPollInterval = 500;
+  9: optional string clientType = "HTTP";
+  10: optional bool enableRackAwareness = true;
+}
+
 struct PulsarProducerConfig {
   1: required string pulsarClusterSignature;
   2: required string serviceUrl;
@@ -143,6 +157,7 @@ struct LogStreamWriterConfig {
   3: optional DummyWriteConfig dummyWriteConfig;
   4: optional RealpinWriterConfig realpinWriterConfig;
   5: optional PulsarWriterConfig pulsarWriterConfig;
+  6: optional MemqWriterConfig memqWriterConfig;
 }
 
 struct HeartbeatWriterConfig {

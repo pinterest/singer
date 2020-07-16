@@ -34,6 +34,7 @@ import com.pinterest.singer.thrift.configuration.LogMonitorConfig;
 import com.pinterest.singer.thrift.configuration.LogStreamProcessorConfig;
 import com.pinterest.singer.thrift.configuration.LogStreamReaderConfig;
 import com.pinterest.singer.thrift.configuration.LogStreamWriterConfig;
+import com.pinterest.singer.thrift.configuration.MemqWriterConfig;
 import com.pinterest.singer.thrift.configuration.PulsarProducerConfig;
 import com.pinterest.singer.thrift.configuration.PulsarWriterConfig;
 import com.pinterest.singer.thrift.configuration.ReaderType;
@@ -253,6 +254,53 @@ public class LogConfigUtils {
     if (subsetConfig.containsKey(SingerConfigDef.KUBE_DEFAULT_DELETION_TIMEOUT)) {
       config.setDefaultDeletionTimeoutInSeconds(
           subsetConfig.getInt(SingerConfigDef.KUBE_DEFAULT_DELETION_TIMEOUT));
+    }
+    return config;
+  }
+  
+  public static MemqWriterConfig parseMemqWriterConfig(SubsetConfiguration configuration) throws ConfigurationException {
+    configuration.setThrowExceptionOnMissing(false);
+    MemqWriterConfig config = new MemqWriterConfig();
+    config.setAuditingEnabled(false);
+    if (!configuration.containsKey("cluster")) {
+      throw new ConfigurationException("Missing cluster name");
+    }
+
+    if (!configuration.containsKey("environment")) {
+      throw new ConfigurationException("Missing environment name");
+    }
+
+    String clustername = configuration.getString("cluster");
+    String environment = configuration.getString("environment");
+    if (!Arrays.asList("dev", "test", "prod").contains(environment)) {
+      throw new ConfigurationException("Invalid environment name");
+    }
+    // e.g. discovery.memq.dev.prototype.prod_rich_data
+    String serverSetFilePath = "/var/serverset/discovery.memq." + environment + "." + clustername
+        + ".prod_rich_data";
+    if (!new File(serverSetFilePath).exists()) {
+      throw new ConfigurationException("Serverset doesn't exist:" + serverSetFilePath);
+    }
+    config.setServerset(serverSetFilePath);
+    if (!configuration.containsKey(SingerConfigDef.TOPIC)) {
+      throw new ConfigurationException("Missing topic name");
+    }
+    config.setTopic(configuration.getString(SingerConfigDef.TOPIC));
+    config.setMaxInFlightRequests(configuration.getInt("maxInFlightRequests", 1));
+    if (configuration.containsKey("maxPayLoadBytes")) {
+      config.setMaxPayLoadBytes(configuration.getInt("maxPayLoadBytes"));
+    }
+    if (configuration.containsKey("compression")) {
+      config.setCompression(configuration.getString("compression").toUpperCase());
+    }
+    if (configuration.containsKey("disableAcks")) {
+      config.setDisableAcks(configuration.getBoolean("disableAcks"));
+    }
+    if (configuration.containsKey("ackCheckPollInterval")) {
+      config.setAckCheckPollInterval(configuration.getInt("ackCheckPollInterval"));
+    }
+    if (configuration.containsKey("clientType")) {
+      config.setClientType(configuration.getString("clientType").toUpperCase());
     }
     return config;
   }
@@ -554,6 +602,10 @@ public class LogConfigUtils {
       return writerConfig;
     case PULSAR:
       writerConfig.setPulsarWriterConfig(parsePulsarWriterConfig(
+          new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
+      return writerConfig;
+    case MEMQ:
+      writerConfig.setMemqWriterConfig(parseMemqWriterConfig(
           new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
       return writerConfig;
     default:
