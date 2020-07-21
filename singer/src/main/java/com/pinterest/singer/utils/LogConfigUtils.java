@@ -968,6 +968,7 @@ public class LogConfigUtils {
       String str = textReaderConfiguration.getString("prependEnvironmentVariables");
       String[] variables = str.split(",");
       StringBuilder builder = new StringBuilder();
+      builder.append("|");
       for (String variable : variables) {
         String env = System.getenv(variable);
         builder.append(variable + "=");
@@ -978,7 +979,9 @@ public class LogConfigUtils {
         }
         builder.append(config.getPrependFieldDelimiter());
       }
-      config.setPrependEnvironmentVariableString(builder.toString());
+      String env = builder.toString().trim();
+      env = env + "|";
+      config.setPrependEnvironmentVariableString(env);
     }
     
     if (textReaderConfiguration.containsKey("trimTailingNewlineCharacter")) {
