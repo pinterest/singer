@@ -21,6 +21,7 @@ import static org.junit.Assert.fail;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.StringReader;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -222,6 +223,23 @@ public class TestLogConfigUtils {
       // fail since no exception should be thrown
       throw e;
     }
+  }
+  
+  @Test
+  public void testTextLogEnvInjection() throws ConfigurationException {
+    String config = "reader.type=text\n" + 
+        "reader.text.readerBufferSize=131072\n" + 
+        "reader.text.maxMessageSize=131072\n" + 
+        "reader.text.messageStartRegex=^.*$\n" + 
+        "reader.text.numMessagesPerLogMessage=1\n" + 
+        "reader.text.logMessageType=plain_text\n" + 
+        "reader.text.prependEnvironmentVariables=VAR_A|VAR_B\n" + 
+        "reader.text.prependHostname=true\n" + 
+        "reader.text.prependTimestamp=true";
+    PropertiesConfiguration configObj = new PropertiesConfiguration();
+    configObj.load(new StringReader(config));
+    String val = configObj.getString("reader.text.prependEnvironmentVariables");
+    assertEquals("VAR_A|VAR_B", val);
   }
   
   @Test
