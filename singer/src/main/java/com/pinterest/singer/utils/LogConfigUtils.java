@@ -966,7 +966,7 @@ public class LogConfigUtils {
     
     if (textReaderConfiguration.containsKey("prependEnvironmentVariables")) {
       String str = textReaderConfiguration.getString("prependEnvironmentVariables");
-      String[] variables = str.split(",");
+      String[] variables = str.split("|");
       StringBuilder builder = new StringBuilder();
       builder.append("|");
       for (String variable : variables) {

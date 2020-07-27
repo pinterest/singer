@@ -255,6 +255,9 @@ public class CommittableKafkaWriter extends KafkaWriter {
           "topic=" + topic, "host=" + HOSTNAME, "logname=" + logName);
       OpenTsdbMetricConverter.incr(SingerMetrics.NUM_KAFKA_MESSAGES, numLogMessages,
           "topic=" + topic, "host=" + HOSTNAME, "logname=" + logName);
+      OpenTsdbMetricConverter.incr(SingerMetrics.SINGER_WRITER 
+          + "num_committable_kafka_messages_delivery_success", numLogMessages,
+          "topic=" + topic, "host=" + HOSTNAME, "logname=" + logName);
     } catch (Exception e) {
       LOG.error("Caught exception when write " + numLogMessages + " messages to producer.", e);
 
@@ -273,6 +276,9 @@ public class CommittableKafkaWriter extends KafkaWriter {
           "host=" + HOSTNAME);
       OpenTsdbMetricConverter.incr("singer.writer.num_kafka_messages_delivery_failure",
           numLogMessages, "topic=" + topic, "host=" + HOSTNAME, "logname=" + logName);
+      OpenTsdbMetricConverter.incr(SingerMetrics.SINGER_WRITER 
+          + "num_committable_kafka_messages_delivery_failure", numLogMessages,
+          "topic=" + topic, "host=" + HOSTNAME, "logname=" + logName);
 
       throw new LogStreamWriterException("Failed to write messages to topic " + topic, e);
     } finally {
