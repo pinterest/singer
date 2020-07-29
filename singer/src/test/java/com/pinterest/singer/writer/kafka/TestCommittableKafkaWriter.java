@@ -15,6 +15,7 @@
  */
 package com.pinterest.singer.writer.kafka;
 
+import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.when;
 
 import java.nio.ByteBuffer;
@@ -28,7 +29,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.zip.CRC32;
 
+import com.google.common.primitives.Longs;
+import com.pinterest.singer.loggingaudit.thrift.configuration.AuditConfig;
+import com.pinterest.singer.thrift.configuration.SingerLogConfig;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
@@ -204,7 +209,8 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
     Map<Integer, List<RecordMetadata>> metadataPartitionMap = new HashMap<>();
     HashFunction crc32 = Hashing.crc32();
     List<LogMessage> logMessages = new ArrayList<>();
-    
+
+    CRC32 crc32ForChecksum = new CRC32();
     TSerializer serializer = new TSerializer();
     for (int i = 0; i < NUM_KEYS; i++) {
       for (int j = 0; j < NUM_EVENTS / NUM_KEYS; j++) {
@@ -217,6 +223,12 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
         ByteBuffer buf = ByteBuffer.allocate(4).putInt(messageId);
         buf.flip();
         logMessage.setMessage(buf);
+
+        crc32ForChecksum.reset();
+        crc32ForChecksum.update(logMessage.getMessage());
+        long checksum = crc32ForChecksum.getValue();
+        logMessage.setChecksum(checksum);
+
         logMessages.add(logMessage);
         int partitionId = Math
             .abs(crc32.hashBytes(logMessage.getKey()).asInt() % partitions.size());
@@ -224,6 +236,7 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
             partitionId, logMessage.getKey(), logMessage.getMessage());
         byte[] headerBytes = serializer.serialize(headers);
         record.headers().add("loggingAuditHeaders", headerBytes);
+        record.headers().add("messageCRC", Longs.toByteArray(checksum));
         RecordMetadata recordMetadata = new RecordMetadata(
             new TopicPartition(record.topic(), record.partition()), messageId, 0, 0, 0L,
             record.key().length, record.value().length);
@@ -291,5 +304,160 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
     CommittableKafkaWriter writer = new CommittableKafkaWriter(logStream, config, partitioner,
         "topicx", false, Executors.newCachedThreadPool(), true);
     assertNull(writer.getHeadersInjector());
+  }
+
+  /**
+   * helper method that sets up CommittableKafkaWriter for testWriterWithSkipCorruptedMessagesEnabled()
+   * and testWriterWithSkipCorruptedMessagesDisabled()
+   */
+  private CommittableKafkaWriter setupWriterForCorruptedMessagesTests(boolean skipCorruptedMessages) {
+    KafkaMessagePartitioner partitioner = new Crc32ByteArrayPartitioner();
+    KafkaProducerConfig config = new KafkaProducerConfig();
+    SingerSettings.setSingerConfig(new SingerConfig());
+    KafkaProducerManager.injectTestProducer(config, producer);
+
+    SingerLogConfig singerLogConfig = createSingerLogConfig("test", "/a/b/c");
+    singerLogConfig.setEnableLoggingAudit(true);
+    // enable deletion of corrupted messages
+    singerLogConfig.setAuditConfig(new AuditConfig().setStartAtCurrentStage(false)
+            .setStopAtCurrentStage(false).setSamplingRate(1.0).setSkipCorruptedMessageAtCurrentStage(skipCorruptedMessages));
+
+    SingerLog singerLog = new SingerLog(singerLogConfig);
+    LogStream logStream = new LogStream(singerLog, "test.tmp");
+    CommittableKafkaWriter writer = new CommittableKafkaWriter(logStream, config, partitioner, "topicx", false,
+            Executors.newCachedThreadPool(), true);
+    return writer;
+  }
+
+
+  /**
+   * helper method that populates the logMessages for testWriterWithSkipCorruptedMessagesEnabled()
+   * and testWriterWithSkipCorruptedMessagesDisabled()
+   */
+  private void populateLogMessagesForCorruptedMessagesTests(List<LogMessage> logMessages, List<PartitionInfo> partitions) {
+    HashFunction crc32 = Hashing.crc32();
+    CRC32 crcChecksum = new CRC32();
+    long session = System.currentTimeMillis();
+    for (int i = 0; i < NUM_EVENTS; i++) {
+      LogMessage logMessage = new LogMessage();
+      logMessage.setKey(ByteBuffer.allocate(100).put(String.valueOf(i).getBytes()));
+      logMessage.setMessage(ByteBuffer.allocate(100).put(String.valueOf(i).getBytes()));
+
+      int partitionId = Math.abs(crc32.hashBytes(logMessage.getKey()).asInt() % partitions.size());
+
+      // set headers
+      LoggingAuditHeaders headers = new LoggingAuditHeaders()
+              .setHost("host-name")
+              .setLogName("topicx")
+              .setPid(partitionId)
+              .setSession(session);
+      logMessage.setLoggingAuditHeaders(headers);
+
+      // compute and set crc checksum
+      crcChecksum.reset();
+      crcChecksum.update(logMessage.getMessage());
+      logMessage.setChecksum(crcChecksum.getValue());
+
+      logMessages.add(logMessage);
+    }
+  }
+
+  @Test
+  public void testWriterWithSkipCorruptedMessageDeletionEnabled() throws Exception {
+    CommittableKafkaWriter writer = setupWriterForCorruptedMessagesTests(true);
+
+    List<PartitionInfo> partitions = ImmutableList.copyOf(Arrays.asList(
+            new PartitionInfo("topicx", 1, new Node(2, "broker2", 9092, "us-east-1b"), null, null),
+            new PartitionInfo("topicx", 0, new Node(1, "broker1", 9092, "us-east-1a"), null, null),
+            new PartitionInfo("topicx", 2, new Node(3, "broker3", 9092, "us-east-1c"), null, null),
+            new PartitionInfo("topicx", 6, new Node(2, "broker2", 9092, "us-east-1b"), null, null),
+            new PartitionInfo("topicx", 3, new Node(4, "broker4", 9092, "us-east-1a"), null, null),
+            new PartitionInfo("topicx", 5, new Node(1, "broker1", 9092, "us-east-1a"), null, null),
+            new PartitionInfo("topicx", 7, new Node(3, "broker3", 9092, "us-east-1c"), null, null),
+            new PartitionInfo("topicx", 4, new Node(5, "broker5", 9092, "us-east-1b"), null, null),
+            new PartitionInfo("topicx", 8, new Node(4, "broker4", 9092, "us-east-1a"), null, null),
+            new PartitionInfo("topicx", 9, new Node(5, "broker5", 9092, "us-east-1b"), null, null),
+            new PartitionInfo("topicx", 10, new Node(1, "broker1", 9092, "us-east-1a"), null, null)));
+    when(producer.partitionsFor("topicx")).thenReturn(partitions);
+    when(producer.send(any())).thenReturn(ConcurrentUtils.constantFuture(
+            new RecordMetadata(new TopicPartition("topicx", 0), 0L, 0L, 0L, 0L, 0, 0)));
+
+    List<LogMessage> logMessages = new ArrayList<>();
+    populateLogMessagesForCorruptedMessagesTests(logMessages, partitions);
+
+    List<byte[]> corruptedMessageKeys = new ArrayList<byte[]>();
+    for (int i = NUM_EVENTS - 1; i >= NUM_EVENTS - 25; i--) {
+      logMessages.get(i).setMessage(ByteBuffer.allocate(100).put(String.valueOf(NUM_EVENTS - i).getBytes()));
+      corruptedMessageKeys.add(logMessages.get(i).getKey());
+    }
+
+    writer.startCommit();
+
+    for (LogMessage msg : logMessages) {
+      writer.writeLogMessageToCommit(msg);
+    }
+    Map<Integer, KafkaWritingTaskFuture> commitableBuckets = writer.getCommitableBuckets();
+    int numMessagesWritten = 0;
+    for (Integer partitionId : commitableBuckets.keySet()) {
+      KafkaWritingTaskFuture kafkaWritingTaskFuture = commitableBuckets.get(partitionId);
+      List<Future<RecordMetadata>> recordMetadataList = kafkaWritingTaskFuture
+              .getRecordMetadataList();
+      numMessagesWritten += recordMetadataList.size();
+    }
+    int expectedNumMessages = logMessages.size() - 25;
+    assertEquals(expectedNumMessages, numMessagesWritten);
+
+    writer.endCommit(logMessages.size());
+    // validate if writes are throwing any error
+    writer.close();
+  }
+
+  @Test
+  public void testWriterWithSkipCorruptedMessageDisabled() throws Exception {
+    CommittableKafkaWriter writer = setupWriterForCorruptedMessagesTests(false);
+
+    List<PartitionInfo> partitions = ImmutableList.copyOf(Arrays.asList(
+            new PartitionInfo("topicx", 1, new Node(2, "broker2", 9092, "us-east-1b"), null, null),
+            new PartitionInfo("topicx", 0, new Node(1, "broker1", 9092, "us-east-1a"), null, null),
+            new PartitionInfo("topicx", 2, new Node(3, "broker3", 9092, "us-east-1c"), null, null),
+            new PartitionInfo("topicx", 6, new Node(2, "broker2", 9092, "us-east-1b"), null, null),
+            new PartitionInfo("topicx", 3, new Node(4, "broker4", 9092, "us-east-1a"), null, null),
+            new PartitionInfo("topicx", 5, new Node(1, "broker1", 9092, "us-east-1a"), null, null),
+            new PartitionInfo("topicx", 7, new Node(3, "broker3", 9092, "us-east-1c"), null, null),
+            new PartitionInfo("topicx", 4, new Node(5, "broker5", 9092, "us-east-1b"), null, null),
+            new PartitionInfo("topicx", 8, new Node(4, "broker4", 9092, "us-east-1a"), null, null),
+            new PartitionInfo("topicx", 9, new Node(5, "broker5", 9092, "us-east-1b"), null, null),
+            new PartitionInfo("topicx", 10, new Node(1, "broker1", 9092, "us-east-1a"), null, null)));
+    when(producer.partitionsFor("topicx")).thenReturn(partitions);
+    when(producer.send(any())).thenReturn(ConcurrentUtils.constantFuture(
+            new RecordMetadata(new TopicPartition("topicx", 0), 0L, 0L, 0L, 0L, 0, 0)));
+
+    List<LogMessage> logMessages = new ArrayList<>();
+    populateLogMessagesForCorruptedMessagesTests(logMessages, partitions);
+
+    Map<Long, LogMessage> corruptedMessageMap = new HashMap<>();
+    for (int i = NUM_EVENTS-1; i >= NUM_EVENTS-10; i--) {
+      LogMessage logMessage = logMessages.get(i);
+      logMessage.setMessage(ByteBuffer.allocate(100).put(String.valueOf(NUM_EVENTS - i).getBytes()));
+      corruptedMessageMap.put(logMessages.get(i).getChecksum(), logMessage);
+    }
+
+    writer.startCommit();
+
+    for (LogMessage msg : logMessages) {
+      writer.writeLogMessageToCommit(msg);
+    }
+    Map<Integer, KafkaWritingTaskFuture> commitableBuckets = writer.getCommitableBuckets();
+    int numMessagesWritten = 0;
+    for (Integer partitionId : commitableBuckets.keySet()) {
+      KafkaWritingTaskFuture kafkaWritingTaskFuture = commitableBuckets.get(partitionId);
+      List<Future<RecordMetadata>> recordMetadataList = kafkaWritingTaskFuture
+              .getRecordMetadataList();
+      numMessagesWritten += recordMetadataList.size();
+    }
+    assertEquals(logMessages.size(), numMessagesWritten);
+    writer.endCommit(logMessages.size());
+    // validate if writes are throwing any error
+    writer.close();
   }
 }

@@ -6,17 +6,13 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.when;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.zip.CRC32;
 
+import com.google.common.primitives.Longs;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
@@ -47,7 +43,6 @@ import com.pinterest.singer.thrift.configuration.KafkaProducerConfig;
 import com.pinterest.singer.thrift.configuration.SingerConfig;
 import com.pinterest.singer.thrift.configuration.SingerLogConfig;
 import com.pinterest.singer.utils.PartitionComparator;
-import com.pinterest.singer.writer.headersinjectors.LoggingAuditHeadersInjector;
 
 @RunWith(MockitoJUnitRunner.class)
 public class TestKafkaWriter extends SingerTestBase {
@@ -56,6 +51,8 @@ public class TestKafkaWriter extends SingerTestBase {
 
   private static final int NUM_KEYS = 20;
 
+  private static final String LOGGING_AUDIT_HEADER_KEY = "loggingAuditHeaders";
+  private static final String CHECKSUM_HEADER_KEY = "messageCRC";
   @Mock
   KafkaProducer<byte[], byte[]> producer;
 
@@ -142,7 +139,9 @@ public class TestKafkaWriter extends SingerTestBase {
     Collections.sort(sortedPartitions, new PartitionComparator());
 
     Map<Integer, Map<Integer, LoggingAuditHeaders>> mapOfHeadersMap = new HashMap<>();
-    Map<Integer, List<ProducerRecord<byte[], byte[]>>> messageCollation = writer.messageCollation(partitions, "topicx", logMessages, mapOfHeadersMap);
+    Map<Integer, Map<Integer, Boolean>> mapOfMessageValidMap = new HashMap<>();
+    Map<Integer, List<ProducerRecord<byte[], byte[]>>> messageCollation =
+            writer.messageCollation(partitions, "topicx", logMessages, mapOfHeadersMap, mapOfMessageValidMap);
 
     for(int partitionId = 0; partitionId < messageCollation.keySet().size(); partitionId++) {
       if (messageCollation.get(partitionId).size() == 0) {
@@ -175,7 +174,6 @@ public class TestKafkaWriter extends SingerTestBase {
         assertEquals(expectedRecordMetadata.get(j), kafkaWritingTaskResult.getRecordMetadataList().get(j));
       }
     }
-
     // validate if writes are throwing any error
     writer.writeLogMessages(logMessages);
     writer.close();
@@ -226,7 +224,9 @@ public class TestKafkaWriter extends SingerTestBase {
     }
 
     Map<Integer, Map<Integer, LoggingAuditHeaders>> mapOfHeadersMap = new HashMap<>();
-    Map<Integer, List<ProducerRecord<byte[], byte[]>>> messageCollation = writer.messageCollation(partitions, "topicx", logMessages, mapOfHeadersMap);
+    Map<Integer, Map<Integer, Boolean>> mapOfMessageValidMap = new HashMap<>();
+    Map<Integer, List<ProducerRecord<byte[], byte[]>>> messageCollation =
+            writer.messageCollation(partitions, "topicx", logMessages, mapOfHeadersMap, mapOfMessageValidMap);
 
    // for (int i = 0; i < messageCollation.size(); i++) {
     for(Integer partitionId : messageCollation.keySet()){
@@ -319,8 +319,9 @@ public class TestKafkaWriter extends SingerTestBase {
     }
 
     Map<Integer, Map<Integer, LoggingAuditHeaders>> mapOfHeadersMap = new HashMap<>();
+    Map<Integer, Map<Integer, Boolean>> mapOfMessageValidMap = new HashMap<>();
     Map<Integer, List<ProducerRecord<byte[], byte[]>>> messageCollation = writer
-        .messageCollation(partitions, "topicx", logMessages, mapOfHeadersMap);
+        .messageCollation(partitions, "topicx", logMessages, mapOfHeadersMap, mapOfMessageValidMap);
     for (int i = 0; i < messageCollation.size(); i++) {
       List<ProducerRecord<byte[], byte[]>> writerOutput = messageCollation.get(i);
       List<LogMessage> originalData = msgPartitionMap.get(i);
@@ -333,7 +334,7 @@ public class TestKafkaWriter extends SingerTestBase {
         assertTrue(Arrays.equals(originalData.get(j).getKey(), writerOutput.get(j).key()));
         boolean foundLoggingAuditHeaders = false;
         for(Header header : writerOutput.get(j).headers().toArray()){
-          if (header.key().equals(LoggingAuditHeadersInjector.getHeaderKey())){
+          if (header.key().equals(LOGGING_AUDIT_HEADER_KEY)){
             byte[] expected = serializer.serialize(originalData.get(j).getLoggingAuditHeaders());
             assertArrayEquals(expected, header.value());
             foundLoggingAuditHeaders = true;
@@ -343,6 +344,193 @@ public class TestKafkaWriter extends SingerTestBase {
         assertTrue(foundLoggingAuditHeaders);
       }
     }
+    // validate if writes are throwing any error
+    writer.writeLogMessages(logMessages);
+    writer.close();
+  }
+
+  /**
+   * helper method that sets up KafkaWriter for testWriterWithSkipCorruptedMessagesEnabled()
+   * and testWriterWithSkipCorruptedMessagesDisabled()
+   */
+  private KafkaWriter setupWriterForCorruptedMessagesTests(boolean skipCorruptedMessages) {
+    KafkaMessagePartitioner partitioner = new Crc32ByteArrayPartitioner();
+    KafkaProducerConfig config = new KafkaProducerConfig();
+    SingerSettings.setSingerConfig(new SingerConfig());
+    KafkaProducerManager.injectTestProducer(config, producer);
+
+    SingerLogConfig singerLogConfig = createSingerLogConfig("test", "/a/b/c");
+    singerLogConfig.setEnableLoggingAudit(true);
+    // enable deletion of corrupted messages
+    singerLogConfig.setAuditConfig(new AuditConfig().setStartAtCurrentStage(false)
+            .setStopAtCurrentStage(false).setSamplingRate(1.0).setSkipCorruptedMessageAtCurrentStage(skipCorruptedMessages));
+
+    SingerLog singerLog = new SingerLog(singerLogConfig);
+    LogStream logStream = new LogStream(singerLog, "test.tmp");
+    KafkaWriter writer = new KafkaWriter(logStream, config, partitioner, "topicx", false,
+            Executors.newCachedThreadPool(), true);
+    return writer;
+  }
+
+
+  /**
+   * helper method that populates the logMessages for testWriterWithSkipCorruptedMessagesEnabled()
+   * and testWriterWithSkipCorruptedMessagesDisabled()
+   */
+  private void populateLogMessagesForCorruptedMessagesTests(List<LogMessage> logMessages, List<PartitionInfo> partitions) {
+    HashFunction crc32 = Hashing.crc32();
+    CRC32 crcChecksum = new CRC32();
+    long session = System.currentTimeMillis();
+    for (int i = 0; i < NUM_EVENTS; i++) {
+      LogMessage logMessage = new LogMessage();
+      logMessage.setKey(ByteBuffer.allocate(100).put(String.valueOf(i).getBytes()));
+      logMessage.setMessage(ByteBuffer.allocate(100).put(String.valueOf(i).getBytes()));
+
+      int partitionId = Math.abs(crc32.hashBytes(logMessage.getKey()).asInt() % partitions.size());
+
+      // set headers
+      LoggingAuditHeaders headers = new LoggingAuditHeaders()
+              .setHost("host-name")
+              .setLogName("topicx")
+              .setPid(partitionId)
+              .setSession(session);
+      logMessage.setLoggingAuditHeaders(headers);
+
+      // compute and set crc checksum
+      crcChecksum.reset();
+      crcChecksum.update(logMessage.getMessage());
+      logMessage.setChecksum(crcChecksum.getValue());
+
+      logMessages.add(logMessage);
+    }
+  }
+
+  @Test
+  public void testWriterWithSkipCorruptedMessageDeletionEnabled() throws Exception {
+    KafkaWriter writer = setupWriterForCorruptedMessagesTests(true);
+
+    List<PartitionInfo> partitions = ImmutableList.copyOf(Arrays.asList(
+            new PartitionInfo("topicx", 1, new Node(2, "broker2", 9092, "us-east-1b"), null, null),
+            new PartitionInfo("topicx", 0, new Node(1, "broker1", 9092, "us-east-1a"), null, null),
+            new PartitionInfo("topicx", 2, new Node(3, "broker3", 9092, "us-east-1c"), null, null),
+            new PartitionInfo("topicx", 6, new Node(2, "broker2", 9092, "us-east-1b"), null, null),
+            new PartitionInfo("topicx", 3, new Node(4, "broker4", 9092, "us-east-1a"), null, null),
+            new PartitionInfo("topicx", 5, new Node(1, "broker1", 9092, "us-east-1a"), null, null),
+            new PartitionInfo("topicx", 7, new Node(3, "broker3", 9092, "us-east-1c"), null, null),
+            new PartitionInfo("topicx", 4, new Node(5, "broker5", 9092, "us-east-1b"), null, null),
+            new PartitionInfo("topicx", 8, new Node(4, "broker4", 9092, "us-east-1a"), null, null),
+            new PartitionInfo("topicx", 9, new Node(5, "broker5", 9092, "us-east-1b"), null, null),
+            new PartitionInfo("topicx", 10, new Node(1, "broker1", 9092, "us-east-1a"), null, null)));
+    when(producer.partitionsFor("topicx")).thenReturn(partitions);
+    when(producer.send(any())).thenReturn(ConcurrentUtils.constantFuture(
+            new RecordMetadata(new TopicPartition("topicx", 0), 0L, 0L, 0L, 0L, 0, 0)));
+
+    List<LogMessage> logMessages = new ArrayList<>();
+    populateLogMessagesForCorruptedMessagesTests(logMessages, partitions);
+
+    List<byte[]> corruptedMessageKeys = new ArrayList<byte[]>();
+    for (int i = NUM_EVENTS-1; i >= NUM_EVENTS-25; i--) {
+      logMessages.get(i).setMessage(ByteBuffer.allocate(100).put(String.valueOf(NUM_EVENTS - i).getBytes()));
+      corruptedMessageKeys.add(logMessages.get(i).getKey());
+    }
+
+    Map<Integer, Map<Integer, LoggingAuditHeaders>> mapOfHeadersMap = new HashMap<>();
+    Map<Integer, Map<Integer, Boolean>> mapOfMessageValidMap = new HashMap<>();
+    Map<Integer, List<ProducerRecord<byte[], byte[]>>> messageCollation =
+            writer.messageCollation(partitions, "topicx", logMessages, mapOfHeadersMap, mapOfMessageValidMap);
+
+    for(Integer partitionId : messageCollation.keySet()){
+      List<ProducerRecord<byte[], byte[]>> writerOutput = messageCollation.get(partitionId);
+      Map<Integer, LoggingAuditHeaders> headersMap = mapOfHeadersMap.get(partitionId);
+      Map<Integer, Boolean> messageValidMap = mapOfMessageValidMap.get(partitionId);
+
+      for (int j = 0; j < writerOutput.size(); j++) {
+        if (headersMap.containsKey(j)) {
+          // if this message is being audited, ensure that the messageValid field was set to true
+          assertTrue(messageValidMap.get(j));
+        }
+        for (int k = 0; k < corruptedMessageKeys.size(); k++) {
+          // none of the written messages should be part of the corrupted set
+          assertNotEquals(corruptedMessageKeys.get(k), writerOutput.get(j).key());
+        }
+      }
+    }
+    // validate if writes are throwing any error
+    writer.writeLogMessages(logMessages);
+    writer.close();
+  }
+
+  @Test
+  public void testWriterWithSkipCorruptedMessageDisabled() throws Exception {
+    KafkaWriter writer = setupWriterForCorruptedMessagesTests(false);
+
+    List<PartitionInfo> partitions = ImmutableList.copyOf(Arrays.asList(
+            new PartitionInfo("topicx", 1, new Node(2, "broker2", 9092, "us-east-1b"), null, null),
+            new PartitionInfo("topicx", 0, new Node(1, "broker1", 9092, "us-east-1a"), null, null),
+            new PartitionInfo("topicx", 2, new Node(3, "broker3", 9092, "us-east-1c"), null, null),
+            new PartitionInfo("topicx", 6, new Node(2, "broker2", 9092, "us-east-1b"), null, null),
+            new PartitionInfo("topicx", 3, new Node(4, "broker4", 9092, "us-east-1a"), null, null),
+            new PartitionInfo("topicx", 5, new Node(1, "broker1", 9092, "us-east-1a"), null, null),
+            new PartitionInfo("topicx", 7, new Node(3, "broker3", 9092, "us-east-1c"), null, null),
+            new PartitionInfo("topicx", 4, new Node(5, "broker5", 9092, "us-east-1b"), null, null),
+            new PartitionInfo("topicx", 8, new Node(4, "broker4", 9092, "us-east-1a"), null, null),
+            new PartitionInfo("topicx", 9, new Node(5, "broker5", 9092, "us-east-1b"), null, null),
+            new PartitionInfo("topicx", 10, new Node(1, "broker1", 9092, "us-east-1a"), null, null)));
+    when(producer.partitionsFor("topicx")).thenReturn(partitions);
+    when(producer.send(any())).thenReturn(ConcurrentUtils.constantFuture(
+            new RecordMetadata(new TopicPartition("topicx", 0), 0L, 0L, 0L, 0L, 0, 0)));
+
+    List<LogMessage> logMessages = new ArrayList<>();
+    populateLogMessagesForCorruptedMessagesTests(logMessages, partitions);
+
+    Map<byte[], LogMessage> corruptedMessageMap = new HashMap<>();
+    for (int i = NUM_EVENTS-1; i >= NUM_EVENTS-10; i--) {
+      LogMessage logMessage = logMessages.get(i);
+      logMessage.setMessage(ByteBuffer.allocate(100).put(String.valueOf(NUM_EVENTS - i).getBytes()));
+      corruptedMessageMap.put(logMessages.get(i).getKey(), logMessage);
+    }
+
+    Map<Integer, Map<Integer, LoggingAuditHeaders>> mapOfHeadersMap = new HashMap<>();
+    Map<Integer, Map<Integer, Boolean>> mapOfMessageValidMap = new HashMap<>();
+    Map<Integer, List<ProducerRecord<byte[], byte[]>>> messageCollation =
+            writer.messageCollation(partitions, "topicx", logMessages, mapOfHeadersMap, mapOfMessageValidMap);
+    CRC32 crcChecksum = new CRC32();
+    TSerializer serializer = new TSerializer();
+    boolean foundCorruptedMessage = false;
+    for(Integer partitionId : messageCollation.keySet()){
+      List<ProducerRecord<byte[], byte[]>> writerOutput = messageCollation.get(partitionId);
+      Map<Integer, Boolean> messageValidMap = mapOfMessageValidMap.get(partitionId);
+      for (int j = 0; j < writerOutput.size(); j++) {
+        byte[] key = writerOutput.get(j).key();
+        if (corruptedMessageMap.containsKey(key)) {
+          foundCorruptedMessage = true;
+          LogMessage logMessage = corruptedMessageMap.get(key);
+          Header[] headers = writerOutput.get(j).headers().toArray();
+          assertEquals(logMessage.getMessage(), writerOutput.get(j).value());
+
+          crcChecksum.reset();
+          crcChecksum.update(logMessage.getMessage());
+          assertNotEquals(logMessage.getChecksum(), crcChecksum.getValue());
+
+          // check that the messageValid field was appropriately set to false
+          assertFalse(messageValidMap.get(j));
+
+          // check that the appropriate number of headers were added
+          assertEquals(2, writerOutput.get(j).headers().toArray().length);
+
+          // check that the values of the headers are correct
+          for (Header h : headers) {
+              if (h.key().equals(LOGGING_AUDIT_HEADER_KEY)) {
+                assertArrayEquals(serializer.serialize(logMessage.getLoggingAuditHeaders()), h.value());
+              } else if (h.key().equals(CHECKSUM_HEADER_KEY)) {
+                assertArrayEquals(Longs.toByteArray(logMessage.getChecksum()), h.value());
+              }
+          }
+        }
+      }
+    }
+    assertTrue(foundCorruptedMessage);
+
     // validate if writes are throwing any error
     writer.writeLogMessages(logMessages);
     writer.close();

@@ -194,6 +194,11 @@ public class ConfigUtils {
             .setStopAtCurrentStage(
                 conf.getBoolean(LoggingAuditClientConfigDef.STOP_AT_CURRENT_STAGE));
       }
+      if (conf.containsKey(LoggingAuditClientConfigDef.SKIP_CORRUPTED_MESSAGE_AT_CURRENT_STAGE)) {
+        topicAuditConfig
+                .setSkipCorruptedMessageAtCurrentStage(
+                        conf.getBoolean(LoggingAuditClientConfigDef.SKIP_CORRUPTED_MESSAGE_AT_CURRENT_STAGE));
+      }
       return topicAuditConfig;
     } catch (Exception e) {
       throw new ConfigurationException("Can't create TopicAuditConfig from configuration.", e);

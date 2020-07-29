@@ -56,6 +56,11 @@ struct AuditConfig{
     *  true at Merced / Merced_HR stage.
     */
     3: optional bool stopAtCurrentStage = false;
+
+    /**
+    *   flag indicates whether to skip corrupted messages at the current stage or not
+    */
+    4: optional bool skipCorruptedMessageAtCurrentStage = false;
 }
 
 

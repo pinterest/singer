@@ -46,6 +46,8 @@ public class LogbackThriftLogger extends BaseThriftLogger {
       int firstDotPos = hostName.indexOf('.');
       if (firstDotPos > 0) {
         HOST_NAME = hostName.substring(0, firstDotPos);
+      } else {
+        HOST_NAME = hostName;
       }
     } catch (Exception e) {
       // fall back to env var.
