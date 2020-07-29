@@ -901,7 +901,7 @@ public class LogConfigUtils {
     return new ThriftReaderConfig(readerBufferSize, maxMessageSize);
   }
 
-  private static TextReaderConfig parseTextReaderConfig(AbstractConfiguration textReaderConfiguration) throws ConfigurationException {
+  protected static TextReaderConfig parseTextReaderConfig(AbstractConfiguration textReaderConfiguration) throws ConfigurationException {
     textReaderConfiguration.setThrowExceptionOnMissing(true);
     int readerBufferSize = textReaderConfiguration.getInt("readerBufferSize");
     Preconditions.checkArgument(readerBufferSize > 0, "Invalid readerBufferSize");
@@ -966,7 +966,7 @@ public class LogConfigUtils {
     
     if (textReaderConfiguration.containsKey("prependEnvironmentVariables")) {
       String str = textReaderConfiguration.getString("prependEnvironmentVariables");
-      String[] variables = str.split("|");
+      String[] variables = str.split("\\|");
       StringBuilder builder = new StringBuilder();
       builder.append("|");
       for (String variable : variables) {

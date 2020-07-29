@@ -169,12 +169,10 @@ public class CommittableKafkaWriter extends KafkaWriter {
             "host=" + HOSTNAME, "logName=" + msg.getLoggingAuditHeaders().getLogName(),
             "logStreamName=" + logName);
       }
-      // it is the index of the audited message within its bucket.
-      // note that not necessarily all messages within a bucket are being audited,
-      // thus which
-      // message within the bucket being audited should be keep track of for later
-      // sending
-      // corresponding LoggingAuditEvents.
+      // It is the index of the audited message within its bucket.
+      // note that not necessarily all messages within a bucket are being audited.
+      // Therefore, which message within the bucket being audited should be keep track of for later
+      // sending corresponding LoggingAuditEvents.
       int indexWithinTheBucket = recordMetadataList.size();
       commitableMapOfHeadersMap.get(partitionId).put(indexWithinTheBucket,
           msg.getLoggingAuditHeaders());
@@ -212,31 +210,7 @@ public class CommittableKafkaWriter extends KafkaWriter {
           maxKafkaBatchWriteLatency = Math.max(maxKafkaBatchWriteLatency,
               result.getKafkaBatchWriteLatencyInMillis());
           if (isLoggingAuditEnabledAndConfigured()) {
-            int bucketIndex = result.getPartition();
-            // when result.success is true, the number of recordMetadata SHOULD be the same
-            // as the number of ProducerRecord. The size mismatch should never happen.
-            // Adding this if-check is just an additional verification to make sure the size
-            // match and the audit events sent out is indeed corresponding to those log messages
-            // that are audited.
-            List<Future<RecordMetadata>> recordMetadataList = commitableBuckets.get(bucketIndex)
-                .getRecordMetadataList();
-            if (bucketIndex >= 0
-                && result.getRecordMetadataList().size() != recordMetadataList.size()) {
-              // this should never happen!
-              LOG.warn(
-                  "Number of ProducerRecord does not match the number of RecordMetadata, "
-                      + "LogName:{}, Topic:{}, BucketIndex:{}, result_size:{}, bucket_size:{}",
-                  logName, topic, bucketIndex, result.getRecordMetadataList().size(),
-                  recordMetadataList.size());
-              OpenTsdbMetricConverter.incr(SingerMetrics.AUDIT_HEADERS_METADATA_COUNT_MISMATCH, 1,
-                  "topic=" + topic, "host=" + HOSTNAME, "logStreamName=" + logName,
-                  "partition=" + bucketIndex);
-            } else {
-              // regular code execution path
-              enqueueLoggingAuditEvents(result, commitableMapOfHeadersMap.get(bucketIndex));
-              OpenTsdbMetricConverter.incr(SingerMetrics.AUDIT_HEADERS_METADATA_COUNT_MATCH, 1,
-                  "host=" + HOSTNAME, "logStreamName=" + logName);
-            }
+            captureAndLogAuditEvents(result);
           }
         }
       }
@@ -249,15 +223,7 @@ public class CommittableKafkaWriter extends KafkaWriter {
         OpenTsdbMetricConverter.incr(SingerMetrics.NUM_COMMITED_TRANSACTIONS, 1, "topic=" + topic,
             "host=" + HOSTNAME, "logname=" + logName);
       }
-      OpenTsdbMetricConverter.gauge(SingerMetrics.KAFKA_THROUGHPUT, bytesWritten, "topic=" + topic,
-          "host=" + HOSTNAME, "logname=" + logName);
-      OpenTsdbMetricConverter.gauge(SingerMetrics.KAFKA_LATENCY, maxKafkaBatchWriteLatency,
-          "topic=" + topic, "host=" + HOSTNAME, "logname=" + logName);
-      OpenTsdbMetricConverter.incr(SingerMetrics.NUM_KAFKA_MESSAGES, numLogMessages,
-          "topic=" + topic, "host=" + HOSTNAME, "logname=" + logName);
-      OpenTsdbMetricConverter.incr(SingerMetrics.SINGER_WRITER 
-          + "num_committable_kafka_messages_delivery_success", numLogMessages,
-          "topic=" + topic, "host=" + HOSTNAME, "logname=" + logName);
+      updateWriteSuccessMetrics(numLogMessages, bytesWritten, maxKafkaBatchWriteLatency);
     } catch (Exception e) {
       LOG.error("Caught exception when write " + numLogMessages + " messages to producer.", e);
 
@@ -272,14 +238,7 @@ public class CommittableKafkaWriter extends KafkaWriter {
             "host=" + HOSTNAME, "logname=" + logName);
       }
       KafkaProducerManager.resetProducer(producerConfig);
-      OpenTsdbMetricConverter.incr("singer.writer.producer_reset", 1, "topic=" + topic,
-          "host=" + HOSTNAME);
-      OpenTsdbMetricConverter.incr("singer.writer.num_kafka_messages_delivery_failure",
-          numLogMessages, "topic=" + topic, "host=" + HOSTNAME, "logname=" + logName);
-      OpenTsdbMetricConverter.incr(SingerMetrics.SINGER_WRITER 
-          + "num_committable_kafka_messages_delivery_failure", numLogMessages,
-          "topic=" + topic, "host=" + HOSTNAME, "logname=" + logName);
-
+      updateWriteFailureMetrics(numLogMessages);
       throw new LogStreamWriterException("Failed to write messages to topic " + topic, e);
     } finally {
       for (Future<KafkaWritingTaskResult> f : resultFutures) {
@@ -288,6 +247,56 @@ public class CommittableKafkaWriter extends KafkaWriter {
         }
       }
     }
+  }
+
+  private void captureAndLogAuditEvents(KafkaWritingTaskResult result) {
+    int bucketIndex = result.getPartition();
+    // when result.success is true, the number of recordMetadata SHOULD be the same
+    // as the number of ProducerRecord. The size mismatch should never happen.
+    // Adding this if-check is just an additional verification to make sure the size
+    // match and the audit events sent out is indeed corresponding to those log messages
+    // that are audited.
+    List<Future<RecordMetadata>> recordMetadataList = commitableBuckets.get(bucketIndex)
+        .getRecordMetadataList();
+    if (bucketIndex >= 0
+        && result.getRecordMetadataList().size() != recordMetadataList.size()) {
+      // this should never happen!
+      LOG.warn(
+          "Number of ProducerRecord does not match the number of RecordMetadata, "
+              + "LogName:{}, Topic:{}, BucketIndex:{}, result_size:{}, bucket_size:{}",
+          logName, topic, bucketIndex, result.getRecordMetadataList().size(),
+          recordMetadataList.size());
+      OpenTsdbMetricConverter.incr(SingerMetrics.AUDIT_HEADERS_METADATA_COUNT_MISMATCH, 1,
+          "topic=" + topic, "host=" + HOSTNAME, "logStreamName=" + logName,
+          "partition=" + bucketIndex);
+    } else {
+      // regular code execution path
+      enqueueLoggingAuditEvents(result, commitableMapOfHeadersMap.get(bucketIndex));
+      OpenTsdbMetricConverter.incr(SingerMetrics.AUDIT_HEADERS_METADATA_COUNT_MATCH, 1,
+          "host=" + HOSTNAME, "logStreamName=" + logName);
+    }
+  }
+
+  private void updateWriteFailureMetrics(int numLogMessages) {
+    OpenTsdbMetricConverter.incr("singer.writer.producer_reset", 1, "topic=" + topic,
+        "host=" + HOSTNAME);
+    OpenTsdbMetricConverter.incr("singer.writer.num_kafka_messages_delivery_failure",
+        numLogMessages, "topic=" + topic, "host=" + HOSTNAME, "logname=" + logName);
+    OpenTsdbMetricConverter.incr(SingerMetrics.SINGER_WRITER 
+        + "num_committable_kafka_messages_delivery_failure", numLogMessages,
+        "topic=" + topic, "host=" + HOSTNAME, "logname=" + logName);
+  }
+
+  private void updateWriteSuccessMetrics(int numLogMessages, int bytesWritten, int maxKafkaBatchWriteLatency) {
+    OpenTsdbMetricConverter.gauge(SingerMetrics.KAFKA_THROUGHPUT, bytesWritten, "topic=" + topic,
+        "host=" + HOSTNAME, "logname=" + logName);
+    OpenTsdbMetricConverter.gauge(SingerMetrics.KAFKA_LATENCY, maxKafkaBatchWriteLatency,
+        "topic=" + topic, "host=" + HOSTNAME, "logname=" + logName);
+    OpenTsdbMetricConverter.incr(SingerMetrics.NUM_KAFKA_MESSAGES, numLogMessages,
+        "topic=" + topic, "host=" + HOSTNAME, "logname=" + logName);
+    OpenTsdbMetricConverter.incr(SingerMetrics.SINGER_WRITER 
+        + "num_committable_kafka_messages_delivery_success", numLogMessages,
+        "topic=" + topic, "host=" + HOSTNAME, "logname=" + logName);
   }
 
   @Override

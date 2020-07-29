@@ -23,9 +23,12 @@ import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import org.apache.commons.configuration.AbstractConfiguration;
 import org.apache.commons.configuration.ConfigurationException;
@@ -37,15 +40,16 @@ import org.junit.Test;
 import com.pinterest.singer.common.SingerConfigDef;
 import com.pinterest.singer.thrift.configuration.KafkaProducerConfig;
 import com.pinterest.singer.thrift.configuration.RealpinWriterConfig;
+import com.pinterest.singer.thrift.configuration.TextReaderConfig;
 
 public class TestLogConfigUtils {
-  
+
   @After
   public void after() {
     LogConfigUtils.SHADOW_MODE_ENABLED = false;
     LogConfigUtils.DEFAULT_SERVERSET_DIR = "/var/serverset";
   }
-  
+
   @Test
   public void testRealPinTTLParsing() throws ConfigurationException {
     String CONFIG = "" + "topic=test\n" + "objectType=mobile_perf_log\n"
@@ -145,29 +149,26 @@ public class TestLogConfigUtils {
           "Must fail since the supplied class is not a valid StatsPusher class but it is a valid class");
     } catch (Exception e) {
     }
-    
+
     map.put("statsPusherClass", "com.pinterest.singer.monitor.Xyz");
     try {
       LogConfigUtils.parseCommonSingerConfigHeader(config);
-      fail(
-          "Must fail since the supplied class is not a valid class");
+      fail("Must fail since the supplied class is not a valid class");
     } catch (Exception e) {
     }
     map.remove("statsPusherClass");
     // cleanup after stats test
-    
+
     map.put("environmentProviderClass", "com.pinterest.singer.monitor.Xyz");
     try {
       LogConfigUtils.parseCommonSingerConfigHeader(config);
-      fail(
-          "Must fail since the supplied class is not a valid class");
+      fail("Must fail since the supplied class is not a valid class");
     } catch (Exception e) {
     }
     map.put("environmentProviderClass", "com.pinterest.singer.monitor.DefaultLogMonitor");
     try {
       LogConfigUtils.parseCommonSingerConfigHeader(config);
-      fail(
-          "Must fail since the supplied class is not a valid class");
+      fail("Must fail since the supplied class is not a valid class");
     } catch (Exception e) {
     }
   }
@@ -224,35 +225,48 @@ public class TestLogConfigUtils {
       throw e;
     }
   }
-  
+
   @Test
   public void testTextLogEnvInjection() throws ConfigurationException {
-    String config = "reader.type=text\n" + 
-        "reader.text.readerBufferSize=131072\n" + 
-        "reader.text.maxMessageSize=131072\n" + 
-        "reader.text.messageStartRegex=^.*$\n" + 
-        "reader.text.numMessagesPerLogMessage=1\n" + 
-        "reader.text.logMessageType=plain_text\n" + 
-        "reader.text.prependEnvironmentVariables=VAR_A|VAR_B\n" + 
-        "reader.text.prependHostname=true\n" + 
-        "reader.text.prependTimestamp=true";
+    // NOTE: this test requires at least 2 environment variables to be present
+    Map<String, String> envs = System.getenv();
+    List<Entry<String, String>> envList = new ArrayList<>();
+    for (Entry<String, String> entry : envs.entrySet()) {
+      envList.add(entry);
+    }
+    String config = "reader.type=text\n" + "reader.text.readerBufferSize=131072\n"
+        + "reader.text.maxMessageSize=131072\n" + "reader.text.messageStartRegex=^.*$\n"
+        + "reader.text.numMessagesPerLogMessage=1\n" + "reader.text.logMessageType=plain_text\n"
+        + "reader.text.prependEnvironmentVariables=" + envList.get(0).getKey() + "|"
+        + envList.get(1).getKey() + "\n" + "reader.text.prependHostname=true\n"
+        + "reader.text.prependTimestamp=true";
     PropertiesConfiguration configObj = new PropertiesConfiguration();
     configObj.load(new StringReader(config));
     String val = configObj.getString("reader.text.prependEnvironmentVariables");
-    assertEquals("VAR_A|VAR_B", val);
+    assertEquals(envList.get(0).getKey() + "|" + envList.get(1).getKey(), val);
+    TextReaderConfig textConfig = LogConfigUtils
+        .parseTextReaderConfig((AbstractConfiguration) configObj.subset("reader.text"));
+    String prependEnvironmentVariableString = textConfig.getPrependEnvironmentVariableString();
+    String[] split = prependEnvironmentVariableString.split(" ");
+    assertEquals(2, split.length);
+    assertEquals("|" + envList.get(0).getKey() + "=" + envList.get(0).getValue(), split[0]);
+    assertEquals(envList.get(1).getKey() + "=" + envList.get(1).getValue() + "|", split[1]);
   }
-  
+
   @Test
   public void testShadowKafkaProducerConfigs() throws ConfigurationException, IOException {
     LogConfigUtils.DEFAULT_SERVERSET_DIR = "target/serversets";
     new File(LogConfigUtils.DEFAULT_SERVERSET_DIR).mkdirs();
-    Files.write(new File(LogConfigUtils.DEFAULT_SERVERSET_DIR+"/discovery.xyz.prod").toPath(), "xyz:9092".getBytes());
-    Files.write(new File(LogConfigUtils.DEFAULT_SERVERSET_DIR+"/discovery.test.prod").toPath(), "test:9092".getBytes());
-    Files.write(new File(LogConfigUtils.DEFAULT_SERVERSET_DIR+"/discovery.test2.prod").toPath(), "test2:9092".getBytes());
+    Files.write(new File(LogConfigUtils.DEFAULT_SERVERSET_DIR + "/discovery.xyz.prod").toPath(),
+        "xyz:9092".getBytes());
+    Files.write(new File(LogConfigUtils.DEFAULT_SERVERSET_DIR + "/discovery.test.prod").toPath(),
+        "test:9092".getBytes());
+    Files.write(new File(LogConfigUtils.DEFAULT_SERVERSET_DIR + "/discovery.test2.prod").toPath(),
+        "test2:9092".getBytes());
     Map<String, Object> map = new HashMap<>();
     map.put(SingerConfigDef.BROKER_SERVERSET_DEPRECATED, "/discovery/xyz/prod");
     AbstractConfiguration config = new MapConfiguration(map);
-    
+
     KafkaProducerConfig producerConfig = null;
     // without shadow mode activation regular serverset file should be sourced
     producerConfig = LogConfigUtils.parseProducerConfig(config);
@@ -260,16 +274,17 @@ public class TestLogConfigUtils {
 
     // with shadow mode override should be sourced
     LogConfigUtils.SHADOW_MODE_ENABLED = true;
-    LogConfigUtils.SHADOW_SERVERSET_MAPPING.put(LogConfigUtils.DEFAULT_SHADOW_SERVERSET, "discovery.test.prod");
+    LogConfigUtils.SHADOW_SERVERSET_MAPPING.put(LogConfigUtils.DEFAULT_SHADOW_SERVERSET,
+        "discovery.test.prod");
 
     producerConfig = LogConfigUtils.parseProducerConfig(config);
     assertEquals(Arrays.asList("test:9092"), producerConfig.getBrokerLists());
-    
+
     LogConfigUtils.SHADOW_SERVERSET_MAPPING.put("/discovery/xyz/prod", "discovery.test2.prod");
     producerConfig = LogConfigUtils.parseProducerConfig(config);
     assertEquals(Arrays.asList("test2:9092"), producerConfig.getBrokerLists());
   }
-  
+
   @Test
   public void testProducerBufferMemory() throws ConfigurationException {
     Map<String, Object> map = new HashMap<>();
