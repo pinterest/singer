@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
@@ -35,6 +36,7 @@ import org.apache.kafka.common.Node;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.pulsar.shade.org.apache.commons.lang3.concurrent.ConcurrentUtils;
+import org.apache.thrift.TSerializer;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
@@ -47,6 +49,7 @@ import com.pinterest.singer.SingerTestBase;
 import com.pinterest.singer.common.LogStream;
 import com.pinterest.singer.common.SingerLog;
 import com.pinterest.singer.common.SingerSettings;
+import com.pinterest.singer.loggingaudit.thrift.LoggingAuditHeaders;
 import com.pinterest.singer.thrift.LogMessage;
 import com.pinterest.singer.thrift.configuration.KafkaProducerConfig;
 import com.pinterest.singer.thrift.configuration.SingerConfig;
@@ -156,7 +159,116 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
         assertEquals(partition, (int) producerRecord.partition());
         assertEquals(ByteBuffer.wrap(producerRecord.value()).getInt(), md.offset());
       }
+    }
 
+    writer.endCommit(logMessages.size());
+    // validate if writes are throwing any error
+    writer.close();
+  }
+
+  @Test
+  public void testWriterWithHeadersInjectorEnabled() throws Exception {
+    SingerLog singerLog = new SingerLog(createSingerLogConfig("test2", "/a/b/c"));
+    KafkaMessagePartitioner partitioner = new Crc32ByteArrayPartitioner();
+    LogStream logStream = new LogStream(singerLog, "test.tmp");
+    KafkaProducerConfig config = new KafkaProducerConfig();
+    SingerSettings.setSingerConfig(new SingerConfig());
+    KafkaProducerManager.injectTestProducer(config, producer);
+    // default value for skip noleader partition is false
+    CommittableKafkaWriter writer = new CommittableKafkaWriter(logStream, config, partitioner,
+        "topicx", false, Executors.newCachedThreadPool(), true);
+
+    List<PartitionInfo> partitions = ImmutableList.copyOf(Arrays.asList(
+        new PartitionInfo("topicx", 1, new Node(2, "broker2", 9092, "us-east-1b"), null, null),
+        new PartitionInfo("topicx", 0, new Node(1, "broker1", 9092, "us-east-1a"), null, null),
+        new PartitionInfo("topicx", 2, new Node(3, "broker3", 9092, "us-east-1c"), null, null),
+        new PartitionInfo("topicx", 6, new Node(2, "broker2", 9092, "us-east-1b"), null, null),
+        new PartitionInfo("topicx", 3, new Node(4, "broker4", 9092, "us-east-1a"), null, null),
+        new PartitionInfo("topicx", 5, new Node(1, "broker1", 9092, "us-east-1a"), null, null),
+        new PartitionInfo("topicx", 7, new Node(3, "broker3", 9092, "us-east-1c"), null, null),
+        new PartitionInfo("topicx", 4, new Node(5, "broker5", 9092, "us-east-1b"), null, null),
+        new PartitionInfo("topicx", 8, new Node(4, "broker4", 9092, "us-east-1a"), null, null),
+        new PartitionInfo("topicx", 9, new Node(5, "broker5", 9092, "us-east-1b"), null, null),
+        new PartitionInfo("topicx", 10, new Node(1, "broker1", 9092, "us-east-1a"), null, null)));
+
+    when(producer.partitionsFor("topicx")).thenReturn(partitions);
+
+    int pid = new Random().nextInt();
+    long session = System.currentTimeMillis();
+    // message with same key will be put together in the same bucket (same
+    // partition);
+    List<String> keys = IntStream.range(0, NUM_KEYS).mapToObj(i -> "key" + i)
+        .collect(Collectors.toList());
+    Map<Integer, List<LogMessage>> msgPartitionMap = new HashMap<>();
+    Map<Integer, List<ProducerRecord<byte[], byte[]>>> recordPartitionMap = new HashMap<>();
+    Map<Integer, List<RecordMetadata>> metadataPartitionMap = new HashMap<>();
+    HashFunction crc32 = Hashing.crc32();
+    List<LogMessage> logMessages = new ArrayList<>();
+    
+    TSerializer serializer = new TSerializer();
+    for (int i = 0; i < NUM_KEYS; i++) {
+      for (int j = 0; j < NUM_EVENTS / NUM_KEYS; j++) {
+        LogMessage logMessage = new LogMessage();
+        LoggingAuditHeaders headers = new LoggingAuditHeaders().setHost("host-name")
+            .setLogName("topicx").setPid(pid).setSession(session).setLogSeqNumInSession(i);
+        logMessage.setLoggingAuditHeaders(headers);
+        logMessage.setKey(keys.get(i).getBytes());
+        int messageId = logMessages.size();
+        ByteBuffer buf = ByteBuffer.allocate(4).putInt(messageId);
+        buf.flip();
+        logMessage.setMessage(buf);
+        logMessages.add(logMessage);
+        int partitionId = Math
+            .abs(crc32.hashBytes(logMessage.getKey()).asInt() % partitions.size());
+        ProducerRecord<byte[], byte[]> record = new ProducerRecord<byte[], byte[]>("topicx",
+            partitionId, logMessage.getKey(), logMessage.getMessage());
+        byte[] headerBytes = serializer.serialize(headers);
+        record.headers().add("loggingAuditHeaders", headerBytes);
+        RecordMetadata recordMetadata = new RecordMetadata(
+            new TopicPartition(record.topic(), record.partition()), messageId, 0, 0, 0L,
+            record.key().length, record.value().length);
+        when(producer.send(record)).thenReturn(ConcurrentUtils.constantFuture(recordMetadata));
+
+        if (msgPartitionMap.containsKey(partitionId)) {
+          msgPartitionMap.get(partitionId).add(logMessage);
+          recordPartitionMap.get(partitionId).add(record);
+          metadataPartitionMap.get(partitionId).add(recordMetadata);
+        } else {
+          msgPartitionMap.put(partitionId, new ArrayList<>());
+          recordPartitionMap.put(partitionId, new ArrayList<>());
+          metadataPartitionMap.put(partitionId, new ArrayList<>());
+          msgPartitionMap.get(partitionId).add(logMessage);
+          recordPartitionMap.get(partitionId).add(record);
+          metadataPartitionMap.get(partitionId).add(recordMetadata);
+        }
+      }
+    }
+
+    writer.startCommit();
+
+    for (LogMessage msg : logMessages) {
+      writer.writeLogMessageToCommit(msg);
+    }
+    Map<Integer, KafkaWritingTaskFuture> commitableBuckets = writer.getCommitableBuckets();
+    for (int partitionId = 0; partitionId < partitions.size(); partitionId++) {
+      KafkaWritingTaskFuture kafkaWritingTaskFuture = commitableBuckets.get(partitionId);
+      List<Future<RecordMetadata>> recordMetadataList = kafkaWritingTaskFuture
+          .getRecordMetadataList();
+      if (recordMetadataList.size() == 0) {
+        continue;
+      }
+      int partition = kafkaWritingTaskFuture.getPartitionInfo().partition();
+
+      // verify the message order is what is expected by calling messageCollation()
+      List<ProducerRecord<byte[], byte[]>> expectedRecords = recordPartitionMap.get(partitionId);
+      assertEquals(expectedRecords.size(), recordMetadataList.size());
+      for (int j = 0; j < recordMetadataList.size(); j++) {
+        RecordMetadata md = recordMetadataList.get(j).get();
+        ProducerRecord<byte[], byte[]> producerRecord = expectedRecords.get(j);
+        // validate that the message id expected is correct partition
+        assertEquals(partition, (int) producerRecord.partition());
+        assertEquals(ByteBuffer.wrap(producerRecord.value()).getInt(), md.offset());
+      }
     }
 
     writer.endCommit(logMessages.size());
