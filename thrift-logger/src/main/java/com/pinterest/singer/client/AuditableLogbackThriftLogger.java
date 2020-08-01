@@ -31,6 +31,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.Random;
+import java.util.zip.CRC32;
 
 
 /**
@@ -43,6 +44,7 @@ import java.util.Random;
 public class AuditableLogbackThriftLogger extends LogbackThriftLogger {
 
   private static Logger LOG = LoggerFactory.getLogger(AuditableLogbackThriftLogger.class);
+  private static ThreadLocal<CRC32> localCRC = ThreadLocal.withInitial(CRC32::new);
 
   private static final String AUDIT_THRIFT_LOGGER_HEADERS_ADDED_TO_ORIGINAL_COUNT = "audit.thrift_logger.headers_added_to_original.count";
   private static final String AUDIT_THRIFT_LOGGER_HEADERS_ADDED_TO_LOG_MESSAGE_COUNT = "audit.thrift_logger.headers_added_to_log_message.count";
@@ -161,7 +163,8 @@ public class AuditableLogbackThriftLogger extends LogbackThriftLogger {
           .setTimestampInNanos(timeNanos).setMessage(message);
 
       if(this.enableLoggingAudit && headers != null) {
-        logMessage.setLoggingAuditHeaders(headers);
+        long crc = computeCRC(message);
+        logMessage.setLoggingAuditHeaders(headers).setChecksum(crc);
         OpenTsdbMetricConverter.incr(AUDIT_THRIFT_LOGGER_HEADERS_ADDED_TO_LOG_MESSAGE_COUNT,
             "topic=" + topic, "host=" + HOST_NAME);
       }
@@ -172,6 +175,13 @@ public class AuditableLogbackThriftLogger extends LogbackThriftLogger {
           OpenTsdbMetricConverter.incr(AUDIT_THRIFT_LOGGER_AUDITED_MESSAGE_COUNT,
               "topic=" + topic, "host=" + HOST_NAME);
       }
+  }
+
+  private long computeCRC(byte[] message) {
+    CRC32 crc = localCRC.get();
+    crc.reset();
+    crc.update(message);
+    return crc.getValue();
   }
 
   public boolean shouldAudit(){

@@ -15,6 +15,7 @@
  */
 package com.pinterest.singer.writer;
 
+import com.google.common.primitives.Longs;
 import com.pinterest.singer.common.LogStream;
 import com.pinterest.singer.common.LogStreamWriter;
 import com.pinterest.singer.common.errors.LogStreamWriterException;
@@ -38,6 +39,8 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.header.Headers;
+import org.apache.thrift.TException;
+import org.apache.thrift.TSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,6 +57,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.zip.CRC32;
 
 /**
  * LogStreamWriter implementation that write to Kafka cluster.
@@ -65,6 +69,12 @@ public class KafkaWriter implements LogStreamWriter {
   public static final String HOSTNAME = SingerSettings.getEnvironment().getHostname();
   private static final Logger LOG = LoggerFactory.getLogger(KafkaWriter.class);
   protected static final PartitionComparator COMPARATOR = new PartitionComparator();
+
+  private static final ThreadLocal<TSerializer> SERIALIZER = ThreadLocal.withInitial(TSerializer::new);
+  private static ThreadLocal<CRC32> localCRC = ThreadLocal.withInitial(CRC32::new);
+  private static final String LOGGING_AUDIT_HEADER_KEY = "loggingAuditHeaders";
+  private static final String CRC_HEADER_KEY = "messageCRC";
+
 
   // Counter for the number of batch message writing failures
   protected static AtomicInteger failureCounter = new AtomicInteger(0);
@@ -100,7 +110,7 @@ public class KafkaWriter implements LogStreamWriter {
 
   /**
    *  HeadersInjector will be set if enableHeadersInjector is set to true.
-   *  Default is
+   *  Default is null
   */
   protected HeadersInjector headersInjector = null;
 
@@ -268,12 +278,16 @@ public class KafkaWriter implements LogStreamWriter {
    * @param partitions unordered list of partitionInfo to be used for partitioning this batch
    * @param topic the kafka topic
    * @param logMessages the messages that will be written to kafka
+   * @param mapOfHeadersMaps a map keeping track of the LoggingAuditHeaders for the audited messages within each partition
+   * @param mapOfMessageValidMaps a map keeping track of whether a message is valid for the audited messages within each partition
    * @return a list of message lists that are classified based on partitions.
    */
   Map<Integer, List<ProducerRecord<byte[], byte[]>>> messageCollation(
       List<PartitionInfo> partitions,
       String topic,
-      List<LogMessage> logMessages, Map<Integer, Map<Integer, LoggingAuditHeaders>> mapOfHeadersMaps) throws Exception {
+      List<LogMessage> logMessages,
+      Map<Integer, Map<Integer, LoggingAuditHeaders>> mapOfHeadersMaps,
+      Map<Integer, Map<Integer, Boolean>> mapOfMessageValidMaps) throws Exception {
     LOG.info("Collate {} messages of topic {} for logStream {}", logMessages.size(), topic, logName);
 
     Map<Integer, List<ProducerRecord<byte[], byte[]>>> buckets = new HashMap<>();
@@ -293,10 +307,11 @@ public class KafkaWriter implements LogStreamWriter {
       ProducerRecord<byte[], byte[]> keyedMessage;
       for (int i = 0; i < validPartitions.size(); i++) {
         // for each partitionId, there is a corresponding bucket in buckets and a corresponding
-        // headersMap in mapOfHeadersMaps.
+        // headersMap in mapOfHeadersMaps and corresponding messageValidMap in mapOfMessageValidMaps
         int partitionId = validPartitions.get(i).partition();
         buckets.put(partitionId, new ArrayList<>());
         mapOfHeadersMaps.put(partitionId, new HashMap<Integer, LoggingAuditHeaders>());
+        mapOfMessageValidMaps.put(partitionId, new HashMap<Integer, Boolean>());
       }
 
       for (LogMessage msg : logMessages) {
@@ -312,16 +327,11 @@ public class KafkaWriter implements LogStreamWriter {
         Headers headers = keyedMessage.headers();
         checkAndSetLoggingAuditHeadersForLogMessage(msg);
         if (msg.getLoggingAuditHeaders() != null) {
-          if (this.headersInjector != null) {
-            this.headersInjector.addHeaders(headers, msg);
-            OpenTsdbMetricConverter.incr(SingerMetrics.AUDIT_HEADERS_INJECTED, "topic=" + topic, "host=" + HOSTNAME,  "logName=" + msg.getLoggingAuditHeaders().getLogName(), "logStreamName=" + logName);
+          // check if the message should be skipped
+          if (checkMessageValidAndInjectHeaders(msg, headers,
+                  buckets.get(partitionId).size(), partitionId, mapOfHeadersMaps, mapOfMessageValidMaps)) {
+            continue;
           }
-          // it is the index of the audited message within its bucket.
-          // note that not necessarily all messages within a bucket are being audited, thus which
-          // message within the bucket being audited should be keep track of for later sending
-          // corresponding LoggingAuditEvents.
-          int indexWithinTheBucket = buckets.get(partitionId).size();
-          mapOfHeadersMaps.get(partitionId).put(indexWithinTheBucket, msg.getLoggingAuditHeaders());
         }
         buckets.get(partitionId).add(keyedMessage);
       }
@@ -332,13 +342,84 @@ public class KafkaWriter implements LogStreamWriter {
     return buckets;
   }
 
+  /**
+   *  Validate the message and inject headers for the ProducerRecord
+   *
+   *  If the message is corrupted and corrupted messages are configured to be skipped at the current stage, return true.
+   *  Otherwise, return false, since the message should not be skipped
+   *
+   * @param msg the message to validate
+   * @param headers the headers of the ProducerRecord
+   * @param indexWithinTheBucket the index of the current message within the bucket
+   * @param partitionId the partition id
+   * @param mapOfHeadersMaps a map of index
+   * @param mapOfMessageValidMaps
+   * @return
+   */
+  public boolean checkMessageValidAndInjectHeaders(
+          LogMessage msg, Headers headers, int indexWithinTheBucket, int partitionId,
+          Map<Integer, Map<Integer, LoggingAuditHeaders>> mapOfHeadersMaps,
+          Map<Integer, Map<Integer, Boolean>> mapOfMessageValidMaps) {
+    boolean shouldSkipMessage = false;
+    boolean isMessageValid = checkMessageValid(msg);
+    if (enableLoggingAudit && auditConfig.isSkipCorruptedMessageAtCurrentStage() && !isMessageValid) {
+      OpenTsdbMetricConverter.incr(SingerMetrics.NUM_CORRUPTED_MESSAGES_SKIPPED, "topic=" + topic,
+              "host=" + HOSTNAME, "logName=" + msg.getLoggingAuditHeaders().getLogName(),
+              "logStreamName=" + logName);
+      shouldSkipMessage = true;
+    }
+    if (!shouldSkipMessage && this.headersInjector != null) {
+      injectHeadersForProducerRecord(msg, headers);
+    }
+    // note that not necessarily all messages within a bucket are being audited, thus which
+    // message within the bucket being audited should be keep track of for later sending
+    // corresponding LoggingAuditEvents.
+    mapOfHeadersMaps.get(partitionId).put(indexWithinTheBucket, msg.getLoggingAuditHeaders());
+    mapOfMessageValidMaps.get(partitionId).put(indexWithinTheBucket, isMessageValid);
+    return shouldSkipMessage;
+  }
+
+  protected void injectHeadersForProducerRecord(LogMessage msg, Headers headers) {
+    try {
+      byte[] serializedAuditHeaders = SERIALIZER.get().serialize(msg.getLoggingAuditHeaders());
+      this.headersInjector.addHeaders(headers, LOGGING_AUDIT_HEADER_KEY, serializedAuditHeaders);
+      this.headersInjector.addHeaders(headers, CRC_HEADER_KEY, Longs.toByteArray(msg.getChecksum()));
+      OpenTsdbMetricConverter.incr(SingerMetrics.AUDIT_HEADERS_INJECTED, "topic=" + topic, "host=" + HOSTNAME, "logName=" + msg.getLoggingAuditHeaders().getLogName(), "logStreamName=" + logName);
+    } catch (TException e) {
+      OpenTsdbMetricConverter.incr(SingerMetrics.NUMBER_OF_SERIALIZING_HEADERS_ERRORS);
+      LOG.warn("Exception thrown while serializing headers", e);
+    }
+  }
+
+  protected boolean checkMessageValid(LogMessage msg) {
+    long singerChecksum = computeCRC(msg.getMessage());
+    boolean isMessageValid = true;
+    // check if message is corrupted
+    if (msg.isSetChecksum() && singerChecksum != msg.getChecksum()) {
+      isMessageValid = false;
+      OpenTsdbMetricConverter.incr(SingerMetrics.NUM_CORRUPTED_MESSAGES, "topic=" + topic,
+              "host=" + HOSTNAME, "logName=" + msg.getLoggingAuditHeaders().getLogName(),
+              "logStreamName=" + logName);
+    }
+    return isMessageValid;
+  }
+
+  private long computeCRC(byte[] message) {
+    CRC32 crc = localCRC.get();
+    crc.reset();
+    crc.update(message);
+    return crc.getValue();
+  }
+
   public void checkAndSetLoggingAuditHeadersForLogMessage(LogMessage msg){
     if (enableLoggingAudit && auditConfig.isStartAtCurrentStage() &&
         ThreadLocalRandom.current().nextDouble() < auditConfig.getSamplingRate()){
       LoggingAuditHeaders loggingAuditHeaders = null;
       try {
         loggingAuditHeaders = auditHeadersGenerator.generateHeaders();
+        long checksum = computeCRC(msg.getMessage());
         msg.setLoggingAuditHeaders(loggingAuditHeaders);
+        msg.setChecksum(checksum);
         LOG.debug("Setting loggingAuditHeaders {} for {}", loggingAuditHeaders, logName);
         OpenTsdbMetricConverter.incr(SingerMetrics.AUDIT_HEADERS_SET_FOR_LOG_MESSAGE,
             "topic=" + topic, "host=" + HOSTNAME,  "logName=" +
@@ -370,10 +451,16 @@ public class KafkaWriter implements LogStreamWriter {
       // LoggingAuditHeaders found for this ProducerRecord.
       Map<Integer, Map<Integer, LoggingAuditHeaders>>  mapOfHeadersMap = new HashMap<>();
 
+      // key of mapOfHeadersMap is the partition_id; value of mapOfHeadersMap is HeadersMap.
+      // key of the HeadersMap is the the listIndex of ProducerRecord in the
+      // bucket (buckets.get(partition_id) ); value of the HashMap is whether this message is
+      // valid based on the CRC validation
+      Map<Integer, Map<Integer, Boolean>>  mapOfMessageValidMap = new HashMap<>();
+
       // key of buckets is the partition_id; value of the buckets is a list of ProducerRecord that
       // should be sent to partition_id.
       Map<Integer, List<ProducerRecord<byte[], byte[]>>>
-          buckets = messageCollation(partitions, topic, logMessages, mapOfHeadersMap);
+          buckets = messageCollation(partitions, topic, logMessages, mapOfHeadersMap, mapOfMessageValidMap);
       
       // we sort this info after, we have to create a copy of the data since
       // the returned list is immutable
@@ -420,7 +507,7 @@ public class KafkaWriter implements LogStreamWriter {
                   "topic=" + topic, "host=" + HOSTNAME, "logStreamName=" + logName, "partition=" + bucketIndex);
             } else {
               // regular code execution path
-              enqueueLoggingAuditEvents(result, mapOfHeadersMap.get(bucketIndex));
+              enqueueLoggingAuditEvents(result, mapOfHeadersMap.get(bucketIndex), mapOfMessageValidMap.get(bucketIndex));
               OpenTsdbMetricConverter.incr(SingerMetrics.AUDIT_HEADERS_METADATA_COUNT_MATCH, 1,
                   "host=" + HOSTNAME, "logStreamName=" + logName);
             }
@@ -475,16 +562,25 @@ public class KafkaWriter implements LogStreamWriter {
     return this.enableLoggingAudit && SingerSettings.getLoggingAuditClient() != null;
   }
 
+  /**
+   * enqueues logging audit events
+   *
+   * @param result the KafkaWritingTaskResult
+   * @param headersMap map of positions of audited messages to the LoggingAuditHeaders for those messages
+   * @param messageValidMap map of positions of audited messages to whether or not those messages are valid
+   */
   public void enqueueLoggingAuditEvents(KafkaWritingTaskResult result,
-                                        Map<Integer, LoggingAuditHeaders> headersMap){
+                                        Map<Integer, LoggingAuditHeaders> headersMap,
+                                        Map<Integer, Boolean> messageValidMap){
     for (Map.Entry<Integer, LoggingAuditHeaders> entry : headersMap.entrySet()) {
         Integer listIndex = entry.getKey();
         LoggingAuditHeaders loggingAuditHeaders = entry.getValue();
+        boolean messageValid = messageValidMap.getOrDefault(listIndex, true);
         long messageAcknowledgedTimestamp = -1;
         RecordMetadata recordMetadata =result.getRecordMetadataList().get(listIndex);
         messageAcknowledgedTimestamp = recordMetadata.timestamp();
         SingerSettings.getLoggingAuditClient().audit(this.logName, loggingAuditHeaders,
-            true, messageAcknowledgedTimestamp, kafkaClusterSig, topic);
+            messageValid, messageAcknowledgedTimestamp, kafkaClusterSig, topic);
     }
   }
 

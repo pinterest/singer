@@ -34,6 +34,7 @@ import org.apache.thrift.transport.TIOStreamTransport;
 import org.apache.thrift.transport.TTransport;
 import org.junit.jupiter.api.Test;
 
+import java.util.zip.CRC32;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -101,6 +102,7 @@ public class AuditableLogbackThriftLoggerTest {
       TDeserializer der = new TDeserializer();
       LogMessage logMessage = new LogMessage();
       ThriftMessage thriftMessage = new ThriftMessage();
+      CRC32 crc = new CRC32();
 
       for (int i = 0; i < messages.length; i++) {
         logMessage.read(protocol);
@@ -110,6 +112,10 @@ public class AuditableLogbackThriftLoggerTest {
         // same LoggingAuditHeaders object are attached to original ThriftMessage as well as to
         // LogMessage by AuditableLogbackThriftLogger. After deserialization, the headers should match.
         assertEquals(thriftMessage.getLoggingAuditHeaders(), logMessage.getLoggingAuditHeaders());
+        // check if computed crc matches stored crc
+        crc.reset();
+        crc.update(logMessage.getMessage());
+        assertEquals(crc.getValue(), logMessage.getChecksum());
       }
     } catch (IOException e) {
       e.printStackTrace();
@@ -146,6 +152,7 @@ public class AuditableLogbackThriftLoggerTest {
     String logFilePath = tmpDir.getPath();
     String testFilePath = initialize(logFilePath, topicName, ThriftMessage.class);
     TDeserializer der = new TDeserializer();
+    CRC32 crc = new CRC32();
 
     long startOffset = 0;
     for (int i = 0; i < messages.length; i++) {
@@ -163,6 +170,10 @@ public class AuditableLogbackThriftLoggerTest {
         der.deserialize(thriftMessage, logMessage.getMessage());
         assertArrayEquals(thriftMessage.getPayload(), messages[i].getPayload());
         assertEquals(thriftMessage.getSequenceNum(), messages[i].getSequenceNum());
+        // check if computed crc matches stored crc
+        crc.reset();
+        crc.update(logMessage.getMessage());
+        assertEquals(crc.getValue(), logMessage.getChecksum());
         startOffset = startOffset + transport.getBufferPosition() - transport.getBytesRemainingInBuffer() + 4;
       } catch (Exception e) {
         e.printStackTrace();

@@ -30,6 +30,7 @@ public class LoggingAuditClientConfigDef {
   public static final String SAMPLING_RATE = "samplingRate";
   public static final String START_AT_CURRENT_STAGE = "startAtCurrentStage";
   public static final String STOP_AT_CURRENT_STAGE = "stopAtCurrentStage";
+  public static final String SKIP_CORRUPTED_MESSAGE_AT_CURRENT_STAGE = "skipCorruptedMessageAtCurrentStage";
 
 
   public static final String SENDER_PREFIX = "sender.";

@@ -61,6 +61,7 @@ public class CommittableKafkaWriter extends KafkaWriter {
   private static final Logger LOG = LoggerFactory.getLogger(CommittableKafkaWriter.class);
   private List<PartitionInfo> committableValidPartitions;
   private Map<Integer, Map<Integer, LoggingAuditHeaders>> commitableMapOfHeadersMap;
+  private Map<Integer, Map<Integer, Boolean>> comittableMapOfMessageValidMap;
   private Map<Integer, KafkaWritingTaskFuture> commitableBuckets;
   private KafkaProducer<byte[], byte[]> committableProducer;
 
@@ -134,6 +135,7 @@ public class CommittableKafkaWriter extends KafkaWriter {
 
     commitableBuckets = new HashMap<>();
     commitableMapOfHeadersMap = new HashMap<>();
+    comittableMapOfMessageValidMap = new HashMap<>();
 
     for (int i = 0; i < committableValidPartitions.size(); i++) {
       // for each partitionId, there is a corresponding bucket in buckets and a
@@ -142,6 +144,7 @@ public class CommittableKafkaWriter extends KafkaWriter {
       int partitionId = partitionInfo.partition();
       commitableBuckets.put(partitionId, new KafkaWritingTaskFuture(partitionInfo));
       commitableMapOfHeadersMap.put(partitionId, new HashMap<Integer, LoggingAuditHeaders>());
+      comittableMapOfMessageValidMap.put(partitionId, new HashMap<Integer, Boolean>());
     }
   }
 
@@ -163,19 +166,11 @@ public class CommittableKafkaWriter extends KafkaWriter {
     List<Future<RecordMetadata>> recordMetadataList = kafkaWritingTaskFutureResult
         .getRecordMetadataList();
     if (msg.getLoggingAuditHeaders() != null) {
-      if (this.headersInjector != null) {
-        this.headersInjector.addHeaders(headers, msg);
-        OpenTsdbMetricConverter.incr(SingerMetrics.AUDIT_HEADERS_INJECTED, "topic=" + topic,
-            "host=" + HOSTNAME, "logName=" + msg.getLoggingAuditHeaders().getLogName(),
-            "logStreamName=" + logName);
+      // check if message should be skipped
+      if (checkMessageValidAndInjectHeaders(msg, headers,
+              recordMetadataList.size(), partitionId, commitableMapOfHeadersMap, comittableMapOfMessageValidMap)) {
+        return;
       }
-      // It is the index of the audited message within its bucket.
-      // note that not necessarily all messages within a bucket are being audited.
-      // Therefore, which message within the bucket being audited should be keep track of for later
-      // sending corresponding LoggingAuditEvents.
-      int indexWithinTheBucket = recordMetadataList.size();
-      commitableMapOfHeadersMap.get(partitionId).put(indexWithinTheBucket,
-          msg.getLoggingAuditHeaders());
     }
 
     if (recordMetadataList.isEmpty()) {
@@ -271,7 +266,7 @@ public class CommittableKafkaWriter extends KafkaWriter {
           "partition=" + bucketIndex);
     } else {
       // regular code execution path
-      enqueueLoggingAuditEvents(result, commitableMapOfHeadersMap.get(bucketIndex));
+      enqueueLoggingAuditEvents(result, commitableMapOfHeadersMap.get(bucketIndex), comittableMapOfMessageValidMap.get(bucketIndex));
       OpenTsdbMetricConverter.incr(SingerMetrics.AUDIT_HEADERS_METADATA_COUNT_MATCH, 1,
           "host=" + HOSTNAME, "logStreamName=" + logName);
     }
