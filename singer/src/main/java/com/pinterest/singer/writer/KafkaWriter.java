@@ -394,12 +394,11 @@ public class KafkaWriter implements LogStreamWriter {
   protected boolean checkMessageValid(LogMessage msg) {
     long singerChecksum = computeCRC(msg.getMessage());
     boolean isMessageValid = true;
-    // check if message is corrupted
-    if (msg.isSetChecksum() && singerChecksum != msg.getChecksum()) {
-      isMessageValid = false;
-      OpenTsdbMetricConverter.incr(SingerMetrics.NUM_CORRUPTED_MESSAGES, "topic=" + topic,
-              "host=" + HOSTNAME, "logName=" + msg.getLoggingAuditHeaders().getLogName(),
-              "logStreamName=" + logName);
+    if (msg.isSetChecksum()) {
+      // check if message is corrupted
+      isMessageValid = singerChecksum == msg.getChecksum();
+      OpenTsdbMetricConverter.incr(isMessageValid ? SingerMetrics.NUM_UNCORRUPTED_MESSAGES : SingerMetrics.NUM_CORRUPTED_MESSAGES,
+              "host=" + HOSTNAME, "logStreamName=" + logName);
     }
     return isMessageValid;
   }
