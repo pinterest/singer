@@ -48,6 +48,7 @@ public class AuditableLogbackThriftLogger extends LogbackThriftLogger {
 
   private static final String AUDIT_THRIFT_LOGGER_HEADERS_ADDED_TO_ORIGINAL_COUNT = "audit.thrift_logger.headers_added_to_original.count";
   private static final String AUDIT_THRIFT_LOGGER_HEADERS_ADDED_TO_LOG_MESSAGE_COUNT = "audit.thrift_logger.headers_added_to_log_message.count";
+  private static final String AUDIT_THRIFT_LOGGER_CHECKSUM_ADDED_TO_LOG_MESSAGE_COUNT = "audit.thrift_logger.checksum_added_to_log_message.count";
   private static final String AUDIT_THRIFT_LOGGER_AUDITED_MESSAGE_COUNT = "audit.thrift_logger.audited_message.count";
   private static final String AUDIT_THRIFT_LOGGER_ERROR_INIT = "audit.thrift_logger.error.init";
 
@@ -167,6 +168,8 @@ public class AuditableLogbackThriftLogger extends LogbackThriftLogger {
         logMessage.setLoggingAuditHeaders(headers).setChecksum(crc);
         OpenTsdbMetricConverter.incr(AUDIT_THRIFT_LOGGER_HEADERS_ADDED_TO_LOG_MESSAGE_COUNT,
             "topic=" + topic, "host=" + HOST_NAME);
+        OpenTsdbMetricConverter.incr(AUDIT_THRIFT_LOGGER_CHECKSUM_ADDED_TO_LOG_MESSAGE_COUNT,
+                "topic=" + topic, "host=" + HOST_NAME);
       }
       super.append(logMessage, partitionKey);
       if (this.enableLoggingAudit && headers != null && AuditableLogbackThriftLoggerFactory.getLoggingAuditClient() != null) {

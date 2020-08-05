@@ -106,6 +106,7 @@ public class SingerMetrics {
   public static final String AUDIT_HEADERS_METADATA_COUNT_MISMATCH = "singer.audit.headers_metadata_count_mismatch";
   public static final String AUDIT_HEADERS_METADATA_COUNT_MATCH = "singer.audit.headers_metadata_count_match";
   public static final String NUM_CORRUPTED_MESSAGES = "singer.audit.num_corrupted_messages";
+  public static final String NUM_UNCORRUPTED_MESSAGES = "singer.audit.num_uncorrupted_messages";
   public static final String NUM_CORRUPTED_MESSAGES_SKIPPED = "singer.audit.num_corrupted_messages_skipped";
 
 
