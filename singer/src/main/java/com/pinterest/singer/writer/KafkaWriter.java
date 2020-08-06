@@ -381,10 +381,15 @@ public class KafkaWriter implements LogStreamWriter {
 
   protected void injectHeadersForProducerRecord(LogMessage msg, Headers headers) {
     try {
-      byte[] serializedAuditHeaders = SERIALIZER.get().serialize(msg.getLoggingAuditHeaders());
-      this.headersInjector.addHeaders(headers, LOGGING_AUDIT_HEADER_KEY, serializedAuditHeaders);
-      this.headersInjector.addHeaders(headers, CRC_HEADER_KEY, Longs.toByteArray(msg.getChecksum()));
-      OpenTsdbMetricConverter.incr(SingerMetrics.AUDIT_HEADERS_INJECTED, "topic=" + topic, "host=" + HOSTNAME, "logName=" + msg.getLoggingAuditHeaders().getLogName(), "logStreamName=" + logName);
+      if (msg.isSetLoggingAuditHeaders()) {
+        byte[] serializedAuditHeaders = SERIALIZER.get().serialize(msg.getLoggingAuditHeaders());
+        this.headersInjector.addHeaders(headers, LOGGING_AUDIT_HEADER_KEY, serializedAuditHeaders);
+        OpenTsdbMetricConverter.incr(SingerMetrics.AUDIT_HEADERS_INJECTED,  "host=" + HOSTNAME, "logStreamName=" + logName);
+      }
+      if (msg.isSetChecksum()) {
+        this.headersInjector.addHeaders(headers, CRC_HEADER_KEY, Longs.toByteArray(msg.getChecksum()));
+        OpenTsdbMetricConverter.incr(SingerMetrics.CHECKSUM_INJECTED,  "host=" + HOSTNAME, "logStreamName=" + logName);
+      }
     } catch (TException e) {
       OpenTsdbMetricConverter.incr(SingerMetrics.NUMBER_OF_SERIALIZING_HEADERS_ERRORS);
       LOG.warn("Exception thrown while serializing headers", e);

@@ -104,6 +104,7 @@ public class SingerMetrics {
   public static final String NUMBER_OF_MISSING_DIRS = "singer.missing_dir_checker.num_of_missing_dirs";
   public static final String NUMBER_OF_SERIALIZING_HEADERS_ERRORS = "singer.headers_injector.num_of_serializing_headers_errors";
   public static final String AUDIT_HEADERS_INJECTED = "singer.audit.num_of_headers_injected";
+  public static final String CHECKSUM_INJECTED = "singer.audit.num_of_checksum_injected";
   public static final String AUDIT_HEADERS_METADATA_COUNT_MISMATCH = "singer.audit.headers_metadata_count_mismatch";
   public static final String AUDIT_HEADERS_METADATA_COUNT_MATCH = "singer.audit.headers_metadata_count_match";
   public static final String NUM_CORRUPTED_MESSAGES = "singer.audit.num_corrupted_messages";
