@@ -38,6 +38,7 @@ public class SingerMetrics {
   public static final String FILE_LOOKUP_FAILURE = "singer.file_lookup.failure";
   
   public static final String SINGER_START_INDICATOR = "singer.starting";
+  public static final String SINGER_STARTUP_LATENCY = "singer.startup.latency";
 
   public static final String NO_SUCH_FILE_EXCEPTION = "singer.singer_log.nosuchfileexception";
 
