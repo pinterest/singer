@@ -112,7 +112,7 @@ public final class SingerSettings {
              NoSuchMethodException,
       SingerLogException {
     setSingerConfig(config);
-    
+    long startTs = System.currentTimeMillis();
     // mark metric if Singer is running in shadowMode
     if (config.isShadowModeEnabled()) {
       Stats.setGauge(SingerMetrics.SHADOW_MODE_ENABLED, 1);
@@ -216,7 +216,9 @@ public final class SingerSettings {
       logMonitor = (LogMonitor) getInstanceMethod.invoke(null, monitorIntervalInSecs, singerConfig);
       logMonitor.start();
     }
-
+    long startupLatency = System.currentTimeMillis() - startTs;
+    Stats.setGauge(SingerMetrics.SINGER_STARTUP_LATENCY, startupLatency);
+    
     globalFsm.start();
   }
 
