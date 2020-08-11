@@ -39,7 +39,7 @@ import com.pinterest.singer.utils.LogConfigUtils;
 public class KafkaProducerMetricsMonitor implements Runnable {
 
   private static final Logger LOG = LoggerFactory.getLogger(KafkaProducerMetricsMonitor.class);
-  public static final Set<String> PRODUCER_METRICS_WHITELIST = new HashSet<>(
+  public static final Set<String> PRODUCER_METRICS_ALLOWLIST = new HashSet<>(
       Arrays.asList("buffer-total-bytes", "buffer-available-bytes"));
   // sample every 60seconds
   private static final int SAMPLING_INTERVAL = 60_000;
@@ -71,7 +71,7 @@ public class KafkaProducerMetricsMonitor implements Runnable {
       String signature = convertSignatureToTag(key);
       Map<MetricName, ? extends Metric> metrics = kafkaProducerEntry.getValue().metrics();
       for (Entry<MetricName, ? extends Metric> entry : metrics.entrySet()) {
-        if (PRODUCER_METRICS_WHITELIST.contains(entry.getKey().name())) {
+        if (PRODUCER_METRICS_ALLOWLIST.contains(entry.getKey().name())) {
           OpenTsdbMetricConverter.gauge("kafkaproducer." + entry.getKey().name(),
               entry.getValue().value(), "cluster=" + signature);
         }

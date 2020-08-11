@@ -51,7 +51,7 @@ public class TestKafkaProducerMetricsMonitor {
     KafkaProducerMetricsMonitor monitor = new KafkaProducerMetricsMonitor();
     monitor.publishKafkaProducerMetricsToOstrich();
     producer.close();
-    for (String metricName : KafkaProducerMetricsMonitor.PRODUCER_METRICS_WHITELIST) {
+    for (String metricName : KafkaProducerMetricsMonitor.PRODUCER_METRICS_ALLOWLIST) {
       Object gauge = Stats.getGauge("kafkaproducer." + metricName + " cluster=kafka").get();
       assertNotNull(gauge);
     }
