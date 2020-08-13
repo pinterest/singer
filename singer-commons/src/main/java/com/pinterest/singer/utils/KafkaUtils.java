@@ -35,6 +35,7 @@ import com.pinterest.singer.thrift.configuration.KafkaProducerConfig;
 
 public class KafkaUtils {
 
+  private static final int DEFAULT_LINGER_MILLISECONDS = 10;
   private static final String DEFAULT_NAME_PREFIX = "singer_";
   public static final int DEFAULT_PRODUCER_BUFFER_MEMORY = 1024;
 
@@ -48,6 +49,7 @@ public class KafkaUtils {
     // singer use namePrefix : "singer_"
     properties.put(ProducerConfig.CLIENT_ID_CONFIG, namePrefix + CommonUtils.getHostName() + "_" + UUID.randomUUID());
     properties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList);
+    properties.put(ProducerConfig.LINGER_MS_CONFIG, DEFAULT_LINGER_MILLISECONDS);
     properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, config.getKeySerializerClass());
     properties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, config.getValueSerializerClass());
     if (config.getBufferMemory() >= DEFAULT_PRODUCER_BUFFER_MEMORY) {
