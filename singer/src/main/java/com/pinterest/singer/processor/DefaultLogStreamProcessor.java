@@ -31,6 +31,7 @@ import com.pinterest.singer.thrift.LogMessage;
 import com.pinterest.singer.thrift.LogMessageAndPosition;
 import com.pinterest.singer.thrift.LogPosition;
 import com.pinterest.singer.utils.LogConfigUtils;
+import com.pinterest.singer.utils.SingerUtils;
 import com.pinterest.singer.utils.WatermarkUtils;
 
 import com.google.common.base.Preconditions;
@@ -549,7 +550,18 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
     }
     List<LogMessage> logMessagesToWrite = Lists.newArrayListWithExpectedSize(numMessages);
     for (LogMessageAndPosition logMessageRead : logMessagesRead) {
-      logMessagesToWrite.add(logMessageRead.getLogMessage());
+      LogMessage logMessage = logMessageRead.getLogMessage();
+      logMessagesToWrite.add(logMessage);
+      OpenTsdbMetricConverter.gauge(
+              SingerMetrics.PROCESSOR_MESSAGE_KEY_SIZE_BYTES,
+              logMessage.getKey().length,
+              "log=" + logStream.getLogStreamName(),
+              "host=" + SingerUtils.getHostname());
+      OpenTsdbMetricConverter.gauge(
+              SingerMetrics.PROCESSOR_MESSAGE_VALUE_SIZE_BYTES,
+              logMessage.getMessage().length,
+              "log=" + logStream.getLogStreamName(),
+              "host=" + SingerUtils.getHostname());
     }
     writer.writeLogMessages(logMessagesToWrite);
     LogMessage lastMessage = logMessagesToWrite.get(numMessages - 1);
