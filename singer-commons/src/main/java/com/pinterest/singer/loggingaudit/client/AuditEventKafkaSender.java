@@ -141,7 +141,7 @@ public class AuditEventKafkaSender implements LoggingAuditEventSender {
   private Thread thread;
 
   /**
-   *  For each partition, track the number of sending failures happened to this partition.
+   *  List of PartitionInfo
    */
   private List<PartitionInfo> partitionInfoList = new ArrayList<>();
 
@@ -165,6 +165,14 @@ public class AuditEventKafkaSender implements LoggingAuditEventSender {
 
   private Map<LoggingAuditHeaders, Integer> eventTriedCount = new ConcurrentHashMap<>();
 
+  /**
+   *  currentPartitionId specifies the partition of audit_event topic used to receive audit events.
+   *  The currentPartitionId will be reset in resetCurrentPartitionIdIfNeeded() method. This reduces
+   *  the number of TCP connections from audit client to the Kafka Cluster hosting the audit_event
+   *  topic.
+   */
+  private int currentPartitionId = -1;
+
   public AuditEventKafkaSender(KafkaSenderConfig config,
                                LinkedBlockingDeque<LoggingAuditEvent> queue,
                                LoggingAuditStage stage, String host, String name) {
@@ -174,6 +182,7 @@ public class AuditEventKafkaSender implements LoggingAuditEventSender {
     this.host = host;
     this.name = name;
     this.stopGracePeriodInSeconds = config.getStopGracePeriodInSeconds();
+    this.badPartitions.add(-1);
   }
 
 
@@ -185,24 +194,12 @@ public class AuditEventKafkaSender implements LoggingAuditEventSender {
     this.kafkaProducer = kafkaProducer;
   }
 
-  public int getAlternatePartition(int numOfPartitions) {
-    int randomPartition = 0;
-    int trial = 0;
-    while (trial < MAX_RETRIES_FOR_SELECTION_RANDOM_PARTITION) {
-      trial += 1;
-      randomPartition = ThreadLocalRandom.current().nextInt(numOfPartitions);
-      if (!badPartitions.contains(randomPartition)) {
-        break;
-      }
-    }
-    return randomPartition;
-  }
-
   private void refreshPartitionIfNeeded() {
     // refresh every 30 seconds
     if (System.currentTimeMillis() - lastTimeUpdate > 1000 * PARTITIONS_REFRESH_INTERVAL_IN_SECONDS) {
       try {
         badPartitions.clear();
+        badPartitions.add(-1);
         partitionInfoList = this.kafkaProducer.partitionsFor(topic);
         lastTimeUpdate = System.currentTimeMillis();
         OpenTsdbMetricConverter.incr(
@@ -213,6 +210,36 @@ public class AuditEventKafkaSender implements LoggingAuditEventSender {
             LoggingAuditClientMetrics.AUDIT_CLIENT_SENDER_KAFKA_PARTITIONS_REFRESH_ERROR, 1,
                 "host=" + host, "stage=" + stage.toString());
       }
+    }
+    resetCurrentPartitionIdIfNeeded();
+  }
+
+  private void resetCurrentPartitionIdIfNeeded() {
+    if (partitionInfoList.size() == 0) {
+      currentPartitionId = -1;
+      return;
+    }
+    if (badPartitions.contains(currentPartitionId)){
+      int trial = 0;
+      while (trial < MAX_RETRIES_FOR_SELECTION_RANDOM_PARTITION) {
+        trial += 1;
+        int index = ThreadLocalRandom.current().nextInt(partitionInfoList.size());
+        int randomPartition = partitionInfoList.get(index).partition();
+        if (!badPartitions.contains(randomPartition)) {
+          LOG.warn("Change current partition of audit event topic from {} to {}", currentPartitionId,
+              randomPartition);
+          currentPartitionId = randomPartition;
+          OpenTsdbMetricConverter.incr(
+              LoggingAuditClientMetrics.AUDIT_CLIENT_SENDER_KAFKA_CURRENT_PARTITION_RESET, 1,
+              "host=" + host, "stage=" + stage.toString());
+          return;
+        }
+      }
+      currentPartitionId =  partitionInfoList.get(ThreadLocalRandom.current().nextInt(
+          partitionInfoList.size())).partition();
+      LOG.warn("After {} trials, set current partition to {}",
+          MAX_RETRIES_FOR_SELECTION_RANDOM_PARTITION, currentPartitionId);
+
     }
   }
 
@@ -232,13 +259,16 @@ public class AuditEventKafkaSender implements LoggingAuditEventSender {
     while (!cancelled.get()) {
       try {
         refreshPartitionIfNeeded();
+        if (currentPartitionId == -1){
+          Thread.sleep(100);
+          continue;
+        }
         event = queue.poll(DEQUEUE_WAIT_IN_SECONDS, TimeUnit.SECONDS);
         if (event != null) {
           try {
             value = serializer.serialize(event);
-            int partition = getAlternatePartition(partitionInfoList.size());
-            record = new ProducerRecord<>(this.topic, partition , null, value);
-            kafkaProducer.send(record, new KafkaProducerCallback(event, partition));
+            record = new ProducerRecord<>(this.topic, currentPartitionId , null, value);
+            kafkaProducer.send(record, new KafkaProducerCallback(event, currentPartitionId));
           } catch (TException e) {
             LOG.debug("[{}] failed to construct ProducerRecord because of serialization exception.",
                 Thread.currentThread().getName(), e);
