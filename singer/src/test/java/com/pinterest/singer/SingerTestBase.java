@@ -70,18 +70,29 @@ public class SingerTestBase extends TestCase {
   protected File logConfigDir;
   private Random random;
 
+  private byte[] getRandomByteArray(int size) {
+    byte[] bytes = new byte[size];
+    random.nextBytes(bytes);
+    return bytes;
+  }
+
   protected LogMessageAndPosition writeThriftLogMessage(
       SimpleThriftLogger<LogMessage> logger, int keySize, int messageSize) throws Exception {
-    byte[] messageBytes = new byte[messageSize];
-    random.nextBytes(messageBytes);
-    LogMessage message = new LogMessage(ByteBuffer.wrap(messageBytes));
-    byte[] keyBytes = new byte[keySize];
-    random.nextBytes(keyBytes);
-    message.setKey(keyBytes);
+    LogMessage message = new LogMessage(ByteBuffer.wrap(getRandomByteArray(messageSize)));
+    message.setKey(getRandomByteArray(keySize));
     logger.logThrift(message);
     logger.flush();
     return new LogMessageAndPosition(
-        message, new LogPosition(logger.getLogFile(), logger.getByteOffset()));
+            message, new LogPosition(logger.getLogFile(), logger.getByteOffset()));
+  }
+
+  protected LogMessageAndPosition writeThriftLogMessage(
+          SimpleThriftLogger<LogMessage> logger, int messageSize) throws Exception {
+    LogMessage message = new LogMessage(ByteBuffer.wrap(getRandomByteArray(messageSize)));
+    logger.logThrift(message);
+    logger.flush();
+    return new LogMessageAndPosition(
+            message, new LogPosition(logger.getLogFile(), logger.getByteOffset()));
   }
 
   protected List<LogMessageAndPosition> writeThriftLogMessages(
@@ -89,6 +100,15 @@ public class SingerTestBase extends TestCase {
     List<LogMessageAndPosition> logMessages = Lists.newArrayListWithExpectedSize(n);
     for (int j = 0; j < n; ++j) {
       logMessages.add(writeThriftLogMessage(logger, keySize, messageSize));
+    }
+    return logMessages;
+  }
+
+  protected List<LogMessageAndPosition> writeThriftLogMessages(
+          SimpleThriftLogger<LogMessage> logger, int n, int messageSize) throws Exception {
+    List<LogMessageAndPosition> logMessages = Lists.newArrayListWithExpectedSize(n);
+    for (int j = 0; j < n; ++j) {
+      logMessages.add(writeThriftLogMessage(logger, messageSize));
     }
     return logMessages;
   }
