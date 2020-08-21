@@ -42,6 +42,7 @@ public class LoggingAuditClientMetrics {
 
   public static final String  AUDIT_CLIENT_SENDER_KAFKA_PARTITIONS_REFRESH_ERROR = "audit.client.sender.kafka.partitions_refresh_error";
   public static final String  AUDIT_CLIENT_SENDER_KAFKA_PARTITIONS_REFRESH_COUNT = "audit.client.sender.kafka.partitions_refresh_count";
+  public static final String AUDIT_CLIENT_SENDER_KAFKA_CURRENT_PARTITION_RESET = "audit.client.sender.kafka.current_partition_reset";
 
   public static final String AUDIT_CLIENT_SENDER_KAFKA_CALLBACK_EXCEPTION = "audit.client.sender.kafka.callback_exception";
 }
