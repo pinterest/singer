@@ -134,7 +134,16 @@ public class TestMemoryEfficientLogStreamProcessor extends com.pinterest.singer.
   }
 
   @Test
-  public void testProcessLogStream() throws Exception {
+  public void testProcessKeyedLogStream() throws Exception {
+    testProcessLogStream(true);
+  }
+
+  @Test
+  public void testProcessNonKeyedLogStream() throws Exception {
+    testProcessLogStream(false);
+  }
+
+  public void testProcessLogStream(boolean isKeyed) throws Exception {
     String tempPath = getTempPath();
     String logStreamHeadFileName = "thrift.log";
     String path = FilenameUtils.concat(tempPath, logStreamHeadFileName);
@@ -181,7 +190,10 @@ public class TestMemoryEfficientLogStreamProcessor extends com.pinterest.singer.
 
     try {
       // Write messages to be skipped.
-      writeThriftLogMessages(logger, 150, 500, 50);
+      if (isKeyed)
+        writeThriftLogMessages(logger, 150, 500, 50);
+      else
+        writeThriftLogMessages(logger, 150, 50);
 
       // Save start position to watermark file.
       LogPosition startPosition = new LogPosition(logger.getLogFile(), logger.getByteOffset());
@@ -193,8 +205,9 @@ public class TestMemoryEfficientLogStreamProcessor extends com.pinterest.singer.
       // Rotate log file while writing messages.
       for (int i = 0; i < 3; ++i) {
         rotateWithDelay(logger, 1000);
-        List<LogMessageAndPosition> logMessageAndPositions = writeThriftLogMessages(logger,
-            processorBatchSize + 20, 500, 50);
+        List<LogMessageAndPosition> logMessageAndPositions = isKeyed ?
+                writeThriftLogMessages(logger,processorBatchSize + 20, 500, 50) :
+                writeThriftLogMessages(logger,processorBatchSize + 20, 500, 50);
         List<LogMessage> logMessages = getMessages(logMessageAndPositions);
         messagesWritten.addAll(logMessages);
       }
@@ -213,14 +226,19 @@ public class TestMemoryEfficientLogStreamProcessor extends com.pinterest.singer.
       assertThat(writer.getLogMessages(), is(messagesWritten));
 
       // Write and process a single LogMessages.
-      messagesWritten.addAll(getMessages(writeThriftLogMessages(logger, 1, 500, 50)));
+      messagesWritten.addAll(getMessages(isKeyed ?
+              writeThriftLogMessages(logger, 1, 500, 50) :
+              writeThriftLogMessages(logger, 1, 50))
+      );
       numOfMessageProcessed = processor.processLogStream();
       assertEquals("Should have processed a single log message", 1, numOfMessageProcessed);
       assertThat(writer.getLogMessages(), is(messagesWritten));
 
       // Write another set of LogMessages.
-      messagesWritten
-          .addAll(getMessages(writeThriftLogMessages(logger, processorBatchSize + 1, 500, 50)));
+      messagesWritten.addAll(getMessages(isKeyed ?
+              writeThriftLogMessages(logger, processorBatchSize + 1, 500, 50) :
+              writeThriftLogMessages(logger, processorBatchSize + 1, 50))
+      );
 
       // Writer will throw on write.
       writer.setThrowOnWrite(true);
@@ -245,12 +263,16 @@ public class TestMemoryEfficientLogStreamProcessor extends com.pinterest.singer.
 
       // Rotate and write twice before processing
       rotateWithDelay(logger, 1000);
-      boolean successfullyAdded = messagesWritten
-          .addAll(getMessages(writeThriftLogMessages(logger, processorBatchSize - 20, 500, 50)));
+      boolean successfullyAdded = messagesWritten.addAll(getMessages(isKeyed ?
+              writeThriftLogMessages(logger, processorBatchSize - 20, 500, 50) :
+              writeThriftLogMessages(logger, processorBatchSize - 20, 50))
+      );
       assertTrue(successfullyAdded);
       rotateWithDelay(logger, 1000);
-      successfullyAdded = messagesWritten
-          .addAll(getMessages(writeThriftLogMessages(logger, processorBatchSize, 500, 50)));
+      successfullyAdded = messagesWritten.addAll(getMessages(isKeyed ?
+              writeThriftLogMessages(logger, processorBatchSize, 500, 50) :
+              writeThriftLogMessages(logger, processorBatchSize, 50))
+      );
       assertTrue(successfullyAdded);
 
       // Need to wait for some time to make sure that messages have been written to

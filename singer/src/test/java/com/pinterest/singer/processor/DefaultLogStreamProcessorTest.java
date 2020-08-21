@@ -107,7 +107,16 @@ public class DefaultLogStreamProcessorTest extends com.pinterest.singer.SingerTe
   }
 
   @Test
-  public void testProcessLogStream() throws Exception {
+  public void testProcessKeyedLogStream() throws Exception {
+    testProcessLogStream(true);
+  }
+
+  @Test
+  public void testProcessNonKeyedLogStream() throws Exception {
+    testProcessLogStream(false);
+  }
+
+  public void testProcessLogStream(boolean isKeyed) throws Exception {
     String tempPath = getTempPath();
     String logStreamHeadFileName = "thrift.log";
     String path = FilenameUtils.concat(tempPath, logStreamHeadFileName);
@@ -144,28 +153,32 @@ public class DefaultLogStreamProcessorTest extends com.pinterest.singer.SingerTe
 
     // initialize a log stream reader with 16K as readerBufferSize and maxMessageSize
     LogStreamReader logStreamReader = new DefaultLogStreamReader(
-        logStream, new ThriftLogFileReaderFactory(new ThriftReaderConfig(readerBufferSize, maxMessageSize)));
+            logStream, new ThriftLogFileReaderFactory(new ThriftReaderConfig(readerBufferSize, maxMessageSize)));
     // initialize a log stream processor that
     DefaultLogStreamProcessor processor = new DefaultLogStreamProcessor(logStream, null,
-        logStreamReader, writer, processorBatchSize, processingIntervalInMillisMin, processingIntervalInMillisMax,
-        processingTimeSliceInMilliseconds, logRetentionInSecs);
+            logStreamReader, writer, processorBatchSize, processingIntervalInMillisMin, processingIntervalInMillisMax,
+            processingTimeSliceInMilliseconds, logRetentionInSecs);
 
     try {
       // Write messages to be skipped.
-      writeThriftLogMessages(logger, 150, 500, 50);
+      if (isKeyed)
+        writeThriftLogMessages(logger, 150, 500, 50);
+      else
+        writeThriftLogMessages(logger, 150, 50);
 
       // Save start position to watermark file.
       LogPosition startPosition = new LogPosition(logger.getLogFile(), logger.getByteOffset());
       WatermarkUtils.saveCommittedPositionToWatermark(DefaultLogStreamProcessor
-          .getWatermarkFilename(logStream), startPosition);
+              .getWatermarkFilename(logStream), startPosition);
 
       List<LogMessage> messagesWritten = Lists.newArrayList();
 
       // Rotate log file while writing messages.
       for (int i = 0; i < 3; ++i) {
         rotateWithDelay(logger, 1000);
-        List<LogMessageAndPosition> logMessageAndPositions =
-            writeThriftLogMessages(logger, processorBatchSize + 20, 500, 50);
+        List<LogMessageAndPosition> logMessageAndPositions = isKeyed ?
+                writeThriftLogMessages(logger, processorBatchSize + 20, 500, 50) :
+                writeThriftLogMessages(logger, processorBatchSize + 20, 50);
         List<LogMessage> logMessages = getMessages(logMessageAndPositions);
         messagesWritten.addAll(logMessages);
       }
@@ -180,23 +193,28 @@ public class DefaultLogStreamProcessorTest extends com.pinterest.singer.SingerTe
       // Process all message written so far.
       long numOfMessageProcessed = processor.processLogStream();
       assertEquals("Should have processed all messages written", messagesWritten.size(),
-          numOfMessageProcessed);
+              numOfMessageProcessed);
       assertThat(writer.getLogMessages(), is(messagesWritten));
 
       // Write and process a single LogMessages.
-      messagesWritten.addAll(getMessages(writeThriftLogMessages(logger, 1, 500, 50)));
+      messagesWritten.addAll(getMessages(isKeyed ?
+              writeThriftLogMessages(logger, 1, 500, 50) :
+              writeThriftLogMessages(logger, 1, 50))
+      );
       numOfMessageProcessed = processor.processLogStream();
       assertEquals("Should have processed a single log message", 1, numOfMessageProcessed);
       assertThat(writer.getLogMessages(), is(messagesWritten));
 
       // Write another set of LogMessages.
-      messagesWritten.addAll(getMessages(writeThriftLogMessages(
-          logger, processorBatchSize + 1, 500, 50)));
+      messagesWritten.addAll(getMessages(isKeyed ?
+              writeThriftLogMessages(logger, processorBatchSize + 1, 500, 50) :
+              writeThriftLogMessages(logger, processorBatchSize + 1, 50))
+      );
 
       // Writer will throw on write.
       writer.setThrowOnWrite(true);
       LogPosition positionBefore = WatermarkUtils.loadCommittedPositionFromWatermark(
-          DefaultLogStreamProcessor.getWatermarkFilename(logStream));
+              DefaultLogStreamProcessor.getWatermarkFilename(logStream));
       try {
         processor.processLogStream();
         fail("No exception is thrown on writer error");
@@ -204,24 +222,28 @@ public class DefaultLogStreamProcessorTest extends com.pinterest.singer.SingerTe
         // Exception is thrown.
       }
       LogPosition positionAfter = WatermarkUtils.loadCommittedPositionFromWatermark(
-          DefaultLogStreamProcessor.getWatermarkFilename(logStream));
+              DefaultLogStreamProcessor.getWatermarkFilename(logStream));
       assertEquals(positionBefore, positionAfter);
 
       // Write will not throw on write.
       writer.setThrowOnWrite(false);
       numOfMessageProcessed = processor.processLogStream();
       assertEquals("Should not have processed any additional messages",
-          processorBatchSize + 1, numOfMessageProcessed);
+              processorBatchSize + 1, numOfMessageProcessed);
       assertThat(writer.getLogMessages(), is(messagesWritten));
 
       // Rotate and write twice before processing
       rotateWithDelay(logger, 1000);
-      boolean successfullyAdded = messagesWritten.addAll(getMessages(writeThriftLogMessages(
-          logger, processorBatchSize - 20, 500, 50)));
+      boolean successfullyAdded = messagesWritten.addAll(getMessages(isKeyed ?
+              writeThriftLogMessages(logger, processorBatchSize - 20, 500, 50) :
+              writeThriftLogMessages(logger, processorBatchSize - 20, 50))
+      );
       assertTrue(successfullyAdded);
       rotateWithDelay(logger, 1000);
-      successfullyAdded = messagesWritten.addAll(getMessages(writeThriftLogMessages(
-          logger, processorBatchSize, 500, 50)));
+      successfullyAdded = messagesWritten.addAll(getMessages(isKeyed ?
+              writeThriftLogMessages(logger, processorBatchSize, 500, 50) :
+              writeThriftLogMessages(logger, processorBatchSize, 50))
+      );
       assertTrue(successfullyAdded);
 
       // Need to wait for some time to make sure that messages have been written to disk

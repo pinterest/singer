@@ -58,6 +58,9 @@ public class SingerMetrics {
 
   public static final String CURRENT_PROCESSOR_LATENCY = "current.processor.latency";
 
+  public static final String PROCESSOR_MESSAGE_KEY_SIZE_BYTES = "processor.message.key.size.bytes";
+  public static final String PROCESSOR_MESSAGE_VALUE_SIZE_BYTES = "processor.message.value.size.bytes";
+
   public static final String SKIPPED_BYTES = "singer.reader.skipped_bytes";
 
   public static final String WATERMARK_CREATION_FAILURE = "singer.watermark.creation.failure";
