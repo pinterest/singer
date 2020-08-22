@@ -103,12 +103,12 @@ public class MemoryEfficientLogStreamProcessor extends DefaultLogStreamProcessor
       OpenTsdbMetricConverter.gauge(
               SingerMetrics.PROCESSOR_MESSAGE_KEY_SIZE_BYTES,
               logMessage.isSetKey() ? logMessage.getKey().length : 0,
-              "log=" + logStream.getLogStreamName(),
+              "log=" + logStream.getSingerLog().getSingerLogConfig().getName(),
               "host=" + SingerUtils.getHostname());
       OpenTsdbMetricConverter.gauge(
               SingerMetrics.PROCESSOR_MESSAGE_VALUE_SIZE_BYTES,
               logMessage.isSetMessage() ? logMessage.getMessage().length : 0,
-              "log=" + logStream.getLogStreamName(),
+              "log=" + logStream.getSingerLog().getSingerLogConfig().getName(),
               "host=" + SingerUtils.getHostname());
       writer.writeLogMessageToCommit(logMessage);
     }
