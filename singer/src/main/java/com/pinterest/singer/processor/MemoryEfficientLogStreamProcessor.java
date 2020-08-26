@@ -99,6 +99,8 @@ public class MemoryEfficientLogStreamProcessor extends DefaultLogStreamProcessor
         // because there is some data to read we need to prepare the commit
         writer.startCommit();
       }
+      writer.writeLogMessageToCommit(message.getLogMessage());
+      /* TODO:  Setting the host tag of these two metrics need to be optimized.
       LogMessage logMessage = message.getLogMessage();
       OpenTsdbMetricConverter.gauge(
               SingerMetrics.PROCESSOR_MESSAGE_KEY_SIZE_BYTES,
@@ -111,6 +113,7 @@ public class MemoryEfficientLogStreamProcessor extends DefaultLogStreamProcessor
               "log=" + logStream.getSingerLog().getSingerLogConfig().getName(),
               "host=" + SingerUtils.getHostname());
       writer.writeLogMessageToCommit(logMessage);
+      */
     }
 
     if (logMessagesRead > 0) {
