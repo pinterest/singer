@@ -16,6 +16,10 @@
 package com.pinterest.singer.common;
 
 import com.pinterest.singer.common.errors.LogStreamProcessorException;
+import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
+import com.pinterest.singer.thrift.LogMessage;
+import com.pinterest.singer.utils.SingerUtils;
+
 import java.io.Closeable;
 
 /**
@@ -62,4 +66,20 @@ public interface LogStreamProcessor extends Closeable {
    * @return the last time a cycle was completed by this processor
    */
   long getLastCompleteCycleTime();
+
+  default void emitMessageSizeMetrics(LogStream logStream, LogMessage logMessage) {
+    String logTag = "log=" + logStream.getSingerLog().getSingerLogConfig().getName();
+    String hostTag = "host=" + SingerUtils.HOSTNAME;
+    OpenTsdbMetricConverter.gauge(
+            SingerMetrics.PROCESSOR_MESSAGE_KEY_SIZE_BYTES,
+            logMessage.isSetKey() ? logMessage.getKey().length : 0,
+            logTag,
+            hostTag);
+    OpenTsdbMetricConverter.gauge(
+            SingerMetrics.PROCESSOR_MESSAGE_VALUE_SIZE_BYTES,
+            logMessage.isSetMessage() ? logMessage.getMessage().length : 0,
+            logTag,
+            hostTag);
+
+  }
 }

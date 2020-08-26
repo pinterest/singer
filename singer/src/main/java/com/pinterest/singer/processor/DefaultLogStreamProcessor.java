@@ -31,7 +31,6 @@ import com.pinterest.singer.thrift.LogMessage;
 import com.pinterest.singer.thrift.LogMessageAndPosition;
 import com.pinterest.singer.thrift.LogPosition;
 import com.pinterest.singer.utils.LogConfigUtils;
-import com.pinterest.singer.utils.SingerUtils;
 import com.pinterest.singer.utils.WatermarkUtils;
 
 import com.google.common.base.Preconditions;
@@ -550,22 +549,9 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
     }
     List<LogMessage> logMessagesToWrite = Lists.newArrayListWithExpectedSize(numMessages);
     for (LogMessageAndPosition logMessageRead : logMessagesRead) {
-      logMessagesToWrite.add(logMessageRead.getLogMessage());
-
-      /* TODO: Setting the host tag of these two metrics need to be optimized.
       LogMessage logMessage = logMessageRead.getLogMessage();
       logMessagesToWrite.add(logMessage);
-      OpenTsdbMetricConverter.gauge(
-              SingerMetrics.PROCESSOR_MESSAGE_KEY_SIZE_BYTES,
-              logMessage.isSetKey() ? logMessage.getKey().length : 0,
-              "log=" + logStream.getSingerLog().getSingerLogConfig().getName(),
-              "host=" + SingerUtils.getHostname());
-      OpenTsdbMetricConverter.gauge(
-              SingerMetrics.PROCESSOR_MESSAGE_VALUE_SIZE_BYTES,
-              logMessage.isSetMessage() ? logMessage.getMessage().length : 0,
-              "log=" + logStream.getSingerLog().getSingerLogConfig().getName(),
-              "host=" + SingerUtils.getHostname());
-      */
+      emitMessageSizeMetrics(logStream, logMessage);
     }
     writer.writeLogMessages(logMessagesToWrite);
     LogMessage lastMessage = logMessagesToWrite.get(numMessages - 1);
