@@ -17,9 +17,6 @@ package com.pinterest.singer.processor;
 
 import java.io.IOException;
 
-import com.pinterest.singer.common.SingerMetrics;
-import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
-import com.pinterest.singer.utils.SingerUtils;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -99,21 +96,9 @@ public class MemoryEfficientLogStreamProcessor extends DefaultLogStreamProcessor
         // because there is some data to read we need to prepare the commit
         writer.startCommit();
       }
-      writer.writeLogMessageToCommit(message.getLogMessage());
-      /* TODO:  Setting the host tag of these two metrics need to be optimized.
       LogMessage logMessage = message.getLogMessage();
-      OpenTsdbMetricConverter.gauge(
-              SingerMetrics.PROCESSOR_MESSAGE_KEY_SIZE_BYTES,
-              logMessage.isSetKey() ? logMessage.getKey().length : 0,
-              "log=" + logStream.getSingerLog().getSingerLogConfig().getName(),
-              "host=" + SingerUtils.getHostname());
-      OpenTsdbMetricConverter.gauge(
-              SingerMetrics.PROCESSOR_MESSAGE_VALUE_SIZE_BYTES,
-              logMessage.isSetMessage() ? logMessage.getMessage().length : 0,
-              "log=" + logStream.getSingerLog().getSingerLogConfig().getName(),
-              "host=" + SingerUtils.getHostname());
+      emitMessageSizeMetrics(logStream, logMessage);
       writer.writeLogMessageToCommit(logMessage);
-      */
     }
 
     if (logMessagesRead > 0) {
