@@ -550,6 +550,9 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
     }
     List<LogMessage> logMessagesToWrite = Lists.newArrayListWithExpectedSize(numMessages);
     for (LogMessageAndPosition logMessageRead : logMessagesRead) {
+      logMessagesToWrite.add(logMessageRead.getLogMessage());
+
+      /* TODO: Setting the host tag of these two metrics need to be optimized.
       LogMessage logMessage = logMessageRead.getLogMessage();
       logMessagesToWrite.add(logMessage);
       OpenTsdbMetricConverter.gauge(
@@ -562,6 +565,7 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
               logMessage.isSetMessage() ? logMessage.getMessage().length : 0,
               "log=" + logStream.getSingerLog().getSingerLogConfig().getName(),
               "host=" + SingerUtils.getHostname());
+      */
     }
     writer.writeLogMessages(logMessagesToWrite);
     LogMessage lastMessage = logMessagesToWrite.get(numMessages - 1);
