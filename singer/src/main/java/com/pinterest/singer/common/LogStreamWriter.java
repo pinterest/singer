@@ -17,6 +17,7 @@ package com.pinterest.singer.common;
 
 import com.pinterest.singer.common.errors.LogStreamWriterException;
 import com.pinterest.singer.thrift.LogMessage;
+import com.pinterest.singer.thrift.LogMessageAndPosition;
 
 import java.io.Closeable;
 import java.util.List;
@@ -63,10 +64,10 @@ public interface LogStreamWriter extends Closeable {
    * Send 1 LogMessage to the writer, note that writer is expected to not finalize
    * the messages until the commit method is invoked
    * 
-   * @param message
+   * @param logMessageAndPosition
    * @throws LogStreamWriterException
    */
-  default void writeLogMessageToCommit(LogMessage message) throws LogStreamWriterException {
+  default void writeLogMessageToCommit(LogMessageAndPosition logMessageAndPosition) throws LogStreamWriterException {
     throw new UnsupportedOperationException();
   }
 

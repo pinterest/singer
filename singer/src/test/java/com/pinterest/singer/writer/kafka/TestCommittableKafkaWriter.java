@@ -56,6 +56,7 @@ import com.pinterest.singer.common.SingerLog;
 import com.pinterest.singer.common.SingerSettings;
 import com.pinterest.singer.loggingaudit.thrift.LoggingAuditHeaders;
 import com.pinterest.singer.thrift.LogMessage;
+import com.pinterest.singer.thrift.LogMessageAndPosition;
 import com.pinterest.singer.thrift.configuration.KafkaProducerConfig;
 import com.pinterest.singer.thrift.configuration.SingerConfig;
 import com.pinterest.singer.writer.Crc32ByteArrayPartitioner;
@@ -142,7 +143,8 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
     writer.startCommit();
 
     for (LogMessage msg : logMessages) {
-      writer.writeLogMessageToCommit(msg);
+      LogMessageAndPosition pos = new LogMessageAndPosition(msg, null);
+      writer.writeLogMessageToCommit(pos);
     }
     Map<Integer, KafkaWritingTaskFuture> commitableBuckets = writer.getCommitableBuckets();
     for (int partitionId = 0; partitionId < partitions.size(); partitionId++) {
@@ -260,7 +262,8 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
     writer.startCommit();
 
     for (LogMessage msg : logMessages) {
-      writer.writeLogMessageToCommit(msg);
+      LogMessageAndPosition pos = new LogMessageAndPosition(msg, null);
+      writer.writeLogMessageToCommit(pos);
     }
     Map<Integer, KafkaWritingTaskFuture> commitableBuckets = writer.getCommitableBuckets();
     for (int partitionId = 0; partitionId < partitions.size(); partitionId++) {
@@ -394,7 +397,8 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
     writer.startCommit();
 
     for (LogMessage msg : logMessages) {
-      writer.writeLogMessageToCommit(msg);
+      LogMessageAndPosition pos = new LogMessageAndPosition(msg, null);
+      writer.writeLogMessageToCommit(pos);
     }
     Map<Integer, KafkaWritingTaskFuture> commitableBuckets = writer.getCommitableBuckets();
     int numMessagesWritten = 0;
@@ -445,7 +449,8 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
     writer.startCommit();
 
     for (LogMessage msg : logMessages) {
-      writer.writeLogMessageToCommit(msg);
+      LogMessageAndPosition pos = new LogMessageAndPosition(msg, null);
+      writer.writeLogMessageToCommit(pos);
     }
     Map<Integer, KafkaWritingTaskFuture> commitableBuckets = writer.getCommitableBuckets();
     int numMessagesWritten = 0;

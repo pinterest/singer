@@ -44,6 +44,7 @@ import com.pinterest.singer.common.errors.LogStreamWriterException;
 import com.pinterest.singer.loggingaudit.thrift.LoggingAuditHeaders;
 import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
 import com.pinterest.singer.thrift.LogMessage;
+import com.pinterest.singer.thrift.LogMessageAndPosition;
 import com.pinterest.singer.thrift.configuration.KafkaProducerConfig;
 import com.pinterest.singer.thrift.configuration.SingerRestartConfig;
 import com.pinterest.singer.writer.KafkaMessagePartitioner;
@@ -149,7 +150,8 @@ public class CommittableKafkaWriter extends KafkaWriter {
   }
 
   @Override
-  public void writeLogMessageToCommit(LogMessage msg) throws LogStreamWriterException {
+  public void writeLogMessageToCommit(LogMessageAndPosition messageAndPosition) throws LogStreamWriterException {
+    LogMessage msg = messageAndPosition.getLogMessage();
     ProducerRecord<byte[], byte[]> keyedMessage;
     byte[] key = null;
     if (msg.isSetKey()) {

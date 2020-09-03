@@ -95,11 +95,11 @@ public class TestMemoryEfficientLogStreamProcessor extends com.pinterest.singer.
     }
 
     @Override
-    public void writeLogMessageToCommit(LogMessage message) throws LogStreamWriterException {
+    public void writeLogMessageToCommit(LogMessageAndPosition logMessageAndPosition) throws LogStreamWriterException {
       if (throwOnWrite) {
         throw new LogStreamWriterException("Write error");
       } else {
-        this.logMessages.add(message);
+        this.logMessages.add(logMessageAndPosition.getLogMessage());
       }
     }
 

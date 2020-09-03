@@ -64,7 +64,7 @@ public class MemoryEfficientLogStreamProcessor extends DefaultLogStreamProcessor
 
     int logMessagesRead = 0;
     // Read a batch of LogMessages.
-    LogMessageAndPosition message = null;
+    LogMessageAndPosition logMessageAndPosition = null;
     for (int i = 0; i < this.batchSize; ++i) {
       try {
         // use a tmp variable to preserve valid last read message
@@ -73,14 +73,14 @@ public class MemoryEfficientLogStreamProcessor extends DefaultLogStreamProcessor
           // We run out of LogMessage, we are done with this processing cycle.
           break;
         } else {
-          message = tmp;
+          logMessageAndPosition = tmp;
           logMessagesRead++;
         }
       } catch (Exception e) {
         String errorString = "Caught exception when reading the current batch of messages from "
             + logStream;
         if (logMessagesRead > 0) {
-          errorString += "The last good log position is: " + message.getNextPosition()
+          errorString += "The last good log position is: " + logMessageAndPosition.getNextPosition()
               + ". Abort this processing cycle after sending the log messages we get so far.";
         } else {
           errorString += "Abort this processing cycle without reading any messages.";
@@ -96,21 +96,20 @@ public class MemoryEfficientLogStreamProcessor extends DefaultLogStreamProcessor
         // because there is some data to read we need to prepare the commit
         writer.startCommit();
       }
-      LogMessage logMessage = message.getLogMessage();
-      emitMessageSizeMetrics(logStream, logMessage);
-      writer.writeLogMessageToCommit(logMessage);
+      emitMessageSizeMetrics(logStream, logMessageAndPosition.getLogMessage());
+      writer.writeLogMessageToCommit(logMessageAndPosition);
     }
 
     if (logMessagesRead > 0) {
       // Write the batch of LogMessages.
       writer.endCommit(logMessagesRead);
 
-      LogMessage lastMessage = message.getLogMessage();
+      LogMessage lastMessage = logMessageAndPosition.getLogMessage();
       if (lastMessage.isSetTimestampInNanos()) {
         logStream.setLatestProcessedMessageTime(lastMessage.getTimestampInNanos() / 1000000);
       }
       // The new committed position is the position after the last written LogMessage.
-      LogPosition newCommittedPosition = message.getNextPosition();
+      LogPosition newCommittedPosition = logMessageAndPosition.getNextPosition();
 
       commitLogPosition(newCommittedPosition, true);
       numOfLogMessagesCommitted += logMessagesRead;
