@@ -34,6 +34,7 @@ import com.pinterest.singer.thrift.configuration.LogMonitorConfig;
 import com.pinterest.singer.thrift.configuration.LogStreamProcessorConfig;
 import com.pinterest.singer.thrift.configuration.LogStreamReaderConfig;
 import com.pinterest.singer.thrift.configuration.LogStreamWriterConfig;
+import com.pinterest.singer.thrift.configuration.MemqAuditorConfig;
 import com.pinterest.singer.thrift.configuration.MemqWriterConfig;
 import com.pinterest.singer.thrift.configuration.PulsarProducerConfig;
 import com.pinterest.singer.thrift.configuration.PulsarWriterConfig;
@@ -302,7 +303,33 @@ public class LogConfigUtils {
     if (configuration.containsKey("clientType")) {
       config.setClientType(configuration.getString("clientType").toUpperCase());
     }
+    if (configuration.containsKey("auditor.enabled")) {
+      parseMemqAuditorConfigs(config, new SubsetConfiguration(configuration, "auditor"));
+    }
     return config;
+  }
+  
+  protected static void parseMemqAuditorConfigs(MemqWriterConfig config,
+                                         AbstractConfiguration configuration) throws ConfigurationException {
+    if (configuration == null || configuration.isEmpty()) {
+      LOG.warn("Memq auditor configuration is empty, auditing will not be enabled for:"
+          + config.getTopic());
+      return;
+    }
+    if (!configuration.getBoolean(".enabled")) {
+      return;
+    }
+    MemqAuditorConfig auditorConfig = new MemqAuditorConfig();
+    auditorConfig.setAuditorClass("com.pinterest.memq.client.commons.audit.KafkaBackedAuditor");
+    if (!configuration.containsKey(".topic")) {
+      throw new ConfigurationException("Missing auditor topic");
+    }
+    auditorConfig.setTopic(configuration.getString(".topic"));
+    if (!configuration.containsKey(".serverset")) {
+      throw new ConfigurationException("Missing auditor serverset");
+    }
+    auditorConfig.setServerset(configuration.getString(".serverset"));
+    config.setAuditorConfig(auditorConfig);
   }
 
   /**
