@@ -121,6 +121,12 @@ struct RealpinWriterConfig {
   8: optional i32 ttl = -1;
 }
 
+struct MemqAuditorConfig {
+  1: required string auditorClass;
+  2: required string topic;
+  3: optional string serverset;
+}
+
 struct MemqWriterConfig {
   1: required string serverset;
   2: required string topic;
@@ -132,6 +138,8 @@ struct MemqWriterConfig {
   8: optional i32 ackCheckPollInterval = 500;
   9: optional string clientType = "HTTP";
   10: optional bool enableRackAwareness = true;
+  11: required string cluster;
+  12: optional MemqAuditorConfig auditorConfig;
 }
 
 struct PulsarProducerConfig {
