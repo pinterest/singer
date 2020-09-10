@@ -16,6 +16,7 @@
 package com.pinterest.singer.utils;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
 
 import java.io.ByteArrayInputStream;
@@ -39,6 +40,7 @@ import org.junit.Test;
 
 import com.pinterest.singer.common.SingerConfigDef;
 import com.pinterest.singer.thrift.configuration.KafkaProducerConfig;
+import com.pinterest.singer.thrift.configuration.MemqWriterConfig;
 import com.pinterest.singer.thrift.configuration.RealpinWriterConfig;
 import com.pinterest.singer.thrift.configuration.TextReaderConfig;
 
@@ -298,5 +300,23 @@ public class TestLogConfigUtils {
       // fail since no exception should be thrown
       throw e;
     }
+  }
+  
+  @Test
+  public void testMemqConfigurations() throws Exception {
+    String config = "type=memq\n" + "memq.topic=test2\n" + "memq.cluster=prototype\n"
+        + "memq.environment=dev\n" + "memq.compression=zstd\n" + "memq.maxInFlightRequests=60\n"
+        + "memq.disableAcks=false\n" + "memq.maxPayLoadBytes=2010000\n" + "memq.clientType=tcp\n"
+        + "memq.auditor.enabled=true\n" + "memq.auditor.topic=auditTopic\n"
+        + "memq.auditor.class=com.pinterest.memq.client.commons.audit.KafkaBackedAuditor\n"
+        + "memq.auditor.serverset=/var/serverset/discovery.testkafka.prod";
+    PropertiesConfiguration conf = new PropertiesConfiguration();
+    conf.load(new ByteArrayInputStream(config.getBytes()));
+    MemqWriterConfig writerConfig = LogConfigUtils.parseLogStreamWriterConfig(conf).getMemqWriterConfig();
+    assertNotNull(writerConfig);
+    assertEquals("prototype", writerConfig.getCluster());
+    assertEquals("test2", writerConfig.getTopic());
+    assertNotNull(writerConfig.getAuditorConfig());
+    assertEquals("/var/serverset/discovery.memq.dev.prototype.prod_rich_data", writerConfig.getServerset());
   }
 }
