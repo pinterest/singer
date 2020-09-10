@@ -272,6 +272,7 @@ public class LogConfigUtils {
     }
 
     String clustername = configuration.getString("cluster");
+    config.setCluster(clustername);
     String environment = configuration.getString("environment");
     if (!Arrays.asList("dev", "test", "prod").contains(environment)) {
       throw new ConfigurationException("Invalid environment name");
@@ -279,9 +280,6 @@ public class LogConfigUtils {
     // e.g. discovery.memq.dev.prototype.prod_rich_data
     String serverSetFilePath = "/var/serverset/discovery.memq." + environment + "." + clustername
         + ".prod_rich_data";
-    if (!new File(serverSetFilePath).exists()) {
-      throw new ConfigurationException("Serverset doesn't exist:" + serverSetFilePath);
-    }
     config.setServerset(serverSetFilePath);
     if (!configuration.containsKey(SingerConfigDef.TOPIC)) {
       throw new ConfigurationException("Missing topic name");
@@ -309,7 +307,7 @@ public class LogConfigUtils {
     return config;
   }
   
-  protected static void parseMemqAuditorConfigs(MemqWriterConfig config,
+  public static void parseMemqAuditorConfigs(MemqWriterConfig config,
                                          AbstractConfiguration configuration) throws ConfigurationException {
     if (configuration == null || configuration.isEmpty()) {
       LOG.warn("Memq auditor configuration is empty, auditing will not be enabled for:"
@@ -608,7 +606,7 @@ public class LogConfigUtils {
     return singerConfig;
   }
 
-  private static LogStreamWriterConfig parseLogStreamWriterConfig(AbstractConfiguration writerConfiguration) throws ConfigurationException {
+  public static LogStreamWriterConfig parseLogStreamWriterConfig(AbstractConfiguration writerConfiguration) throws ConfigurationException {
     writerConfiguration.setThrowExceptionOnMissing(true);
     String writerTypeString = writerConfiguration.getString("type");
     WriterType type = WriterType.valueOf(writerTypeString.toUpperCase());
