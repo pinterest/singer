@@ -38,7 +38,7 @@ public class TestTextLogFileReader extends SingerTestBase {
   @Test
   public void testReadLogMessageAndPosition() throws Exception {
     String path = FilenameUtils.concat(getTempPath(), "test2.log");
-    List<String> dataWritten = generateDummyMessagesToFile(path);
+    List<String> dataWritten = generateSampleMessagesToFile(path);
 
     long inode = SingerUtils.getFileInode(SingerUtils.getPath(path));
     LogFile logFile = new LogFile(inode);
@@ -55,7 +55,7 @@ public class TestTextLogFileReader extends SingerTestBase {
   @Test
   public void testReadLogMessageAndPositionWithHostname() throws Exception {
     String path = FilenameUtils.concat(getTempPath(), "test2.log");
-    List<String> dataWritten = generateDummyMessagesToFile(path);
+    List<String> dataWritten = generateSampleMessagesToFile(path);
     String delimiter = " ";
     String hostname = "test";
 
@@ -77,7 +77,7 @@ public class TestTextLogFileReader extends SingerTestBase {
   @Test
   public void testReadLogMessageAndPositionMultiRead() throws Exception {
     String path = FilenameUtils.concat(getTempPath(), "test2.log");
-    List<String> dataWritten = generateDummyMessagesToFile(path);
+    List<String> dataWritten = generateSampleMessagesToFile(path);
 
     long inode = SingerUtils.getFileInode(SingerUtils.getPath(path));
     LogFile logFile = new LogFile(inode);
@@ -96,7 +96,7 @@ public class TestTextLogFileReader extends SingerTestBase {
   @Test
   public void testEnvironmentVariableInjection() throws Exception {
     String path = FilenameUtils.concat(getTempPath(), "test3.log");
-    List<String> dataWritten = generateDummyMessagesToFile(path);
+    List<String> dataWritten = generateSampleMessagesToFile(path);
 
     long inode = SingerUtils.getFileInode(SingerUtils.getPath(path));
     LogFile logFile = new LogFile(inode);
@@ -113,7 +113,7 @@ public class TestTextLogFileReader extends SingerTestBase {
     reader.close();
   }
 
-  private List<String> generateDummyMessagesToFile(String path) throws FileNotFoundException,
+  private List<String> generateSampleMessagesToFile(String path) throws FileNotFoundException,
                                                                 IOException {
     TextLogger logger = new TextLogger(path);
     List<String> dataWritten = new ArrayList<>();

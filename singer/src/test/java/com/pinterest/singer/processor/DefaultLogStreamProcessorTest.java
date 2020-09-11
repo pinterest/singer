@@ -52,15 +52,15 @@ import java.util.List;
 public class DefaultLogStreamProcessorTest extends com.pinterest.singer.SingerTestBase {
 
   /**
-   * Dummy implementation of LogStreamWriter which collect all LogMessages in a list.
+   * No-op implementation of LogStreamWriter which collect all LogMessages in a list.
    */
-  private static final class DummyLogStreamWriter implements LogStreamWriter {
+  private static final class NoOpLogStreamWriter implements LogStreamWriter {
 
     private final List<LogMessage> logMessages;
 
     private boolean throwOnWrite;
 
-    public DummyLogStreamWriter() {
+    public NoOpLogStreamWriter() {
       logMessages = Lists.newArrayList();
       throwOnWrite = false;
     }
@@ -149,7 +149,7 @@ public class DefaultLogStreamProcessorTest extends com.pinterest.singer.SingerTe
     LogStream logStream = new LogStream(singerLog, logStreamHeadFileName);
     LogStreamManager.addLogStream(logStream);
     SimpleThriftLogger<LogMessage> logger = new SimpleThriftLogger<>(path);
-    DummyLogStreamWriter writer = new DummyLogStreamWriter();
+    NoOpLogStreamWriter writer = new NoOpLogStreamWriter();
 
     // initialize a log stream reader with 16K as readerBufferSize and maxMessageSize
     LogStreamReader logStreamReader = new DefaultLogStreamReader(
@@ -284,7 +284,7 @@ public class DefaultLogStreamProcessorTest extends com.pinterest.singer.SingerTe
       SingerLog singerLog = new SingerLog(
           new SingerLogConfig("test", getTempPath(), "thrift.log", null, null, null));
       LogStream logStream = new LogStream(singerLog, "thrift.log");
-      DummyLogStreamWriter writer = new DummyLogStreamWriter();
+      NoOpLogStreamWriter writer = new NoOpLogStreamWriter();
       processor = new DefaultLogStreamProcessor(
           logStream,
           "singer_test_decider",
