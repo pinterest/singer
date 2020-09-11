@@ -75,11 +75,11 @@ struct LogStreamReaderConfig {
  *         all partitions of a topic. Using a writer threadpool underneath, we can
  *         achieve maximum Kafka writing throughput using this writer.
  *
- * DUMMY:  DummyLogStreamWriter ignores the log messages and does not do actually writing.
+ * NO_OP:  NoOpLogStreamWriter ignores the log messages and does not do actually writing.
  *
  **/
 enum WriterType {
-  DUMMY = 0,
+  NO_OP = 0,
   KAFKA08 = 1,
   KAFKA = 2,
   REALPIN = 3,
@@ -101,7 +101,7 @@ struct KafkaWriterConfig {
   6: optional i32 writeTimeoutInSeconds = 60;
 }
 
-struct DummyWriteConfig {
+struct NoOpWriteConfig {
   1: required string topic;
 }
 
@@ -164,7 +164,7 @@ struct PulsarWriterConfig {
 struct LogStreamWriterConfig {
   1: required WriterType type;
   2: optional KafkaWriterConfig kafkaWriterConfig;
-  3: optional DummyWriteConfig dummyWriteConfig;
+  3: optional NoOpWriteConfig noOpWriteConfig;
   4: optional RealpinWriterConfig realpinWriterConfig;
   5: optional PulsarWriterConfig pulsarWriterConfig;
   6: optional MemqWriterConfig memqWriterConfig;

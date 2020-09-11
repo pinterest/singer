@@ -52,7 +52,7 @@ class ThriftLoggerTest(unittest.TestCase):
         thrift_logger._max_bytes = 100
         thrift_logger._file_stream = None
 
-        bytes_to_output = str.encode('dummy bytes')
+        bytes_to_output = str.encode('no-op bytes')
         self.assertFalse(thrift_logger._should_rollover(bytes_to_output))
 
         thrift_logger._max_bytes = 20

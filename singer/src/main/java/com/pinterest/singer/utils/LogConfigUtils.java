@@ -24,7 +24,7 @@ import com.pinterest.singer.loggingaudit.thrift.LoggingAuditStage;
 import com.pinterest.singer.loggingaudit.thrift.configuration.LoggingAuditClientConfig;
 import com.pinterest.singer.loggingaudit.thrift.configuration.AuditConfig;
 import com.pinterest.singer.metrics.StatsPusher;
-import com.pinterest.singer.thrift.configuration.DummyWriteConfig;
+import com.pinterest.singer.thrift.configuration.NoOpWriteConfig;
 import com.pinterest.singer.thrift.configuration.FileNameMatchMode;
 import com.pinterest.singer.thrift.configuration.HeartbeatWriterConfig;
 import com.pinterest.singer.thrift.configuration.KafkaProducerConfig;
@@ -621,8 +621,8 @@ public class LogConfigUtils {
       writerConfig.setRealpinWriterConfig(parseRealpinWriterConfig(
           new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
       return writerConfig;
-    case DUMMY:
-      writerConfig.setDummyWriteConfig(parseDummyWriterConfig(
+    case NOOP:
+      writerConfig.setNoOpWriteConfig(parseNoOpWriterConfig(
           new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
       return writerConfig;
     case PULSAR:
@@ -739,10 +739,10 @@ public class LogConfigUtils {
     return writerConfig;
   }
 
-  private static DummyWriteConfig parseDummyWriterConfig(AbstractConfiguration configuration) {
+  private static NoOpWriteConfig parseNoOpWriterConfig(AbstractConfiguration configuration) {
     configuration.setThrowExceptionOnMissing(true);
     String topic = configuration.getString(SingerConfigDef.TOPIC);
-    return new DummyWriteConfig(topic);
+    return new NoOpWriteConfig(topic);
   }
 
   /**

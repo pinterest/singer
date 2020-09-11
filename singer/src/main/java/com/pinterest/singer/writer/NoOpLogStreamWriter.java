@@ -27,21 +27,21 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * Dummy writer used for Singer testing
+ * No-op writer used for Singer testing
  */
-public class DummyLogStreamWriter implements LogStreamWriter {
+public class NoOpLogStreamWriter implements LogStreamWriter {
 
-  private static final Logger LOG = LoggerFactory.getLogger(DummyLogStreamWriter.class);
+  private static final Logger LOG = LoggerFactory.getLogger(NoOpLogStreamWriter.class);
 
   private LogStream logStream;
   private String topic;
 
-  public DummyLogStreamWriter(LogStream logStream, String topic) {
+  public NoOpLogStreamWriter(LogStream logStream, String topic) {
     this.logStream = logStream;
     this.topic = topic;
   }
 
-  public DummyLogStreamWriter(LogStream logStream) {
+  public NoOpLogStreamWriter(LogStream logStream) {
     this.logStream = logStream;
     this.topic = null;
   }

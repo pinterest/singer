@@ -30,7 +30,7 @@ import com.pinterest.singer.processor.MemoryEfficientLogStreamProcessor;
 import com.pinterest.singer.reader.DefaultLogStreamReader;
 import com.pinterest.singer.reader.TextLogFileReaderFactory;
 import com.pinterest.singer.reader.ThriftLogFileReaderFactory;
-import com.pinterest.singer.thrift.configuration.DummyWriteConfig;
+import com.pinterest.singer.thrift.configuration.NoOpWriteConfig;
 import com.pinterest.singer.thrift.configuration.KafkaProducerConfig;
 import com.pinterest.singer.thrift.configuration.KafkaWriterConfig;
 import com.pinterest.singer.thrift.configuration.LogStreamProcessorConfig;
@@ -42,7 +42,7 @@ import com.pinterest.singer.thrift.configuration.SingerRestartConfig;
 import com.pinterest.singer.thrift.configuration.TextReaderConfig;
 import com.pinterest.singer.thrift.configuration.ThriftReaderConfig;
 import com.pinterest.singer.utils.SingerUtils;
-import com.pinterest.singer.writer.DummyLogStreamWriter;
+import com.pinterest.singer.writer.NoOpLogStreamWriter;
 import com.pinterest.singer.writer.KafkaWriter;
 import com.pinterest.singer.writer.kafka.CommittableKafkaWriter;
 import com.pinterest.singer.writer.pulsar.PulsarWriter;
@@ -315,8 +315,8 @@ public class DefaultLogMonitor implements LogMonitor, Runnable {
       case KAFKA08:
       case KAFKA:
         return createKafkaWriter(logStream, writerConfig.getKafkaWriterConfig());
-      case DUMMY:
-        return createDummyWriter(logStream, writerConfig.getDummyWriteConfig());
+      case NOOP:
+        return createNoOpWriter(logStream, writerConfig.getNoOpWriteConfig());
       case PULSAR:
         return new PulsarWriter().init(logStream, writerConfig.getPulsarWriterConfig());
       default:
@@ -372,13 +372,13 @@ public class DefaultLogMonitor implements LogMonitor, Runnable {
     }
   }
 
-  protected LogStreamWriter createDummyWriter(
-      LogStream logStream, DummyWriteConfig dummyWriteConfig) throws ConfigurationException {
+  protected LogStreamWriter createNoOpWriter(
+      LogStream logStream, NoOpWriteConfig noOpWriteConfig) throws ConfigurationException {
     String topic = extractTopicNameFromLogStreamName(
         logStream.getLogStreamName(),
         logStream.getSingerLog().getSingerLogConfig().getLogStreamRegex(),
-        dummyWriteConfig.getTopic());
-    return new DummyLogStreamWriter(logStream, topic);
+        noOpWriteConfig.getTopic());
+    return new NoOpLogStreamWriter(logStream, topic);
   }
 
   /**
