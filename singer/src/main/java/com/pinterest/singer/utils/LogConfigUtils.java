@@ -17,6 +17,7 @@ package com.pinterest.singer.utils;
 
 import com.pinterest.singer.common.SingerConfigDef;
 import com.pinterest.singer.config.ConfigFileServerSet;
+import com.pinterest.singer.config.ConfigFileWatcher;
 import com.pinterest.singer.config.DirectorySingerConfigurator;
 import com.pinterest.singer.environment.EnvironmentProvider;
 import com.pinterest.singer.loggingaudit.client.utils.ConfigUtils;
@@ -56,9 +57,11 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.twitter.common.base.MorePreconditions;
+import com.twitter.util.Function;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.file.Files;
 import java.util.HashMap;
 import org.apache.commons.configuration.AbstractConfiguration;
 import org.apache.commons.configuration.Configuration;
@@ -278,13 +281,38 @@ public class LogConfigUtils {
       throw new ConfigurationException("Invalid environment name");
     }
     // e.g. discovery.memq.dev.prototype.prod_rich_data
-    String serverSetFilePath = "/var/serverset/discovery.memq." + environment + "." + clustername
+    String serverSetFilePath = DEFAULT_SERVERSET_DIR + "/discovery.memq." + environment + "." + clustername
         + ".prod_rich_data";
     config.setServerset(serverSetFilePath);
+    
+    File serversetFile = new File(serverSetFilePath);
+    if (!serversetFile.exists()) {
+      throw new ConfigurationException("Serverset doesn't exist:" + serverSetFilePath);
+    }
+    
     if (!configuration.containsKey(SingerConfigDef.TOPIC)) {
       throw new ConfigurationException("Missing topic name");
     }
     config.setTopic(configuration.getString(SingerConfigDef.TOPIC));
+    
+    try {
+      final byte[] serversetBytes = Files.readAllBytes(serversetFile.toPath());
+      ConfigFileWatcher watcher = ConfigFileWatcher.defaultInstance();
+      watcher.addWatch(serverSetFilePath, new Function<byte[], Void>() {
+
+        @Override
+        public Void apply(byte[] data) {
+          if (!Arrays.equals(serversetBytes, data)) {
+            LOG.warn("Serverset:" + serverSetFilePath + " updated, Singer will restart");
+            System.exit(0);
+          }
+          return null;
+        }
+      });
+    } catch (IOException e) {
+      throw new ConfigurationException("Failed to load serverset");
+    }
+    
     config.setMaxInFlightRequests(configuration.getInt("maxInFlightRequests", 1));
     if (configuration.containsKey("maxPayLoadBytes")) {
       config.setMaxPayLoadBytes(configuration.getInt("maxPayLoadBytes"));
