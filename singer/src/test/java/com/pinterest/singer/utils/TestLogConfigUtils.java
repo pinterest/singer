@@ -24,6 +24,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -301,9 +302,10 @@ public class TestLogConfigUtils {
       throw e;
     }
   }
-  
+
   @Test
   public void testMemqConfigurations() throws Exception {
+    LogConfigUtils.DEFAULT_SERVERSET_DIR = "target";
     String config = "type=memq\n" + "memq.topic=test2\n" + "memq.cluster=prototype\n"
         + "memq.environment=dev\n" + "memq.compression=zstd\n" + "memq.maxInFlightRequests=60\n"
         + "memq.disableAcks=false\n" + "memq.maxPayLoadBytes=2010000\n" + "memq.clientType=tcp\n"
@@ -312,11 +314,21 @@ public class TestLogConfigUtils {
         + "memq.auditor.serverset=/var/serverset/discovery.testkafka.prod";
     PropertiesConfiguration conf = new PropertiesConfiguration();
     conf.load(new ByteArrayInputStream(config.getBytes()));
-    MemqWriterConfig writerConfig = LogConfigUtils.parseLogStreamWriterConfig(conf).getMemqWriterConfig();
+
+    String pathname = "target/discovery.memq.dev.prototype.prod_rich_data";
+    File file = new File(pathname);
+    Path path = file.toPath();
+    if (file.exists()) {
+      Files.delete(path);
+    }
+    Files.write(path, "test".getBytes());
+
+    MemqWriterConfig writerConfig = LogConfigUtils.parseLogStreamWriterConfig(conf)
+        .getMemqWriterConfig();
     assertNotNull(writerConfig);
     assertEquals("prototype", writerConfig.getCluster());
     assertEquals("test2", writerConfig.getTopic());
     assertNotNull(writerConfig.getAuditorConfig());
-    assertEquals("/var/serverset/discovery.memq.dev.prototype.prod_rich_data", writerConfig.getServerset());
+    assertEquals("target/discovery.memq.dev.prototype.prod_rich_data", writerConfig.getServerset());
   }
 }
