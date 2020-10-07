@@ -25,22 +25,26 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class HeartbeatKafkaWriter implements HeartbeatWriter {
 
   private final KafkaProducer<byte[], byte[]> kafkaProducer;
   private final String topic;
+  private int partition;
 
   public HeartbeatKafkaWriter(HeartbeatWriterConfig writerConfig) {
-    kafkaProducer = KafkaUtils.createKafkaProducer(writerConfig.kafkaWriterConfig.producerConfig);
-    this.topic = writerConfig.kafkaWriterConfig.getTopic();
+    kafkaProducer = KafkaUtils.createKafkaProducer(writerConfig.getKafkaWriterConfig().getProducerConfig());
+    this.topic = writerConfig.getKafkaWriterConfig().getTopic();
+    int partitionCount = kafkaProducer.partitionsFor(topic).size();
+    partition = ThreadLocalRandom.current().nextInt(partitionCount);
   }
 
   @Override
   public void write(SingerStatus status) throws InterruptedException, ExecutionException {
     byte[] msg = status.toString().getBytes();
     ProducerRecord<byte[], byte[]> keyedMessage;
-    keyedMessage = new ProducerRecord<>(topic, status.hostName.getBytes(), msg);
+    keyedMessage = new ProducerRecord<>(topic, partition, status.getHostName().getBytes(), msg);
     kafkaProducer.send(keyedMessage).get();
   }
 
