@@ -153,6 +153,20 @@ public class LoggingAuditClient {
   /**
    *  create and enqueue a LoggingAuditEvent if TopicAuditConfig exists for this topic/logName,
    *  enqueueEnabled is true and there is capacity available in the queue.
+   * @param loggingAuditHeaders
+   * @param messageValid
+   * @param messageAcknowledgedTimestamp
+   * @param messageSkipped
+   */
+  public void audit(String loggingAuditName, LoggingAuditHeaders loggingAuditHeaders,
+                    boolean messageValid, long messageAcknowledgedTimestamp, boolean messageSkipped) {
+    audit(loggingAuditName, loggingAuditHeaders, messageValid, messageAcknowledgedTimestamp, "",
+        "", messageSkipped);
+  }
+
+  /**
+   *  create and enqueue a LoggingAuditEvent if TopicAuditConfig exists for this topic/logName,
+   *  enqueueEnabled is true and there is capacity available in the queue.
    * @param loggingAuditName
    * @param loggingAuditHeaders
    * @param messageValid
@@ -163,6 +177,25 @@ public class LoggingAuditClient {
   public void audit(String loggingAuditName, LoggingAuditHeaders loggingAuditHeaders,
                     boolean messageValid,
                     long messageAcknowledgedTimestamp, String kafkaCluster, String topic) {
+    audit(loggingAuditName, loggingAuditHeaders, messageValid, messageAcknowledgedTimestamp,
+        kafkaCluster, topic, false);
+  }
+
+
+  /**
+   *  create and enqueue a LoggingAuditEvent if TopicAuditConfig exists for this topic/logName,
+   *  enqueueEnabled is true and there is capacity available in the queue.
+   * @param loggingAuditName
+   * @param loggingAuditHeaders
+   * @param messageValid
+   * @param messageAcknowledgedTimestamp
+   * @param kafkaCluster
+   * @param topic
+   * @param messageSkipped
+   */
+  public void audit(String loggingAuditName, LoggingAuditHeaders loggingAuditHeaders,
+                    boolean messageValid, long messageAcknowledgedTimestamp, String kafkaCluster,
+                    String topic, boolean messageSkipped) {
     if (!this.auditConfigs.containsKey(loggingAuditName)) {
       OpenTsdbMetricConverter
           .incr(LoggingAuditClientMetrics.AUDIT_EVENT_WITHOUT_TOPIC_CONFIGURED_ERROR,
@@ -173,7 +206,7 @@ public class LoggingAuditClient {
     if (enqueueEnabled.get()) {
       LoggingAuditEvent loggingAuditEvent = loggingAuditEventGenerator.generateAuditEvent(
           loggingAuditName, loggingAuditHeaders, messageValid, messageAcknowledgedTimestamp,
-          kafkaCluster, topic);
+          kafkaCluster, topic, messageSkipped);
       boolean successful = false;
       try {
         // compared to put() which is blocking until available space in the queue, offer()

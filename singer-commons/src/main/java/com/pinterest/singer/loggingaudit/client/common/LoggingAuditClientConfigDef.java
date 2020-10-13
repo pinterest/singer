@@ -32,7 +32,6 @@ public class LoggingAuditClientConfigDef {
   public static final String STOP_AT_CURRENT_STAGE = "stopAtCurrentStage";
   public static final String SKIP_CORRUPTED_MESSAGE_AT_CURRENT_STAGE = "skipCorruptedMessageAtCurrentStage";
 
-
   public static final String SENDER_PREFIX = "sender.";
   public static final String SENDER_TYPE = "type";
 

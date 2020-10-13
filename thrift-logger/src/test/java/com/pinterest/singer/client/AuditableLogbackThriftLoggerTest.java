@@ -17,6 +17,8 @@ package com.pinterest.singer.client;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.pinterest.singer.client.logback.AppenderUtils;
 import com.pinterest.singer.thrift.LogMessage;
@@ -34,6 +36,7 @@ import org.apache.thrift.transport.TIOStreamTransport;
 import org.apache.thrift.transport.TTransport;
 import org.junit.jupiter.api.Test;
 
+import java.util.Random;
 import java.util.zip.CRC32;
 import java.io.File;
 import java.io.FileInputStream;
@@ -47,7 +50,8 @@ public class AuditableLogbackThriftLoggerTest {
 
   private ThriftMessage[] messages = new ThriftMessage[100];
 
-  public String initialize(String logFileDir, String topic, Class<?> thriftClazz) {
+  public String initialize(String logFileDir, String topic, Class<?> thriftClazz,
+                           boolean enableLoggingAudit, double auditRate) {
     File file = new File(logFileDir);
     if (file.exists()) {
       file.delete();
@@ -57,7 +61,8 @@ public class AuditableLogbackThriftLoggerTest {
     try {
       appender = AppenderUtils.createFileRollingThriftAppender(
           new File(logFileDir), topic, 10000, new ContextBase(), 1);
-      ThriftLogger logger = new AuditableLogbackThriftLogger(appender, topic, thriftClazz, true, 1.0);
+      ThriftLogger logger = new AuditableLogbackThriftLogger(appender, topic, thriftClazz,
+          enableLoggingAudit, auditRate);
 
       for (int i = 0; i < messages.length; i++) {
         ThriftMessage msg = new ThriftMessage();
@@ -90,7 +95,7 @@ public class AuditableLogbackThriftLoggerTest {
   public void testLoggerWithConsecutiveReads() throws IOException, TException {
     File tmpDir = TempDirectory.create(true);
     String logFilePath = tmpDir.getPath();
-    String testFilePath = initialize(logFilePath, topicName, ThriftMessage.class);
+    String testFilePath = initialize(logFilePath, topicName, ThriftMessage.class, true, 1.0);
 
     RandomAccessFile tfile = null;
     TTransport transport = null;
@@ -150,7 +155,7 @@ public class AuditableLogbackThriftLoggerTest {
   public void testLoggerWithSeekReads() throws IOException {
     File tmpDir = TempDirectory.create(true);
     String logFilePath = tmpDir.getPath();
-    String testFilePath = initialize(logFilePath, topicName, ThriftMessage.class);
+    String testFilePath = initialize(logFilePath, topicName, ThriftMessage.class, true, 1.0);
     TDeserializer der = new TDeserializer();
     CRC32 crc = new CRC32();
 
@@ -185,6 +190,57 @@ public class AuditableLogbackThriftLoggerTest {
         if (tfile != null) {
           tfile.close();
         }
+      }
+    }
+    cleanup(logFilePath);
+  }
+
+  /**
+   * Test if LoggingAuditHeaders is set for each message regardless of the auditRate
+   * @throws IOException
+   * @throws TException
+   */
+  @Test
+  public void testAuditHeadersSetForEachMessage() throws Exception {
+
+    // pick a random number as audit rate
+    Random random = new Random();
+    double auditRate = random.nextDouble();
+    assertTrue(auditRate >= 0.0 && auditRate < 1.0);
+
+    File tmpDir = TempDirectory.create(true);
+    String logFilePath = tmpDir.getPath();
+    String testFilePath = initialize(logFilePath, topicName, ThriftMessage.class, true, auditRate);
+
+    RandomAccessFile tfile = null;
+    TTransport transport = null;
+    try {
+      tfile = new RandomAccessFile(testFilePath, "r");
+      InputStream is = new FileInputStream(tfile.getFD());
+      transport = new TFastFramedTransport(new TIOStreamTransport(is), 10000);
+      TProtocol protocol = new TBinaryProtocol(transport);
+      TDeserializer der = new TDeserializer();
+      LogMessage logMessage = new LogMessage();
+      CRC32 crc = new CRC32();
+
+      for (int i = 0; i < messages.length; i++) {
+        logMessage.read(protocol);
+        assertNotNull(logMessage.getLoggingAuditHeaders());
+        assertEquals(i, logMessage.getLoggingAuditHeaders().getLogSeqNumInSession());
+        // check if computed crc matches stored crc
+        crc.reset();
+        crc.update(logMessage.getMessage());
+        assertEquals(crc.getValue(), logMessage.getChecksum());
+      }
+    } catch (IOException e) {
+      e.printStackTrace();
+      assert (false);
+    } finally {
+      if (transport != null) {
+        transport.close();
+      }
+      if (tfile != null) {
+        tfile.close();
       }
     }
     cleanup(logFilePath);

@@ -41,7 +41,8 @@ public class LoggingAuditEventGenerator {
                                               boolean messageValid,
                                               long messageAcknowledgedTimestamp,
                                               String kafkaCluster,
-                                              String topic) {
+                                              String topic,
+                                              boolean messageSkipped) {
     return new LoggingAuditEvent().setHost(host).setStage(stage)
         .setStartAtCurrentStage(auditConfigs.get(loggingAuditName).isStartAtCurrentStage())
         .setStopAtCurrentStage(auditConfigs.get(loggingAuditName).isStopAtCurrentStage())
@@ -51,6 +52,7 @@ public class LoggingAuditEventGenerator {
         .setMessageAcknowledgedTimestamp(messageAcknowledgedTimestamp)
         .setKafkaCluster(kafkaCluster)
         .setTopic(topic)
+        .setMessageSkipped(messageSkipped)
         .setAuditEventGeneratedTimestamp(System.currentTimeMillis());
   }
 

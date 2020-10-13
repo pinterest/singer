@@ -133,6 +133,9 @@ public class AuditableLogbackThriftLogger extends LogbackThriftLogger {
     LoggingAuditHeaders headers = null;
     if (enableLoggingAudit) {
       headers = auditHeadersGenerator.generateHeaders();
+      if (shouldAudit()) {
+        headers.setTracked(true);
+      }
     }
     append(partitionKey, message,timeNanos, headers);
   }
@@ -141,8 +144,11 @@ public class AuditableLogbackThriftLogger extends LogbackThriftLogger {
   public void append(byte[] partitionKey, TBase thriftMessage, long timeNanos) throws TException {
     LoggingAuditHeaders headers = null;
     try {
-      if (enableLoggingAudit && shouldAudit()) {
+      if (enableLoggingAudit) {
         headers = auditHeadersGenerator.generateHeaders();
+        if (shouldAudit()) {
+          headers.setTracked(true);
+        }
         if (this.loggingAuditHeadersField != null) {
           thriftMessage.setFieldValue(this.loggingAuditHeadersField, headers);
           OpenTsdbMetricConverter.incr(AUDIT_THRIFT_LOGGER_HEADERS_ADDED_TO_ORIGINAL_COUNT,
@@ -172,7 +178,8 @@ public class AuditableLogbackThriftLogger extends LogbackThriftLogger {
                 "topic=" + topic, "host=" + HOST_NAME);
       }
       super.append(logMessage, partitionKey);
-      if (this.enableLoggingAudit && headers != null && AuditableLogbackThriftLoggerFactory.getLoggingAuditClient() != null) {
+      if (this.enableLoggingAudit && headers != null && headers.isTracked()  &&
+          AuditableLogbackThriftLoggerFactory.getLoggingAuditClient() != null) {
           AuditableLogbackThriftLoggerFactory.getLoggingAuditClient().audit(this.topic, headers, true,
               System.currentTimeMillis());
           OpenTsdbMetricConverter.incr(AUDIT_THRIFT_LOGGER_AUDITED_MESSAGE_COUNT,

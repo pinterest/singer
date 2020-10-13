@@ -57,6 +57,12 @@ struct LoggingAuditHeaders {
     *  Timstamp (millisecond) when the audit header is generated.
     */
    6: required i64 timestamp;
+
+   /**
+    *  flag indicates whether or not the current message is being tracked. Tracked message will have
+    *  audit events sent out at different stages.
+    */
+   7: optional bool tracked = false;
 }
 
 
@@ -152,6 +158,10 @@ struct LoggingAuditEvent {
     */
     11: required i64 headerGeneratedTimestamp;
 
+   /**
+    * flag indicate whether the current message is skipped at current stage as message is invalid.
+    */
+    12: optional bool messageSkipped = false;
 
 }
 
