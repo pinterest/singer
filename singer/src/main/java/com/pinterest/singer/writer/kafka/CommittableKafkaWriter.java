@@ -61,8 +61,9 @@ public class CommittableKafkaWriter extends KafkaWriter {
 
   private static final Logger LOG = LoggerFactory.getLogger(CommittableKafkaWriter.class);
   private List<PartitionInfo> committableValidPartitions;
-  private Map<Integer, Map<Integer, LoggingAuditHeaders>> commitableMapOfHeadersMap;
-  private Map<Integer, Map<Integer, Boolean>> comittableMapOfMessageValidMap;
+  private Map<Integer, Map<Integer, LoggingAuditHeaders>> committableMapOfTrackedMessageMaps;
+  private Map<Integer, Map<Integer, LoggingAuditHeaders>> committableMapOfInvalidMessageMaps;
+  private Map<Integer, Integer> committableMapOfOriginalIndexWithinBucket;
   private Map<Integer, KafkaWritingTaskFuture> commitableBuckets;
   private KafkaProducer<byte[], byte[]> committableProducer;
 
@@ -135,8 +136,10 @@ public class CommittableKafkaWriter extends KafkaWriter {
     }
 
     commitableBuckets = new HashMap<>();
-    commitableMapOfHeadersMap = new HashMap<>();
-    comittableMapOfMessageValidMap = new HashMap<>();
+    committableMapOfTrackedMessageMaps = new HashMap<>();
+    committableMapOfInvalidMessageMaps = new HashMap<>();
+    committableMapOfOriginalIndexWithinBucket = new HashMap<>();
+
 
     for (int i = 0; i < committableValidPartitions.size(); i++) {
       // for each partitionId, there is a corresponding bucket in buckets and a
@@ -144,14 +147,15 @@ public class CommittableKafkaWriter extends KafkaWriter {
       PartitionInfo partitionInfo = committableValidPartitions.get(i);
       int partitionId = partitionInfo.partition();
       commitableBuckets.put(partitionId, new KafkaWritingTaskFuture(partitionInfo));
-      commitableMapOfHeadersMap.put(partitionId, new HashMap<Integer, LoggingAuditHeaders>());
-      comittableMapOfMessageValidMap.put(partitionId, new HashMap<Integer, Boolean>());
+      committableMapOfTrackedMessageMaps.put(partitionId, new HashMap<Integer, LoggingAuditHeaders>());
+      committableMapOfInvalidMessageMaps.put(partitionId, new HashMap<Integer, LoggingAuditHeaders>());
+      committableMapOfOriginalIndexWithinBucket.put(partitionId, -1);
     }
   }
 
   @Override
-  public void writeLogMessageToCommit(LogMessageAndPosition messageAndPosition) throws LogStreamWriterException {
-    LogMessage msg = messageAndPosition.getLogMessage();
+  public void writeLogMessageToCommit(LogMessageAndPosition message) throws LogStreamWriterException {
+    LogMessage msg = message.getLogMessage();
     ProducerRecord<byte[], byte[]> keyedMessage;
     byte[] key = null;
     if (msg.isSetKey()) {
@@ -164,16 +168,18 @@ public class CommittableKafkaWriter extends KafkaWriter {
     keyedMessage = new ProducerRecord<>(topic, partitionId, key, msg.getMessage());
     Headers headers = keyedMessage.headers();
     checkAndSetLoggingAuditHeadersForLogMessage(msg);
-    KafkaWritingTaskFuture kafkaWritingTaskFutureResult = commitableBuckets.get(partitionId);
-    List<Future<RecordMetadata>> recordMetadataList = kafkaWritingTaskFutureResult
-        .getRecordMetadataList();
+    committableMapOfOriginalIndexWithinBucket.put(partitionId, 1 + committableMapOfOriginalIndexWithinBucket.get(partitionId));
     if (msg.getLoggingAuditHeaders() != null) {
-      // check if message should be skipped
-      if (checkMessageValidAndInjectHeaders(msg, headers,
-              recordMetadataList.size(), partitionId, commitableMapOfHeadersMap, comittableMapOfMessageValidMap)) {
+      // check if the message should be skipped
+      if (checkMessageValidAndInjectHeaders(msg, headers, committableMapOfOriginalIndexWithinBucket.get(partitionId), partitionId,
+          committableMapOfTrackedMessageMaps, committableMapOfInvalidMessageMaps)) {
         return;
       }
     }
+
+    KafkaWritingTaskFuture kafkaWritingTaskFutureResult = commitableBuckets.get(partitionId);
+    List<Future<RecordMetadata>> recordMetadataList = kafkaWritingTaskFutureResult
+        .getRecordMetadataList();
 
     if (recordMetadataList.isEmpty()) {
       kafkaWritingTaskFutureResult.setFirstProduceTimestamp(System.currentTimeMillis());
@@ -247,30 +253,10 @@ public class CommittableKafkaWriter extends KafkaWriter {
   }
 
   private void captureAndLogAuditEvents(KafkaWritingTaskResult result) {
-    int bucketIndex = result.getPartition();
-    // when result.success is true, the number of recordMetadata SHOULD be the same
-    // as the number of ProducerRecord. The size mismatch should never happen.
-    // Adding this if-check is just an additional verification to make sure the size
-    // match and the audit events sent out is indeed corresponding to those log messages
-    // that are audited.
-    List<Future<RecordMetadata>> recordMetadataList = commitableBuckets.get(bucketIndex)
-        .getRecordMetadataList();
-    if (bucketIndex >= 0
-        && result.getRecordMetadataList().size() != recordMetadataList.size()) {
-      // this should never happen!
-      LOG.warn(
-          "Number of ProducerRecord does not match the number of RecordMetadata, "
-              + "LogName:{}, Topic:{}, BucketIndex:{}, result_size:{}, bucket_size:{}",
-          logName, topic, bucketIndex, result.getRecordMetadataList().size(),
-          recordMetadataList.size());
-      OpenTsdbMetricConverter.incr(SingerMetrics.AUDIT_HEADERS_METADATA_COUNT_MISMATCH, 1,
-          "topic=" + topic, "host=" + HOSTNAME, "logStreamName=" + logName,
-          "partition=" + bucketIndex);
-    } else {
-      // regular code execution path
-      enqueueLoggingAuditEvents(result, commitableMapOfHeadersMap.get(bucketIndex), comittableMapOfMessageValidMap.get(bucketIndex));
-      OpenTsdbMetricConverter.incr(SingerMetrics.AUDIT_HEADERS_METADATA_COUNT_MATCH, 1,
-          "host=" + HOSTNAME, "logStreamName=" + logName);
+    if (isLoggingAuditEnabledAndConfigured()) {
+      int bucketIndex = result.getPartition();
+      enqueueLoggingAuditEvents(result, committableMapOfTrackedMessageMaps.get(bucketIndex),
+          committableMapOfInvalidMessageMaps.get(bucketIndex));
     }
   }
 

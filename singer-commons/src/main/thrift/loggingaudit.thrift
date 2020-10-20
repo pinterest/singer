@@ -164,4 +164,3 @@ struct LoggingAuditEvent {
     12: optional bool messageSkipped = false;
 
 }
-
