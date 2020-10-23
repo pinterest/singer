@@ -270,24 +270,44 @@ public class KafkaWriter implements LogStreamWriter {
   }
 
   /**
-   * Distribute the message batch into different partitions, and use the under-lying kafka writing thread pool to speed
-   * up writing.
+   * Distribute the message batch into different partitions, and use the under-lying kafka writing
+   * thread pool to speed up writing.
    *
    * If skipNoLeaderPartitions flag is set, we will skip the partitions that have no leader.
    *
    * @param partitions unordered list of partitionInfo to be used for partitioning this batch
    * @param topic the kafka topic
    * @param logMessages the messages that will be written to kafka
-   * @param mapOfHeadersMaps a map keeping track of the LoggingAuditHeaders for the audited messages within each partition
-   * @param mapOfMessageValidMaps a map keeping track of whether a message is valid for the audited messages within each partition
+   * @param mapOfTrackedMessageMaps a map whose key is the partitionId, value is an inner map. The
+   *                               key of the inner map is indexWithinTheBucket and the value of the
+   *                               inner map is LoggingAuditHeaders object of tracked messages
+   * @param mapOfInvalidMessageMaps a map whose key is the partitionId, value is an inner map. The
+   *                               key of the inner map is indexWithinTheBucket and the value of the
+   *                               inner map is LoggingAuditHeaders object of invalid messages(note:
+   *                               invalid messages may or may not be tracked)
+   * @param mapOfOriginalIndexWithinBucket a map whose key is the partitionId, value is original
+   *                                       index within the bucket. The init value  is -1. Anytime
+   *                                       a message is assigned to a partition (may be skipped),
+   *                                       the value increases by 1. If certain messages are skipped
+   *                                       due to corruption, i.e. they are not added to the bucket,
+   *                                       the actual index of those un-skipped messages could be
+   *                                       lower. The original index means assuming no messages are
+   *                                       skipped.
+   *                                       For example: for ith partition, there are 6 message m0,
+   *                                       m1, m2, m3, m4, m5 assigned. The original index will be
+   *                                       0, 1, 2, 3, 4, 5. If m1 and m3 are skipped due to
+   *                                       corruption, the actual messages sent to Kafka will be
+   *                                       m0, m2, m4, m5 and actual index will be 0, 1, 2, 3.
+   *
    * @return a list of message lists that are classified based on partitions.
    */
   Map<Integer, List<ProducerRecord<byte[], byte[]>>> messageCollation(
       List<PartitionInfo> partitions,
       String topic,
       List<LogMessage> logMessages,
-      Map<Integer, Map<Integer, LoggingAuditHeaders>> mapOfHeadersMaps,
-      Map<Integer, Map<Integer, Boolean>> mapOfMessageValidMaps) throws Exception {
+      Map<Integer, Map<Integer, LoggingAuditHeaders>> mapOfTrackedMessageMaps,
+      Map<Integer, Map<Integer, LoggingAuditHeaders>> mapOfInvalidMessageMaps,
+      Map<Integer, Integer> mapOfOriginalIndexWithinBucket) throws Exception {
     LOG.info("Collate {} messages of topic {} for logStream {}", logMessages.size(), topic, logName);
 
     Map<Integer, List<ProducerRecord<byte[], byte[]>>> buckets = new HashMap<>();
@@ -304,16 +324,18 @@ public class KafkaWriter implements LogStreamWriter {
         }
       }
 
-      ProducerRecord<byte[], byte[]> keyedMessage;
       for (int i = 0; i < validPartitions.size(); i++) {
         // for each partitionId, there is a corresponding bucket in buckets and a corresponding
-        // headersMap in mapOfHeadersMaps and corresponding messageValidMap in mapOfMessageValidMaps
+        // trackedMessageMap in mapOfTrackedMessageMaps and corresponding invalidMessageMap in
+        // mapOfInvalidMessageMaps
         int partitionId = validPartitions.get(i).partition();
         buckets.put(partitionId, new ArrayList<>());
-        mapOfHeadersMaps.put(partitionId, new HashMap<Integer, LoggingAuditHeaders>());
-        mapOfMessageValidMaps.put(partitionId, new HashMap<Integer, Boolean>());
+        mapOfTrackedMessageMaps.put(partitionId, new HashMap<Integer, LoggingAuditHeaders>());
+        mapOfInvalidMessageMaps.put(partitionId, new HashMap<Integer, LoggingAuditHeaders>());
+        mapOfOriginalIndexWithinBucket.put(partitionId, -1);
       }
 
+      ProducerRecord<byte[], byte[]> keyedMessage;
       for (LogMessage msg : logMessages) {
         byte[] key = null;
         if (msg.isSetKey()) {
@@ -324,12 +346,13 @@ public class KafkaWriter implements LogStreamWriter {
           partitionId = validPartitions.get(partitionId).partition();
         }
         keyedMessage = new ProducerRecord<>(topic, partitionId, key, msg.getMessage());
+        mapOfOriginalIndexWithinBucket.put(partitionId, 1 + mapOfOriginalIndexWithinBucket.get(partitionId));
         Headers headers = keyedMessage.headers();
         checkAndSetLoggingAuditHeadersForLogMessage(msg);
         if (msg.getLoggingAuditHeaders() != null) {
           // check if the message should be skipped
-          if (checkMessageValidAndInjectHeaders(msg, headers,
-                  buckets.get(partitionId).size(), partitionId, mapOfHeadersMaps, mapOfMessageValidMaps)) {
+          if (checkMessageValidAndInjectHeaders(msg, headers, mapOfOriginalIndexWithinBucket.get(partitionId),
+              partitionId, mapOfTrackedMessageMaps, mapOfInvalidMessageMaps)) {
             continue;
           }
         }
@@ -345,37 +368,53 @@ public class KafkaWriter implements LogStreamWriter {
   /**
    *  Validate the message and inject headers for the ProducerRecord
    *
-   *  If the message is corrupted and corrupted messages are configured to be skipped at the current stage, return true.
-   *  Otherwise, return false, since the message should not be skipped
+   *  If the message is corrupted and corrupted messages are configured to be skipped at the current
+   *  stage, return true. Otherwise, return false, since the message should not be skipped
    *
    * @param msg the message to validate
    * @param headers the headers of the ProducerRecord
    * @param indexWithinTheBucket the index of the current message within the bucket
    * @param partitionId the partition id
-   * @param mapOfHeadersMaps a map of index
-   * @param mapOfMessageValidMaps
-   * @return
+   * @param mapOfTrackedMessageMaps a map whose key is the partitionId, value is an inner map. The
+   *                               key of the inner map is indexWithinTheBucket and the value of the
+   *                               inner map is LoggingAuditHeaders object of tracked messages
+   * @param mapOfInvalidMessageMaps a map whose key is the partitionId, value is an inner map. The
+   *                               key of the inner map is indexWithinTheBucket and the value of the
+   *                               inner map is LoggingAuditHeaders object of invalid messages(note:
+   *                               invalid messages may or may not be tracked)
+   * @return a boolean indicates whether this message should be skipped
    */
   public boolean checkMessageValidAndInjectHeaders(
-          LogMessage msg, Headers headers, int indexWithinTheBucket, int partitionId,
-          Map<Integer, Map<Integer, LoggingAuditHeaders>> mapOfHeadersMaps,
-          Map<Integer, Map<Integer, Boolean>> mapOfMessageValidMaps) {
-    boolean shouldSkipMessage = false;
+      LogMessage msg, Headers headers, int indexWithinTheBucket, int partitionId,
+      Map<Integer, Map<Integer, LoggingAuditHeaders>> mapOfTrackedMessageMaps,
+      Map<Integer, Map<Integer, LoggingAuditHeaders>> mapOfInvalidMessageMaps) {
     boolean isMessageValid = checkMessageValid(msg);
+
+    // note that only a percentage of messages are tracked, i.e. corresponding audit events are sent
+    // out at different stages. For each bucket, messages being tracked are kept in the hash map where
+    // key is the indexWithin the bucket, and value is the message LoggingAuditHeaders.
+    if (msg.getLoggingAuditHeaders() != null && msg.getLoggingAuditHeaders().isTracked()){
+      mapOfTrackedMessageMaps.get(partitionId).put(indexWithinTheBucket, msg.getLoggingAuditHeaders());
+    }
+
+    // note that some messages (whether being tracked or not) could be invalid because crc32 checksum
+    // does not match mismatch or original message cannot be deserialized. These invalid messages are
+    // kept in the hash map where key is the indexWithin the bucket, and value is the message
+    // LoggingAuditHeaders.
+    if (msg.getLoggingAuditHeaders() != null && !isMessageValid) {
+      mapOfInvalidMessageMaps.get(partitionId).put(indexWithinTheBucket, msg.getLoggingAuditHeaders());
+    }
+
+    boolean shouldSkipMessage = false;
     if (enableLoggingAudit && auditConfig.isSkipCorruptedMessageAtCurrentStage() && !isMessageValid) {
-      OpenTsdbMetricConverter.incr(SingerMetrics.NUM_CORRUPTED_MESSAGES_SKIPPED, "topic=" + topic,
-              "host=" + HOSTNAME, "logName=" + msg.getLoggingAuditHeaders().getLogName(),
-              "logStreamName=" + logName);
+      OpenTsdbMetricConverter.incr(SingerMetrics.AUDIT_NUM_INVALID_MESSAGES_SKIPPED, "topic=" + topic,
+          "host=" + HOSTNAME, "logName=" + msg.getLoggingAuditHeaders().getLogName(),
+          "logStreamName=" + logName);
       shouldSkipMessage = true;
     }
-    if (!shouldSkipMessage && this.headersInjector != null) {
+    if (this.headersInjector != null) {
       injectHeadersForProducerRecord(msg, headers);
     }
-    // note that not necessarily all messages within a bucket are being audited, thus which
-    // message within the bucket being audited should be keep track of for later sending
-    // corresponding LoggingAuditEvents.
-    mapOfHeadersMaps.get(partitionId).put(indexWithinTheBucket, msg.getLoggingAuditHeaders());
-    mapOfMessageValidMaps.get(partitionId).put(indexWithinTheBucket, isMessageValid);
     return shouldSkipMessage;
   }
 
@@ -397,15 +436,25 @@ public class KafkaWriter implements LogStreamWriter {
   }
 
   protected boolean checkMessageValid(LogMessage msg) {
-    long singerChecksum = computeCRC(msg.getMessage());
-    boolean isMessageValid = true;
-    if (msg.isSetChecksum()) {
-      // check if message is corrupted
-      isMessageValid = singerChecksum == msg.getChecksum();
-      OpenTsdbMetricConverter.incr(isMessageValid ? SingerMetrics.NUM_UNCORRUPTED_MESSAGES : SingerMetrics.NUM_CORRUPTED_MESSAGES,
-              "host=" + HOSTNAME, "logStreamName=" + logName);
+    if (msg.getMessage() == null){
+      return false;
     }
-    return isMessageValid;
+    boolean isMessageUncorrupted = true;
+    boolean canDeserializeMessage = true;
+
+    // check if message is corrupted based on crc32 checksum
+    if (msg.isSetChecksum()) {
+      long start = System.nanoTime();
+      long singerChecksum = computeCRC(msg.getMessage());
+      isMessageUncorrupted = singerChecksum == msg.getChecksum();
+      OpenTsdbMetricConverter.gauge(SingerMetrics.AUDIT_COMPUTE_CHECKSUM_LATENCY_NANO, Math.max(
+          0, System.nanoTime() - start), "host=" + HOSTNAME, "logStreamName=" + logName);
+      OpenTsdbMetricConverter.incr(isMessageUncorrupted ? SingerMetrics.AUDIT_NUM_UNCORRUPTED_MESSAGES : SingerMetrics.AUDIT_NUM_CORRUPTED_MESSAGES,
+          "host=" + HOSTNAME, "logStreamName=" + logName);
+    }
+    //TODO check if message can be deserialized.
+
+    return isMessageUncorrupted && canDeserializeMessage;
   }
 
   private long computeCRC(byte[] message) {
@@ -415,12 +464,20 @@ public class KafkaWriter implements LogStreamWriter {
     return crc.getValue();
   }
 
+  /**
+   * If auditing is started at Singer, LoggingAuditHeaders and crc32 checksum are injected for
+   * every message. Based on audit rate, certain messages are randomly chosen to be tracked.
+   * Tracked messages will have audit event sent out at Singer and later stages.
+   * @param msg
+   */
   public void checkAndSetLoggingAuditHeadersForLogMessage(LogMessage msg){
-    if (enableLoggingAudit && auditConfig.isStartAtCurrentStage() &&
-        ThreadLocalRandom.current().nextDouble() < auditConfig.getSamplingRate()){
+    if (enableLoggingAudit && auditConfig.isStartAtCurrentStage()){
       LoggingAuditHeaders loggingAuditHeaders = null;
       try {
         loggingAuditHeaders = auditHeadersGenerator.generateHeaders();
+        if (ThreadLocalRandom.current().nextDouble() < auditConfig.getSamplingRate()) {
+          loggingAuditHeaders.setTracked(true);
+        }
         long checksum = computeCRC(msg.getMessage());
         msg.setLoggingAuditHeaders(loggingAuditHeaders);
         msg.setChecksum(checksum);
@@ -428,6 +485,11 @@ public class KafkaWriter implements LogStreamWriter {
         OpenTsdbMetricConverter.incr(SingerMetrics.AUDIT_HEADERS_SET_FOR_LOG_MESSAGE,
             "topic=" + topic, "host=" + HOSTNAME,  "logName=" +
                 msg.getLoggingAuditHeaders().getLogName(), "logStreamName=" + logName);
+        if (loggingAuditHeaders.isTracked()) {
+          OpenTsdbMetricConverter.incr(SingerMetrics.AUDIT_HEADERS_TRACKED_FOR_LOG_MESSAGE,
+              "topic=" + topic, "host=" + HOSTNAME, "logName=" +
+                  msg.getLoggingAuditHeaders().getLogName(), "logStreamName=" + logName);
+        }
       } catch (Exception e){
         OpenTsdbMetricConverter.incr(SingerMetrics.AUDIT_HEADERS_SET_FOR_LOG_MESSAGE_EXCEPTION,
             "topic=" + topic, "host=" + HOSTNAME,  "logName=" +
@@ -449,23 +511,32 @@ public class KafkaWriter implements LogStreamWriter {
     try {
       List<PartitionInfo> partitions = producer.partitionsFor(topic);
 
-      // key of mapOfHeadersMap is the partition_id; value of mapOfHeadersMap is HeadersMap.
-      // key of the HeadersMap is the the listIndex of ProducerRecord in the
-      // bucket (buckets.get(partition_id) ); value of the HashMap is the
-      // LoggingAuditHeaders found for this ProducerRecord.
-      Map<Integer, Map<Integer, LoggingAuditHeaders>>  mapOfHeadersMap = new HashMap<>();
+      // The key of mapOfTrackedMessageMaps is the partition_id; value of mapOfTrackedMessageMaps is
+      // trackedMessageMap. key of the trackedMessageMap is the listIndex of ProducerRecord in the
+      // bucket (buckets.get(partition_id)); value of the trackedMessageMap is the
+      // LoggingAuditHeaders of the tracked message.
+      Map<Integer, Map<Integer, LoggingAuditHeaders>>  mapOfTrackedMessageMaps = new HashMap<>();
 
-      // key of mapOfHeadersMap is the partition_id; value of mapOfHeadersMap is HeadersMap.
-      // key of the HeadersMap is the the listIndex of ProducerRecord in the
-      // bucket (buckets.get(partition_id) ); value of the HashMap is whether this message is
-      // valid based on the CRC validation
-      Map<Integer, Map<Integer, Boolean>>  mapOfMessageValidMap = new HashMap<>();
+      // The key of mapOfInvalidMessageMaps is the partition_id; value of mapOfInvalidMessageMaps is
+      // invalidMessageMap. The key of the invalidMessageMap is the listIndex of ProducerRecord in the
+      // bucket (buckets.get(partition_id)); value of the invalidMessageMap is the
+      // LoggingAuditHeaders of the invalid message. Message is determined as invalid because crc32
+      // checksum does not match or message cannot be deserialized.
+      Map<Integer, Map<Integer, LoggingAuditHeaders>>  mapOfInvalidMessageMaps = new HashMap<>();
+
+
+
+      // The key of mapOfOriginalIndexWithinBucket is the partition_id, value is original index
+      // within the bucket (one bucket corresponds to one partition_id). The init value is -1,
+      // anytime a LogMessage is assigned to partition_id, the value increases by 1.
+
+      Map<Integer, Integer> mapOfOriginalIndexWithinBucket = new HashMap<>();
 
       // key of buckets is the partition_id; value of the buckets is a list of ProducerRecord that
       // should be sent to partition_id.
-      Map<Integer, List<ProducerRecord<byte[], byte[]>>>
-          buckets = messageCollation(partitions, topic, logMessages, mapOfHeadersMap, mapOfMessageValidMap);
-      
+      Map<Integer, List<ProducerRecord<byte[], byte[]>>> buckets = messageCollation(partitions,
+          topic, logMessages, mapOfTrackedMessageMaps, mapOfInvalidMessageMaps, mapOfOriginalIndexWithinBucket);
+
       // we sort this info after, we have to create a copy of the data since
       // the returned list is immutable
       List<PartitionInfo> sortedPartitions = new ArrayList<>(partitions);
@@ -496,25 +567,7 @@ public class KafkaWriter implements LogStreamWriter {
               result.getKafkaBatchWriteLatencyInMillis());
           if (isLoggingAuditEnabledAndConfigured()) {
             int bucketIndex = result.getPartition();
-            // when result.success is true, the number of recordMetadata SHOULD be the same as
-            // the number of ProducerRecord. The size mismatch should never happen.
-            // Adding this if-check is just an additional verification to make sure the size match
-            // and the audit events sent out is indeed corresponding to those log messages that
-            // are audited.
-            if (bucketIndex >= 0 && result.getRecordMetadataList().size() != buckets.get(bucketIndex).size()){
-              // this should never happen!
-              LOG.warn("Number of ProducerRecord does not match the number of RecordMetadata, "
-                  + "LogName:{}, Topic:{}, BucketIndex:{}, result_size:{}, bucket_size:{}",
-                  logName, topic, bucketIndex, result.getRecordMetadataList().size(),
-                  buckets.get(bucketIndex).size());
-              OpenTsdbMetricConverter.incr(SingerMetrics.AUDIT_HEADERS_METADATA_COUNT_MISMATCH, 1,
-                  "topic=" + topic, "host=" + HOSTNAME, "logStreamName=" + logName, "partition=" + bucketIndex);
-            } else {
-              // regular code execution path
-              enqueueLoggingAuditEvents(result, mapOfHeadersMap.get(bucketIndex), mapOfMessageValidMap.get(bucketIndex));
-              OpenTsdbMetricConverter.incr(SingerMetrics.AUDIT_HEADERS_METADATA_COUNT_MATCH, 1,
-                  "host=" + HOSTNAME, "logStreamName=" + logName);
-            }
+            enqueueLoggingAuditEvents(result, mapOfTrackedMessageMaps.get(bucketIndex), mapOfInvalidMessageMaps.get(bucketIndex));
           }
         }
       }
@@ -567,24 +620,69 @@ public class KafkaWriter implements LogStreamWriter {
   }
 
   /**
-   * enqueues logging audit events
+   * enqueues logging audit events for tracked messages and skipped messages. LoggingAuditHeaders of
+   * tracked messages has "tracked" field set to be true. Messages will be skipped under 2
+   * conditions: (1) message is invalid because crc32 checksum mismatches or message cannot be
+   * deserialized; (2) AuditConfig in the SingerLogConfig has skipCorruptedMessageAtCurrentStage set
+   * to be true.
    *
    * @param result the KafkaWritingTaskResult
-   * @param headersMap map of positions of audited messages to the LoggingAuditHeaders for those messages
-   * @param messageValidMap map of positions of audited messages to whether or not those messages are valid
+   * @param trackedMessageMap a map in which key is indexWithinTheBucket and value is
+   *                          LoggingAuditHeaders object of tracked message
+   * @param invalidMessageMap a map in which key is indexWithinTheBucket and value is
+   *                          LoggingAuditHeaders object of invalid message
    */
   public void enqueueLoggingAuditEvents(KafkaWritingTaskResult result,
-                                        Map<Integer, LoggingAuditHeaders> headersMap,
-                                        Map<Integer, Boolean> messageValidMap){
-    for (Map.Entry<Integer, LoggingAuditHeaders> entry : headersMap.entrySet()) {
-        Integer listIndex = entry.getKey();
-        LoggingAuditHeaders loggingAuditHeaders = entry.getValue();
-        boolean messageValid = messageValidMap.getOrDefault(listIndex, true);
-        long messageAcknowledgedTimestamp = -1;
-        RecordMetadata recordMetadata =result.getRecordMetadataList().get(listIndex);
-        messageAcknowledgedTimestamp = recordMetadata.timestamp();
-        SingerSettings.getLoggingAuditClient().audit(this.logName, loggingAuditHeaders,
-            messageValid, messageAcknowledgedTimestamp, kafkaClusterSig, topic);
+                                        Map<Integer, LoggingAuditHeaders> trackedMessageMap,
+                                        Map<Integer, LoggingAuditHeaders> invalidMessageMap){
+
+    //
+    if (!enableLoggingAudit || this.auditConfig == null) {
+      return;
+    }
+    if (this.auditConfig.isSkipCorruptedMessageAtCurrentStage()) {
+      // invalid messages are skipped and are not sent to Kafka. Suppose there 10 messages in bucket
+      // 2 (corresponding to partition 2), 4 messages (withinBucketIndex: 0, 5, 6, 9) are invalid
+      // and skipped, thus only 6 messages (withinBucketIndex: 1, 2, 3, 4, 7, 8) are sent to  Kafka
+      // which means the RecordMetadataList of result (KafkaWritingTaskResult) should be of size 6.
+
+      int total = result.getRecordMetadataList().size() + invalidMessageMap.size();
+      int skippedSofar = 0;
+      for(int i = 0; i < total; i++){
+        if (invalidMessageMap.containsKey(i)){
+          // if message is invalid and also skipped, an audit event should be sent out.
+          skippedSofar += 1;
+          SingerSettings.getLoggingAuditClient().audit(this.logName, invalidMessageMap.get(i),
+              false, -1, true);
+        } else {
+          if (trackedMessageMap.containsKey(i)){
+            // if the message is tracked, an audit event should be sent out.
+            int indexInRecordMetadataList = i - skippedSofar;
+            if (indexInRecordMetadataList >= result.getRecordMetadataList().size()){
+              continue;
+            }
+            RecordMetadata metadata = result.getRecordMetadataList().get(indexInRecordMetadataList);
+            SingerSettings.getLoggingAuditClient().audit(this.logName, trackedMessageMap.get(i),
+                true, metadata.timestamp(), kafkaClusterSig, topic);
+          }
+        }
+      }
+    } else {
+      // In this case, invalid messages are not skipped and still sent to Kafka. This usually means
+      // later stage will skip the invalid message.
+      int total = result.getRecordMetadataList().size();
+      for(int i =0; i < total; i++){
+        if (trackedMessageMap.containsKey(i)) {
+          int indexInRecordMetadataList = i;
+          if (indexInRecordMetadataList >= result.getRecordMetadataList().size()){
+            continue;
+          }
+          RecordMetadata metadata = result.getRecordMetadataList().get(indexInRecordMetadataList);
+          SingerSettings.getLoggingAuditClient().audit(this.logName, trackedMessageMap.get(i),
+              !invalidMessageMap.containsKey(i),  metadata.timestamp(), kafkaClusterSig, topic);
+
+        }
+      }
     }
   }
 

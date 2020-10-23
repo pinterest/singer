@@ -110,13 +110,15 @@ public class SingerMetrics {
   public static final String CHECKSUM_INJECTED = "singer.audit.num_of_checksum_injected";
   public static final String AUDIT_HEADERS_METADATA_COUNT_MISMATCH = "singer.audit.headers_metadata_count_mismatch";
   public static final String AUDIT_HEADERS_METADATA_COUNT_MATCH = "singer.audit.headers_metadata_count_match";
-  public static final String NUM_CORRUPTED_MESSAGES = "singer.audit.num_corrupted_messages";
-  public static final String NUM_UNCORRUPTED_MESSAGES = "singer.audit.num_uncorrupted_messages";
-  public static final String NUM_CORRUPTED_MESSAGES_SKIPPED = "singer.audit.num_corrupted_messages_skipped";
-
+  public static final String AUDIT_NUM_INVALID_MESSAGES_SKIPPED = "singer.audit.num_invalid_messages_skipped";
+  public static final String AUDIT_NUM_CORRUPTED_MESSAGES = "singer.audit.num_corrupted_messages";
+  public static final String AUDIT_NUM_UNCORRUPTED_MESSAGES = "singer.audit.num_uncorrupted_messages";
+  public static final String AUDIT_COMPUTE_CHECKSUM_LATENCY_NANO = "singer.audit.compute_checksum_latency_nano";
 
   // Used when logging audit is enabled and is started at Singer instead of ThriftLogger.
   public static final String AUDIT_HEADERS_SET_FOR_LOG_MESSAGE = "singer.audit.log_message_headers_set";
   public static final String AUDIT_HEADERS_SET_FOR_LOG_MESSAGE_EXCEPTION = "singer.audit.log_message_headers_set.exception";
+  public static final String AUDIT_HEADERS_TRACKED_FOR_LOG_MESSAGE = "singer.audit.log_message_headers_tracked";
+
   public static final String SHADOW_MODE_ENABLED = "singer.shadow_mode_enabled";
 }
