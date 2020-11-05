@@ -17,6 +17,7 @@
 package com.pinterest.singer.utils;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -44,7 +45,9 @@ public class KafkaUtils {
   }
 
   public static KafkaProducer<byte[], byte[]> createKafkaProducer(KafkaProducerConfig config, String namePrefix) {
-    String brokerList = Joiner.on(',').join(config.getBrokerLists());
+    List<String> brokers = new ArrayList<>(config.getBrokerLists());
+    Collections.shuffle(brokers);
+    String brokerList = String.join(",", brokers.subList(0, Math.min(3, brokers.size()))).trim();
     Properties properties = new Properties();
     // singer use namePrefix : "singer_"
     properties.put(ProducerConfig.CLIENT_ID_CONFIG, namePrefix + CommonUtils.getHostName() + "_" + UUID.randomUUID());
