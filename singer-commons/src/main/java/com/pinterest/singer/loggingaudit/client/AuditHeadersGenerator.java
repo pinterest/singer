@@ -60,7 +60,7 @@ public class AuditHeadersGenerator {
     this.logSeqNumInSession = -1;
   }
 
-  public LoggingAuditHeaders generateHeaders() {
+  public synchronized LoggingAuditHeaders generateHeaders() {
     if (this.logSeqNumInSession == Integer.MAX_VALUE) {
       this.session = System.currentTimeMillis();
       this.logSeqNumInSession = -1;

@@ -119,6 +119,7 @@ public class SingerMetrics {
   public static final String AUDIT_HEADERS_SET_FOR_LOG_MESSAGE = "singer.audit.log_message_headers_set";
   public static final String AUDIT_HEADERS_SET_FOR_LOG_MESSAGE_EXCEPTION = "singer.audit.log_message_headers_set.exception";
   public static final String AUDIT_HEADERS_TRACKED_FOR_LOG_MESSAGE = "singer.audit.log_message_headers_tracked";
+  public static final String CHECKSUM_SET_FOR_LOG_MESSAGE = "singer.audit.log_message_checksum_set";
 
   public static final String SHADOW_MODE_ENABLED = "singer.shadow_mode_enabled";
 }
