@@ -478,9 +478,7 @@ public class KafkaWriter implements LogStreamWriter {
         if (ThreadLocalRandom.current().nextDouble() < auditConfig.getSamplingRate()) {
           loggingAuditHeaders.setTracked(true);
         }
-        long checksum = computeCRC(msg.getMessage());
         msg.setLoggingAuditHeaders(loggingAuditHeaders);
-        msg.setChecksum(checksum);
         LOG.debug("Setting loggingAuditHeaders {} for {}", loggingAuditHeaders, logName);
         OpenTsdbMetricConverter.incr(SingerMetrics.AUDIT_HEADERS_SET_FOR_LOG_MESSAGE,
             "topic=" + topic, "host=" + HOSTNAME,  "logName=" +
@@ -488,6 +486,14 @@ public class KafkaWriter implements LogStreamWriter {
         if (loggingAuditHeaders.isTracked()) {
           OpenTsdbMetricConverter.incr(SingerMetrics.AUDIT_HEADERS_TRACKED_FOR_LOG_MESSAGE,
               "topic=" + topic, "host=" + HOSTNAME, "logName=" +
+                  msg.getLoggingAuditHeaders().getLogName(), "logStreamName=" + logName);
+        }
+        // set checksum by Singer if LogMessage's checksum field is not set
+        if (!msg.isSetChecksum()) {
+          long checksum = computeCRC(msg.getMessage());
+          msg.setChecksum(checksum);
+          OpenTsdbMetricConverter.incr(SingerMetrics.CHECKSUM_SET_FOR_LOG_MESSAGE,
+              "topic=" + topic, "host=" + HOSTNAME,  "logName=" +
                   msg.getLoggingAuditHeaders().getLogName(), "logStreamName=" + logName);
         }
       } catch (Exception e){
