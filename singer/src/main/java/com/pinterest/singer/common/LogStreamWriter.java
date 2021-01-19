@@ -27,6 +27,7 @@ import java.util.List;
  */
 public interface LogStreamWriter extends Closeable {
 
+  public static final int SINGER_DEFAULT_MESSAGEID_LENGTH = 16;
   /**
    * @return the LogStream this LogStreamWriter is associated with.
    */

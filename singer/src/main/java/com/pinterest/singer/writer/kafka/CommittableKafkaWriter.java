@@ -15,6 +15,7 @@
  */
 package com.pinterest.singer.writer.kafka;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -60,6 +61,8 @@ import com.pinterest.singer.writer.KafkaWritingTaskResult;
 public class CommittableKafkaWriter extends KafkaWriter {
 
   private static final Logger LOG = LoggerFactory.getLogger(CommittableKafkaWriter.class);
+  public static final String MESSAGE_ID = "_mid";
+  public static final String ORIGINAL_TIMESTAMP = "_ots";
   private List<PartitionInfo> committableValidPartitions;
   private Map<Integer, Map<Integer, LoggingAuditHeaders>> committableMapOfTrackedMessageMaps;
   private Map<Integer, Map<Integer, LoggingAuditHeaders>> committableMapOfInvalidMessageMaps;
@@ -167,6 +170,7 @@ public class CommittableKafkaWriter extends KafkaWriter {
     }
     keyedMessage = new ProducerRecord<>(topic, partitionId, key, msg.getMessage());
     Headers headers = keyedMessage.headers();
+    addStandardHeaders(message, headers);
     checkAndSetLoggingAuditHeadersForLogMessage(msg);
     committableMapOfOriginalIndexWithinBucket.put(partitionId, 1 + committableMapOfOriginalIndexWithinBucket.get(partitionId));
     if (msg.getLoggingAuditHeaders() != null) {
@@ -187,6 +191,21 @@ public class CommittableKafkaWriter extends KafkaWriter {
 
     Future<RecordMetadata> send = committableProducer.send(keyedMessage);
     recordMetadataList.add(send);
+  }
+  
+  public void addStandardHeaders(LogMessageAndPosition message, Headers headers) {
+    headers.add(MESSAGE_ID,
+        ByteBuffer.wrap(new byte[SINGER_DEFAULT_MESSAGEID_LENGTH])
+            .putLong(message.getNextPosition().getLogFile().getInode())
+            .putLong(message.getNextPosition().getByteOffset()).array());
+    headers.add(ORIGINAL_TIMESTAMP,
+        ByteBuffer.allocate(8).putLong(message.getLogMessage().getTimestampInNanos()).array());
+    if (message.isSetInjectedHeaders()) {
+      Map<String, ByteBuffer> injectedHeaders = message.getInjectedHeaders();
+      for (Entry<String, ByteBuffer> entry : injectedHeaders.entrySet()) {
+        headers.add(entry.getKey(), entry.getValue().array());
+      }
+    }
   }
 
   @Override

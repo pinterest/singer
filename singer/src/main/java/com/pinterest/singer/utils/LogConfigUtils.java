@@ -61,6 +61,7 @@ import com.twitter.util.Function;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.util.HashMap;
 import org.apache.commons.configuration.AbstractConfiguration;
@@ -83,6 +84,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Properties;
 import java.util.Set;
@@ -1020,21 +1022,14 @@ public class LogConfigUtils {
     if (textReaderConfiguration.containsKey("prependEnvironmentVariables")) {
       String str = textReaderConfiguration.getString("prependEnvironmentVariables");
       String[] variables = str.split("\\|");
-      StringBuilder builder = new StringBuilder();
-      builder.append("|");
+      Map<String, ByteBuffer> headers = new HashMap<>();
       for (String variable : variables) {
         String env = System.getenv(variable);
-        builder.append(variable + "=");
         if (env != null) {
-          builder.append(env);
-        } else {
-          builder.append("-");
+          headers.put(variable, ByteBuffer.wrap(env.getBytes()));
         }
-        builder.append(config.getPrependFieldDelimiter());
       }
-      String env = builder.toString().trim();
-      env = env + "|";
-      config.setPrependEnvironmentVariableString(env);
+      config.setEnvironmentVariables(headers);
     }
     
     if (textReaderConfiguration.containsKey("trimTailingNewlineCharacter")) {

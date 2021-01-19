@@ -17,7 +17,9 @@ package com.pinterest.singer.reader;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -26,6 +28,7 @@ import java.util.regex.Pattern;
 import org.apache.commons.io.FilenameUtils;
 import org.junit.Test;
 
+import com.google.common.collect.ImmutableMap;
 import com.pinterest.singer.SingerTestBase;
 import com.pinterest.singer.thrift.LogFile;
 import com.pinterest.singer.thrift.LogMessageAndPosition;
@@ -101,25 +104,36 @@ public class TestTextLogFileReader extends SingerTestBase {
     long inode = SingerUtils.getFileInode(SingerUtils.getPath(path));
     LogFile logFile = new LogFile(inode);
     LogFileReader reader = new TextLogFileReader(logFile, path, 0, 8192, 102400, 2,
-        Pattern.compile("^.*$"), TextLogMessageType.PLAIN_TEXT, false, false, true, null, null,
-        "test test2");
+        Pattern.compile("^.*$"), TextLogMessageType.PLAIN_TEXT, false, false, true, "host", null,
+        new HashMap<>(ImmutableMap.of("test", ByteBuffer.wrap("value".getBytes()))));
     for (int i = 0; i < 100; i = i + 2) {
       LogMessageAndPosition log = reader.readLogMessageAndPosition();
-      assertEquals(
-          "test test2" + dataWritten.get(i) + "test test2" + dataWritten.get(i + 1).trim(),
+      assertEquals(3, log.getInjectedHeadersSize());
+      assertEquals(dataWritten.get(i) + dataWritten.get(i + 1).trim(),
           new String(log.getLogMessage().getMessage()));
     }
     assertNull(reader.readLogMessageAndPosition());
     reader.close();
+    
+    reader = new TextLogFileReader(logFile, path, 0, 8192, 102400, 2,
+        Pattern.compile("^.*$"), TextLogMessageType.PLAIN_TEXT, false, false, true, "host", null,
+        null);
+    for (int i = 0; i < 100; i = i + 2) {
+      LogMessageAndPosition log = reader.readLogMessageAndPosition();
+      assertEquals(0, log.getInjectedHeadersSize());
+      assertEquals(dataWritten.get(i) + dataWritten.get(i + 1).trim(),
+          new String(log.getLogMessage().getMessage()));
+    }
+    reader.close();
   }
 
   private List<String> generateSampleMessagesToFile(String path) throws FileNotFoundException,
-                                                                IOException {
+                                                                 IOException {
     TextLogger logger = new TextLogger(path);
     List<String> dataWritten = new ArrayList<>();
     for (int i = 0; i < 100; i++) {
       StringBuilder builder = new StringBuilder();
-      for (int j = 0; j < ThreadLocalRandom.current().nextInt(10, 100); j++) {
+      for (int j = 0; j < ThreadLocalRandom.current().nextInt(10, 20); j++) {
         builder.append(UUID.randomUUID().toString());
       }
       builder.append('\n');

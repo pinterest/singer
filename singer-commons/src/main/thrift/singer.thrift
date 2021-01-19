@@ -3,6 +3,7 @@
 namespace java com.pinterest.singer.thrift
 namespace py singer
 
+include "common.thrift"
 include "singer_if.thrift"
 
 struct LogFile {
@@ -32,4 +33,7 @@ struct LogMessageAndPosition {
   // The position which points to the next byte after this LogMessage.
   // Note this is NOT the byte offset of this LogMessage.
   2: required LogPosition nextPosition;
+  
+  // Used as a DTO between reader, processor and writer
+  3: optional map<string, binary> injectedHeaders;
 }

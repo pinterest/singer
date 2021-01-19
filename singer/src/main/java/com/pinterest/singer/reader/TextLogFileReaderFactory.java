@@ -27,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.FileSystems;
+import java.util.HashMap;
 import java.util.regex.Pattern;
 
 /**
@@ -64,7 +65,9 @@ public class TextLogFileReaderFactory implements LogFileReaderFactory {
           readerConfig.isTrimTailingNewlineCharacter(),
           SingerUtils.getHostNameBasedOnConfig(logStream, SingerSettings.getSingerConfig()),
           readerConfig.getPrependFieldDelimiter(),
-          readerConfig.getPrependEnvironmentVariableString());
+          readerConfig.getEnvironmentVariables() != null
+          ? new HashMap<>(readerConfig.getEnvironmentVariables())
+          : null);
     } catch (LogFileReaderException e) {
       LOG.warn("Exception in getLogFileReader", e);
       long inode = logFile.getInode();

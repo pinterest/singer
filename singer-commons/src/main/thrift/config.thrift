@@ -60,7 +60,7 @@ struct TextReaderConfig {
   // ability to trim trailing new line character
   9: optional bool trimTailingNewlineCharacter = false;
   // custom environment variables to be injected into text logs
-  10:optional string prependEnvironmentVariableString;
+  10:optional map<string, binary> environmentVariables;
 }
 
 struct LogStreamReaderConfig {
