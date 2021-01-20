@@ -42,6 +42,7 @@ public class SingerConfigDef {
   public static final String PROCESS_TIME_SLICE_MILLIS = "processingTimeSliceInMilliseconds";
   public static final String PROCESS_TIME_SLICE_SECS = "processingTimeSliceInSeconds";
   public static final String PROCESS_ENABLE_MEMORY_EFFICIENCY = "enableMemoryEfficiency";
+  public static final String PROCESS_ENABLE_DECIDER_BASED_SAMPLING_SAMPLING = "enableDeciderBasedSampling";
   
   public static final String PRODUCER_CONFIG_PREFIX = "producerConfig.";
   public static final String SKIP_NO_LEADER_PARTITIONS = "skipNoLeaderPartitions";

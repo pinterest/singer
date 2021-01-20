@@ -258,7 +258,8 @@ public class DefaultLogMonitor implements LogMonitor, Runnable {
           processorConfig.getProcessingIntervalInMillisecondsMin(),
           processorConfig.getProcessingIntervalInMillisecondsMax(),
           processorConfig.getProcessingTimeSliceInMilliseconds(),
-          singerLogConfig.getLogRetentionInSeconds());
+          singerLogConfig.getLogRetentionInSeconds(),
+          processorConfig.isEnableDeciderBasedSampling());
     } else {
       return new DefaultLogStreamProcessor(
           logStream,

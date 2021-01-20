@@ -16,6 +16,7 @@
 package com.pinterest.singer.processor;
 
 import java.io.IOException;
+import java.util.concurrent.ThreadLocalRandom;
 
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
@@ -40,8 +41,10 @@ import com.pinterest.singer.thrift.LogPosition;
  */
 public class MemoryEfficientLogStreamProcessor extends DefaultLogStreamProcessor {
 
+  private static final int FULL_THROUGHPUT = 100;
   private static final Logger LOG = LoggerFactory
       .getLogger(MemoryEfficientLogStreamProcessor.class);
+  private boolean enableDeciderBasedSampling;
 
   public MemoryEfficientLogStreamProcessor(LogStream logStream,
                                            String logDecider,
@@ -51,9 +54,11 @@ public class MemoryEfficientLogStreamProcessor extends DefaultLogStreamProcessor
                                            long processingIntervalInMillisMin,
                                            long processingIntervalInMillisMax,
                                            long processingTimeSliceInMilliseconds,
-                                           int logRetentionInSecs) {
+                                           int logRetentionInSecs,
+                                           boolean enableDeciderBasedSampling) {
     super(logStream, logDecider, reader, writer, batchSize, processingIntervalInMillisMin,
         processingIntervalInMillisMax, processingTimeSliceInMilliseconds, logRetentionInSecs);
+    this.enableDeciderBasedSampling = enableDeciderBasedSampling;
   }
 
   @Override
@@ -62,6 +67,7 @@ public class MemoryEfficientLogStreamProcessor extends DefaultLogStreamProcessor
         logStream, committedPosition);
     LogPosition batchStartPosition = committedPosition;
 
+    int deciderValue = getDeciderValue();
     int logMessagesRead = 0;
     // Read a batch of LogMessages.
     LogMessageAndPosition logMessageAndPosition = null;
@@ -97,6 +103,11 @@ public class MemoryEfficientLogStreamProcessor extends DefaultLogStreamProcessor
         writer.startCommit();
       }
       emitMessageSizeMetrics(logStream, logMessageAndPosition.getLogMessage());
+      
+      if (enableDeciderBasedSampling && deciderValue != FULL_THROUGHPUT 
+          && deciderValue <= ThreadLocalRandom.current().nextInt(FULL_THROUGHPUT)) {
+        continue;
+      }
       writer.writeLogMessageToCommit(logMessageAndPosition);
     }
 

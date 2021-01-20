@@ -48,7 +48,9 @@ import java.io.IOException;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Unit tests for {@link CommittableKafkaWriter}
@@ -143,6 +145,109 @@ public class TestMemoryEfficientLogStreamProcessor extends com.pinterest.singer.
     testProcessLogStream(false);
   }
 
+  @Test
+  public void testProcessDeciderBasedLogStream() throws Exception {
+    boolean isKeyed = false;
+    String tempPath = getTempPath();
+    String logStreamHeadFileName = "thrift1.log";
+    String path = FilenameUtils.concat(tempPath, logStreamHeadFileName);
+
+    int percentage = 10;
+    Map<String, Integer> deciderMap = new HashMap<>();
+    String deciderName = "decider1";
+    deciderMap.put(deciderName, percentage);
+    Decider.setInstance(deciderMap);
+
+    int readerBufferSize = 16000;
+    int maxMessageSize = 16000;
+    int processorBatchSize = 50;
+
+    long processingIntervalInMillisMin = 1;
+    long processingIntervalInMillisMax = 1;
+    long processingTimeSliceInMilliseconds = 3600;
+    int logRetentionInSecs = 15;
+
+    // initialize a singer log config
+    SingerLogConfig logConfig = new SingerLogConfig("test", tempPath, logStreamHeadFileName, null,
+        null, null);
+    SingerLog singerLog = new SingerLog(logConfig);
+    singerLog.getSingerLogConfig().setFilenameMatchMode(FileNameMatchMode.PREFIX);
+
+    // initialize global variables in SingerSettings
+    try {
+      SingerConfig singerConfig = initializeSingerConfig(1, 1, Arrays.asList(logConfig));
+      SingerSettings.initialize(singerConfig);
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail("got exception in test: " + e);
+    }
+
+    // initialize log stream
+    LogStream logStream = new LogStream(singerLog, logStreamHeadFileName);
+    LogStreamManager.addLogStream(logStream);
+    SimpleThriftLogger<LogMessage> logger = new SimpleThriftLogger<>(path);
+    NoOpLogStreamWriter writer = new NoOpLogStreamWriter();
+
+    // initialize a log stream reader with 16K as readerBufferSize and
+    // maxMessageSize
+    LogStreamReader logStreamReader = new DefaultLogStreamReader(logStream,
+        new ThriftLogFileReaderFactory(new ThriftReaderConfig(readerBufferSize, maxMessageSize)));
+    // initialize a log stream processor that
+    MemoryEfficientLogStreamProcessor processor = new MemoryEfficientLogStreamProcessor(logStream,
+        deciderName, logStreamReader, writer, processorBatchSize, processingIntervalInMillisMin,
+        processingIntervalInMillisMax, processingTimeSliceInMilliseconds, logRetentionInSecs, true);
+
+    try {
+      // Write messages to be skipped.
+      if (isKeyed)
+        writeThriftLogMessages(logger, 150, 500, 50);
+      else
+        writeThriftLogMessages(logger, 150, 50);
+
+      // Save start position to watermark file.
+      LogPosition startPosition = new LogPosition(logger.getLogFile(), logger.getByteOffset());
+      WatermarkUtils.saveCommittedPositionToWatermark(
+          MemoryEfficientLogStreamProcessor.getWatermarkFilename(logStream), startPosition);
+
+      List<LogMessage> messagesWritten = Lists.newArrayList();
+
+      // Rotate log file while writing messages.
+      for (int i = 0; i < 3; ++i) {
+        rotateWithDelay(logger, 1000);
+        List<LogMessageAndPosition> logMessageAndPositions = isKeyed
+            ? writeThriftLogMessages(logger, processorBatchSize + 20, 500, 50)
+            : writeThriftLogMessages(logger, processorBatchSize + 20, 500, 50);
+        List<LogMessage> logMessages = getMessages(logMessageAndPositions);
+        messagesWritten.addAll(logMessages);
+      }
+
+      // added to enable running this test on OS X
+      System.err.println("Waiting for file system events to be noticed by FileSystemMonitor");
+      while (logStream.isEmpty()) {
+        Thread.sleep(1000);
+        System.out.print(".");
+      }
+
+      Thread.sleep(100);
+      // Process all message written so far.
+      long numOfMessageProcessed = processor.processLogStream();
+      assertEquals("Should have read all of messages written(" + messagesWritten.size()
+          + "), processed(" + numOfMessageProcessed + ")",
+          messagesWritten.size(), numOfMessageProcessed);
+      
+      System.out.println(writer.getLogMessages().size() + " output vs " + messagesWritten.size() + " input");
+      assertTrue("Should have only written 10% of the messages", 
+          (messagesWritten.size() * (percentage - 5) / 100 >= writer.getLogMessages().size()) 
+          || (messagesWritten.size() * (percentage + 5) / 100 >= writer.getLogMessages().size()));
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail("Got exception in test");
+    } finally {
+      logger.close();
+      processor.close();
+    }
+  }
+
   public void testProcessLogStream(boolean isKeyed) throws Exception {
     String tempPath = getTempPath();
     String logStreamHeadFileName = "thrift.log";
@@ -186,7 +291,7 @@ public class TestMemoryEfficientLogStreamProcessor extends com.pinterest.singer.
     // initialize a log stream processor that
     MemoryEfficientLogStreamProcessor processor = new MemoryEfficientLogStreamProcessor(logStream,
         null, logStreamReader, writer, processorBatchSize, processingIntervalInMillisMin,
-        processingIntervalInMillisMax, processingTimeSliceInMilliseconds, logRetentionInSecs);
+        processingIntervalInMillisMax, processingTimeSliceInMilliseconds, logRetentionInSecs, false);
 
     try {
       // Write messages to be skipped.
@@ -205,9 +310,9 @@ public class TestMemoryEfficientLogStreamProcessor extends com.pinterest.singer.
       // Rotate log file while writing messages.
       for (int i = 0; i < 3; ++i) {
         rotateWithDelay(logger, 1000);
-        List<LogMessageAndPosition> logMessageAndPositions = isKeyed ?
-                writeThriftLogMessages(logger,processorBatchSize + 20, 500, 50) :
-                writeThriftLogMessages(logger,processorBatchSize + 20, 500, 50);
+        List<LogMessageAndPosition> logMessageAndPositions = isKeyed
+            ? writeThriftLogMessages(logger, processorBatchSize + 20, 500, 50)
+            : writeThriftLogMessages(logger, processorBatchSize + 20, 500, 50);
         List<LogMessage> logMessages = getMessages(logMessageAndPositions);
         messagesWritten.addAll(logMessages);
       }
@@ -226,19 +331,16 @@ public class TestMemoryEfficientLogStreamProcessor extends com.pinterest.singer.
       assertThat(writer.getLogMessages(), is(messagesWritten));
 
       // Write and process a single LogMessages.
-      messagesWritten.addAll(getMessages(isKeyed ?
-              writeThriftLogMessages(logger, 1, 500, 50) :
-              writeThriftLogMessages(logger, 1, 50))
-      );
+      messagesWritten.addAll(getMessages(isKeyed ? writeThriftLogMessages(logger, 1, 500, 50)
+          : writeThriftLogMessages(logger, 1, 50)));
       numOfMessageProcessed = processor.processLogStream();
       assertEquals("Should have processed a single log message", 1, numOfMessageProcessed);
       assertThat(writer.getLogMessages(), is(messagesWritten));
 
       // Write another set of LogMessages.
-      messagesWritten.addAll(getMessages(isKeyed ?
-              writeThriftLogMessages(logger, processorBatchSize + 1, 500, 50) :
-              writeThriftLogMessages(logger, processorBatchSize + 1, 50))
-      );
+      messagesWritten.addAll(
+          getMessages(isKeyed ? writeThriftLogMessages(logger, processorBatchSize + 1, 500, 50)
+              : writeThriftLogMessages(logger, processorBatchSize + 1, 50)));
 
       // Writer will throw on write.
       writer.setThrowOnWrite(true);
@@ -263,16 +365,14 @@ public class TestMemoryEfficientLogStreamProcessor extends com.pinterest.singer.
 
       // Rotate and write twice before processing
       rotateWithDelay(logger, 1000);
-      boolean successfullyAdded = messagesWritten.addAll(getMessages(isKeyed ?
-              writeThriftLogMessages(logger, processorBatchSize - 20, 500, 50) :
-              writeThriftLogMessages(logger, processorBatchSize - 20, 50))
-      );
+      boolean successfullyAdded = messagesWritten.addAll(
+          getMessages(isKeyed ? writeThriftLogMessages(logger, processorBatchSize - 20, 500, 50)
+              : writeThriftLogMessages(logger, processorBatchSize - 20, 50)));
       assertTrue(successfullyAdded);
       rotateWithDelay(logger, 1000);
-      successfullyAdded = messagesWritten.addAll(getMessages(isKeyed ?
-              writeThriftLogMessages(logger, processorBatchSize, 500, 50) :
-              writeThriftLogMessages(logger, processorBatchSize, 50))
-      );
+      successfullyAdded = messagesWritten
+          .addAll(getMessages(isKeyed ? writeThriftLogMessages(logger, processorBatchSize, 500, 50)
+              : writeThriftLogMessages(logger, processorBatchSize, 50)));
       assertTrue(successfullyAdded);
 
       // Need to wait for some time to make sure that messages have been written to
@@ -319,7 +419,7 @@ public class TestMemoryEfficientLogStreamProcessor extends com.pinterest.singer.
       processor = new MemoryEfficientLogStreamProcessor(logStream, "singer_test_decider",
           new DefaultLogStreamReader(logStream,
               new ThriftLogFileReaderFactory(new ThriftReaderConfig(16000, 16000))),
-          writer, 50, 1, 1, 3600, 1800);
+          writer, 50, 1, 1, 3600, 1800, false);
       Decider.setInstance(ImmutableMap.of("singer_test_decider", 0));
       // Write messages to be skipped.
       boolean deciderEnabled = processor.isLoggingAllowedByDecider();
