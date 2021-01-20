@@ -115,6 +115,15 @@ public class SingerUtils {
   }
   
   /**
+   * Creates a wrapped ByteBuffer from the the bytes of the string
+   * @param value
+   * @return wrapped bytebuffer
+   */
+  public static ByteBuffer getByteBuf(String value) {
+    return ByteBuffer.wrap(value.getBytes());
+  }
+  
+  /**
    * Convert a {@link ByteBuffer} to byte array.
    * Reads all bytes from current position to the limit of the buffer into a byte array.
    * @param buf

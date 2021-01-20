@@ -49,6 +49,7 @@ import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.header.Headers;
 import org.apache.pulsar.shade.org.apache.commons.lang3.concurrent.ConcurrentUtils;
 import org.apache.thrift.TSerializer;
 import org.junit.Test;
@@ -61,6 +62,7 @@ import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
 import com.pinterest.singer.SingerTestBase;
 import com.pinterest.singer.common.LogStream;
+import com.pinterest.singer.common.LogStreamWriter;
 import com.pinterest.singer.common.SingerLog;
 import com.pinterest.singer.common.SingerSettings;
 import com.pinterest.singer.loggingaudit.thrift.LoggingAuditHeaders;
@@ -116,6 +118,7 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
     Map<Integer, List<RecordMetadata>> metadataPartitionMap = new HashMap<>();
     HashFunction crc32 = Hashing.crc32();
     List<LogMessage> logMessages = new ArrayList<>();
+    int offset = 0;
     for (int i = 0; i < NUM_KEYS; i++) {
       for (int j = 0; j < NUM_EVENTS / NUM_KEYS; j++) {
         LogMessage logMessage = new LogMessage();
@@ -129,6 +132,13 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
             .abs(crc32.hashBytes(logMessage.getKey()).asInt() % partitions.size());
         ProducerRecord<byte[], byte[]> record = new ProducerRecord<byte[], byte[]>("topicx",
             partitionId, logMessage.getKey(), logMessage.getMessage());
+        Headers headers = record.headers();
+        headers.add(CommittableKafkaWriter.MESSAGE_ID, 
+            ByteBuffer.wrap(new byte[LogStreamWriter.SINGER_DEFAULT_MESSAGEID_LENGTH])
+            .putLong(1L)
+            .putLong(offset++).array());
+        headers.add(CommittableKafkaWriter.ORIGINAL_TIMESTAMP,
+            ByteBuffer.allocate(8).putLong(0).array());
         RecordMetadata recordMetadata = new RecordMetadata(
             new TopicPartition(record.topic(), record.partition()), messageId, 0, 0, 0L,
             record.key().length, record.value().length);
@@ -151,8 +161,11 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
 
     writer.startCommit();
 
+    LogFile logFile = new LogFile(1L);
+    int byteOffset = 0;
     for (LogMessage msg : logMessages) {
-      LogMessageAndPosition pos = new LogMessageAndPosition(msg, null);
+      LogPosition position = new LogPosition(logFile, byteOffset++);
+      LogMessageAndPosition pos = new LogMessageAndPosition(msg, position);
       writer.writeLogMessageToCommit(pos);
     }
     Map<Integer, KafkaWritingTaskFuture> commitableBuckets = writer.getCommitableBuckets();
@@ -220,11 +233,14 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
     Map<Integer, List<RecordMetadata>> metadataPartitionMap = new HashMap<>();
     HashFunction crc32 = Hashing.crc32();
     List<LogMessage> logMessages = new ArrayList<>();
+    
+    LogFile logFile = new LogFile(1L);
 
     CRC32 crc32ForChecksum = new CRC32();
     TSerializer serializer = new TSerializer();
+    int offset = 0;
     for (int i = 0; i < NUM_KEYS; i++) {
-      for (int j = 0; j < NUM_EVENTS / NUM_KEYS; j++) {
+      for (int j = 0; j < 100 / NUM_KEYS; j++) {
         LogMessage logMessage = new LogMessage();
         LoggingAuditHeaders headers = new LoggingAuditHeaders().setHost("host-name")
             .setLogName("topicx").setPid(pid).setSession(session).setLogSeqNumInSession(i);
@@ -246,8 +262,15 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
         ProducerRecord<byte[], byte[]> record = new ProducerRecord<byte[], byte[]>("topicx",
             partitionId, logMessage.getKey(), logMessage.getMessage());
         byte[] headerBytes = serializer.serialize(headers);
-        record.headers().add("loggingAuditHeaders", headerBytes);
-        record.headers().add("messageCRC", Longs.toByteArray(checksum));
+        Headers recordHeaders = record.headers();
+        recordHeaders.add(CommittableKafkaWriter.MESSAGE_ID, 
+            ByteBuffer.wrap(new byte[LogStreamWriter.SINGER_DEFAULT_MESSAGEID_LENGTH])
+            .putLong(logFile.getInode())
+            .putLong(offset++).array());
+        recordHeaders.add(CommittableKafkaWriter.ORIGINAL_TIMESTAMP,
+            ByteBuffer.allocate(8).putLong(0).array());
+        recordHeaders.add("loggingAuditHeaders", headerBytes);
+        recordHeaders.add("messageCRC", Longs.toByteArray(checksum));
         RecordMetadata recordMetadata = new RecordMetadata(
             new TopicPartition(record.topic(), record.partition()), messageId, 0, 0, 0L,
             record.key().length, record.value().length);
@@ -270,8 +293,10 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
 
     writer.startCommit();
 
+    int byteOffset = 0;
     for (LogMessage msg : logMessages) {
-      LogMessageAndPosition pos = new LogMessageAndPosition(msg, null);
+      LogPosition position = new LogPosition(logFile, byteOffset++);
+      LogMessageAndPosition pos = new LogMessageAndPosition(msg, position);
       writer.writeLogMessageToCommit(pos);
     }
     Map<Integer, KafkaWritingTaskFuture> commitableBuckets = writer.getCommitableBuckets();
@@ -318,7 +343,6 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
     assertNull(writer.getHeadersInjector());
   }
 
-
   @Test
   public void testWriterWithSkipCorruptedMessageEnabled() throws Exception {
     CommittableKafkaWriter writer = setupWriterForCorruptedMessagesTests(true);
@@ -342,7 +366,7 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
     List<LogMessage> logMessages = new ArrayList<>();
     Set<LoggingAuditHeaders> trackedMessageSet = new HashSet<>();
     populateLogMessagesForLoggingAuditTests(logMessages, trackedMessageSet, true, 0.65);
-    Set<LoggingAuditHeaders> invalidMessageSet  = new HashSet<>();
+    Set<LoggingAuditHeaders> invalidMessageSet = new HashSet<>();
     corruptLogMessages(logMessages, invalidMessageSet, 0.8);
 
     writer.startCommit();
@@ -390,7 +414,7 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
     List<LogMessage> logMessages = new ArrayList<>();
     Set<LoggingAuditHeaders> trackedMessageSet = new HashSet<>();
     populateLogMessagesForLoggingAuditTests(logMessages, trackedMessageSet, true, 0.65);
-    Set<LoggingAuditHeaders> invalidMessageSet  = new HashSet<>();
+    Set<LoggingAuditHeaders> invalidMessageSet = new HashSet<>();
     corruptLogMessages(logMessages, invalidMessageSet, 0.8);
     writer.startCommit();
 
@@ -439,8 +463,9 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
   }
 
   /**
-   * helper method that populates the logMessages for testWriterWithSkipCorruptedMessagesEnabled()
-   * and testWriterWithSkipCorruptedMessagesDisabled()
+   * helper method that populates the logMessages for
+   * testWriterWithSkipCorruptedMessagesEnabled() and
+   * testWriterWithSkipCorruptedMessagesDisabled()
    */
   private void populateLogMessagesForLoggingAuditTests(List<LogMessage> logMessages,
                                                        Set<LoggingAuditHeaders> trackedMessageSet,
@@ -456,21 +481,16 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
       LogMessage logMessage = new LogMessage();
       logMessage.setKey(String.valueOf(i).getBytes());
 
-
       byte[] paylaod = RandomStringUtils.randomAlphabetic(payloadLen).getBytes();
-      AuditDemoLog1Message messageObject = new AuditDemoLog1Message().setSeqId(i).setPayload(
-          paylaod).setTimestamp(System.currentTimeMillis());
+      AuditDemoLog1Message messageObject = new AuditDemoLog1Message().setSeqId(i)
+          .setPayload(paylaod).setTimestamp(System.currentTimeMillis());
       byte[] message = serializer.serialize(messageObject);
       logMessage.setMessage(message);
 
       if (loggingAuditEnabled) {
         // set LoggingAuditHeaders for every message
-        LoggingAuditHeaders headers = new LoggingAuditHeaders()
-            .setHost("host-name")
-            .setLogName("topicx")
-            .setPid(pid)
-            .setSession(session)
-            .setLogSeqNumInSession(i);
+        LoggingAuditHeaders headers = new LoggingAuditHeaders().setHost("host-name")
+            .setLogName("topicx").setPid(pid).setSession(session).setLogSeqNumInSession(i);
         // track 20 percent of messages
         if (ThreadLocalRandom.current().nextDouble() < auditRate) {
           headers.setTracked(true);
@@ -489,32 +509,33 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
   /**
    * helper method that corrupt last byte of a given byte array
    */
-  public void corruptByte(byte[] message){
-    if (message.length > 0){
+  public void corruptByte(byte[] message) {
+    if (message.length > 0) {
       // corrupt last byte
-      message[message.length-1] = (byte)(~message[message.length-1]);
+      message[message.length - 1] = (byte) (~message[message.length - 1]);
     }
   }
 
   /**
-   * helper method that randomly corrupt certain LogMessage based on corruptionRate
+   * helper method that randomly corrupt certain LogMessage based on
+   * corruptionRate
    */
   private void corruptLogMessages(List<LogMessage> logMessages,
                                   Set<LoggingAuditHeaders> invalidMessageSet,
-                                  double corruptionRate){
+                                  double corruptionRate) {
     CRC32 checksumCalculator = new CRC32();
     int total = logMessages.size();
-    for(int i = 0; i < total; i++){
+    for (int i = 0; i < total; i++) {
       LogMessage logMessage = logMessages.get(i);
 
       // randomly corrupt logMessage based on corruptionRate
-      if (ThreadLocalRandom.current().nextDouble() < corruptionRate){
+      if (ThreadLocalRandom.current().nextDouble() < corruptionRate) {
         // make sure checksum mismatches
         byte[] newMessage = Arrays.copyOf(logMessage.getMessage(), logMessage.getMessage().length);
         corruptByte(newMessage);
         checksumCalculator.reset();
         checksumCalculator.update(newMessage);
-        if (checksumCalculator.getValue() != logMessage.getChecksum()){
+        if (checksumCalculator.getValue() != logMessage.getChecksum()) {
           logMessage.setMessage(newMessage);
           invalidMessageSet.add(logMessage.getLoggingAuditHeaders());
         }

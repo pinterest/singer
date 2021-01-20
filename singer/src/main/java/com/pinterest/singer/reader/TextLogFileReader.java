@@ -31,6 +31,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
@@ -59,6 +60,8 @@ public class TextLogFileReader implements LogFileReader {
   private boolean trimTailingNewlineCharacter;
 
   private String prependEnvironmentVariables;
+  
+  private Map<String, ByteBuffer> headers;
 
   public TextLogFileReader(LogFile logFile,
                            String path,
@@ -73,9 +76,15 @@ public class TextLogFileReader implements LogFileReader {
                            boolean trimTailingNewlineCharacter,
                            String hostname,
                            String prependFieldDelimiter,
-                           String prependEnvironmentVariables) throws Exception {
+                           Map<String, ByteBuffer> headers) throws Exception {
     Preconditions.checkArgument(!Strings.isNullOrEmpty(path));
     Preconditions.checkArgument(byteOffset >= 0);
+    
+    this.headers = headers;
+    if (headers != null) {
+      headers.put("hostname", SingerUtils.getByteBuf(hostname));
+      headers.put("file", SingerUtils.getByteBuf(path));
+    }
 
     this.hostname = hostname;
     this.logFile = Preconditions.checkNotNull(logFile);
@@ -173,7 +182,9 @@ public class TextLogFileReader implements LogFileReader {
       }
       // Get the next message's byte offset
       LogPosition position = new LogPosition(logFile, textMessageReader.getByteOffset());
-      return new LogMessageAndPosition(logMessage, position);
+      LogMessageAndPosition logMessageAndPosition = new LogMessageAndPosition(logMessage, position);
+      logMessageAndPosition.setInjectedHeaders(headers);
+      return logMessageAndPosition;
     } catch (Exception e) {
       LOG.error("Caught exception when read a log message from log file: " + logFile, e);
       throw new LogFileReaderException("Cannot read a log message.", e);

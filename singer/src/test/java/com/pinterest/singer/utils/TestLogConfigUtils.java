@@ -23,6 +23,7 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -249,11 +250,8 @@ public class TestLogConfigUtils {
     assertEquals(envList.get(0).getKey() + "|" + envList.get(1).getKey(), val);
     TextReaderConfig textConfig = LogConfigUtils
         .parseTextReaderConfig((AbstractConfiguration) configObj.subset("reader.text"));
-    String prependEnvironmentVariableString = textConfig.getPrependEnvironmentVariableString();
-    String[] split = prependEnvironmentVariableString.split(" ");
-    assertEquals(2, split.length);
-    assertEquals("|" + envList.get(0).getKey() + "=" + envList.get(0).getValue(), split[0]);
-    assertEquals(envList.get(1).getKey() + "=" + envList.get(1).getValue() + "|", split[1]);
+    Map<String, ByteBuffer> env = textConfig.getEnvironmentVariables();
+    assertEquals(2, env.size());
   }
 
   @Test
