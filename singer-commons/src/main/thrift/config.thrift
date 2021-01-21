@@ -20,6 +20,8 @@ struct LogStreamProcessorConfig {
   4: optional i64 processingTimeSliceInMilliseconds = 864000000;
   // Enable memory efficient processor
   5: optional bool enableMemoryEfficientProcessor = true;
+  // Enable decider based sampling
+  6: optional bool enableDeciderBasedSampling = false;
 }
 
 enum ReaderType {

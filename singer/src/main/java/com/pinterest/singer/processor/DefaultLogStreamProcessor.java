@@ -255,6 +255,17 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
     }
     return result;
   }
+  
+  int getDeciderValue() {
+    int result = 100;
+    if (logDecider != null && !logDecider.isEmpty()) {
+      Map<String, Integer> map = Decider.getInstance().getDeciderMap();
+      if (map.containsKey(logDecider)) {
+        result = map.get(logDecider);
+      }
+    }
+    return result;
+  }
 
   @Override
   public void run() {

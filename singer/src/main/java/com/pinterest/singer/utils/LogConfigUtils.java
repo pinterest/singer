@@ -1083,6 +1083,11 @@ public class LogConfigUtils {
           processorConfiguration.getBoolean(SingerConfigDef.PROCESS_ENABLE_MEMORY_EFFICIENCY));
     }
     config.setProcessingTimeSliceInMilliseconds(processingTimeSliceInMilliseconds);
+    
+    if (processorConfiguration.containsKey(SingerConfigDef.PROCESS_ENABLE_DECIDER_BASED_SAMPLING_SAMPLING)) {
+      config.setEnableDeciderBasedSampling(
+          processorConfiguration.getBoolean(SingerConfigDef.PROCESS_ENABLE_DECIDER_BASED_SAMPLING_SAMPLING));
+    }
     return config;
   }
 
