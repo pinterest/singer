@@ -14,13 +14,12 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <slf4j.version>1.7.16</slf4j.version>
-    <kafka.client.version>2.1.0</kafka.client.version>
   </properties>
 
   <parent>
     <groupId>com.pinterest.singer</groupId>
     <artifactId>singer-package</artifactId>
-    <version>0.8.0.43</version>
+    <version>0.8.0.44</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
   <developers>
@@ -62,13 +61,8 @@
     </dependency>
     <dependency>
       <groupId>org.apache.kafka</groupId>
-      <artifactId>kafka_2.11</artifactId>
-      <version>${kafka.client.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.kafka</groupId>
       <artifactId>kafka-clients</artifactId>
-      <version>${kafka.client.version}</version>
+      <version>${kafka.version}</version>
       <exclusions>
         <exclusion>
           <groupId>org.slf4j</groupId>
