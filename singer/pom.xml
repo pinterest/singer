@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.pinterest.singer</groupId>
         <artifactId>singer-package</artifactId>
-        <version>0.8.0.42</version>
+        <version>0.8.0.44</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <licenses>
@@ -37,7 +37,9 @@
         <developerConnection>https://github.com/pinterest/singer.git</developerConnection>
         <url>https://github.com/pinterest/singer</url>
     </scm>
-
+    <properties>
+    	<kafka.version>2.3.1</kafka.version>
+    </properties>
     <dependencies>
         <dependency>
             <groupId>com.pinterest.singer</groupId>
@@ -76,12 +78,12 @@
         <dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>kafka_2.11</artifactId>
-            <version>2.1.0</version>
+            <version>${kafka.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>kafka-clients</artifactId>
-            <version>2.1.0</version>
+            <version>${kafka.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.slf4j</groupId>
