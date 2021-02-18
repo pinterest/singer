@@ -86,5 +86,9 @@ public class SingerConfigDef {
   public static final String PARTITIONER_CLASS = "partitioner.class";
   public static final String REQUEST_REQUIRED_ACKS = "request.required.acks";
   public static final String PULSAR_SERVICE_URL = "pulsarServiceUrl";
+  public static final String MAX_MESSAGE_SIZE = "maxMessageSize";
+  public static final String READER_BUFFER_SIZE = "readerBufferSize";
+  public static final int DEFAULT_MAX_MESSAGE_SIZE = 100000;
+  public static final int DEFAULT_READER_BUFFER_SIZE = 10240;
   
 }

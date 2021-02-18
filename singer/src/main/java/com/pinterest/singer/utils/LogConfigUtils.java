@@ -950,17 +950,16 @@ public class LogConfigUtils {
   }
 
   private static ThriftReaderConfig parseThriftReaderConfig(AbstractConfiguration thriftReaderConfiguration) {
-    thriftReaderConfiguration.setThrowExceptionOnMissing(true);
-    int readerBufferSize = thriftReaderConfiguration.getInt("readerBufferSize");
-    int maxMessageSize = thriftReaderConfiguration.getInt("maxMessageSize");
+    int readerBufferSize = thriftReaderConfiguration.getInt(SingerConfigDef.READER_BUFFER_SIZE, SingerConfigDef.DEFAULT_READER_BUFFER_SIZE);
+    int maxMessageSize = thriftReaderConfiguration.getInt(SingerConfigDef.MAX_MESSAGE_SIZE, SingerConfigDef.DEFAULT_MAX_MESSAGE_SIZE);
     return new ThriftReaderConfig(readerBufferSize, maxMessageSize);
   }
 
   protected static TextReaderConfig parseTextReaderConfig(AbstractConfiguration textReaderConfiguration) throws ConfigurationException {
     textReaderConfiguration.setThrowExceptionOnMissing(true);
-    int readerBufferSize = textReaderConfiguration.getInt("readerBufferSize");
+    int readerBufferSize = textReaderConfiguration.getInt(SingerConfigDef.READER_BUFFER_SIZE, SingerConfigDef.DEFAULT_READER_BUFFER_SIZE);
     Preconditions.checkArgument(readerBufferSize > 0, "Invalid readerBufferSize");
-    int maxMessageSize = textReaderConfiguration.getInt("maxMessageSize");
+    int maxMessageSize = textReaderConfiguration.getInt(SingerConfigDef.READER_BUFFER_SIZE, SingerConfigDef.DEFAULT_READER_BUFFER_SIZE);
     Preconditions.checkArgument(maxMessageSize > 0, "Invalid maxMessageSize");
     int numMessagesPerLogMessage = textReaderConfiguration.getInt("numMessagesPerLogMessage");
     Preconditions.checkArgument(numMessagesPerLogMessage > 0, "Invalid numMessagesPerLogMessage");
