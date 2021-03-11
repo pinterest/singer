@@ -15,6 +15,7 @@
  */
 package com.pinterest.singer.utils;
 
+import com.pinterest.singer.config.Address;
 import com.pinterest.singer.config.ServersetMonitor;
 
 import com.google.common.base.Joiner;
@@ -23,7 +24,6 @@ import com.google.common.collect.Sets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.InetSocketAddress;
 import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ThreadLocalRandom;
@@ -52,10 +52,10 @@ public final class BrokerSetChangeListener implements ServersetMonitor {
   }
 
   @Override
-  public void onChange(ImmutableSet<InetSocketAddress> serviceInstances) {
+  public void onChange(ImmutableSet<Address> serviceInstances) {
     Set<String> newBrokerSet = Sets.newHashSet();
-    for (InetSocketAddress instance : serviceInstances) {
-      newBrokerSet.add(Joiner.on(":").join(instance.getHostName(), instance.getPort()));
+    for (Address instance : serviceInstances) {
+      newBrokerSet.add(Joiner.on(":").join(instance.getIp(), instance.getPort()));
     }
     // 'serverSetPath' variable will still long live. But it should be rare as we
     // only

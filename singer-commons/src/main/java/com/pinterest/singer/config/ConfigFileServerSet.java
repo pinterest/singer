@@ -27,7 +27,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.InetSocketAddress;
 
 /**
  * Implementation of the ServerSet interface that uses a file on local disk instead of talking to ZooKeeper directly.
@@ -85,7 +84,7 @@ public class ConfigFileServerSet {
           new ExceptionalFunction<byte[], Void>() {
             @Override
             public Void applyE(byte[] newContents) throws Exception {
-              ImmutableSet<InetSocketAddress> newServerSet = readServerSet(newContents);
+              ImmutableSet<Address> newServerSet = readServerSet(newContents);
               monitor.onChange(newServerSet);
               return null;
             }
@@ -96,7 +95,7 @@ public class ConfigFileServerSet {
     }
   }
 
-  protected InetSocketAddress getEndPointFromServerSetLine(String line) {
+  protected Address getEndPointFromServerSetLine(String line) {
     // We expect each line to be of the form "hostname:port". Note that host names can
     // contain ':' themselves (e.g. ipv6 addresses).
     int index = line.lastIndexOf(':');
@@ -104,11 +103,11 @@ public class ConfigFileServerSet {
 
     String host = line.substring(0, index);
     int port = Integer.parseInt(line.substring(index + 1));
-    return new InetSocketAddress(host, port);
+    return new Address(host, port);
   }
 
-  public ImmutableSet<InetSocketAddress> readServerSet(byte[] fileContent) throws IOException {
-    ImmutableSet.Builder<InetSocketAddress> builder = new ImmutableSet.Builder<>();
+  public ImmutableSet<Address> readServerSet(byte[] fileContent) throws IOException {
+    ImmutableSet.Builder<Address> builder = new ImmutableSet.Builder<>();
     InputStream stream = new ByteArrayInputStream(fileContent);
     BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
     while (true) {
@@ -121,7 +120,7 @@ public class ConfigFileServerSet {
         continue;
       }
 
-      InetSocketAddress endpoint = getEndPointFromServerSetLine(line);
+      Address endpoint = getEndPointFromServerSetLine(line);
       if (endpoint != null) {
         builder.add(endpoint);
       }

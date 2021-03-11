@@ -53,6 +53,7 @@ import com.pinterest.singer.thrift.configuration.WriterType;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -128,6 +129,7 @@ import java.util.Arrays;
 
 public class LogConfigUtils {
 
+  private static final int MAX_SEED_BROKERS = 5;
   public static final String DEFAULT_SHADOW_SERVERSET = "default";
   private static final Logger LOG = LoggerFactory.getLogger(LogConfigUtils.class);
   public static String DEFAULT_SERVERSET_DIR = "/var/serverset";
@@ -441,6 +443,8 @@ public class LogConfigUtils {
   public static SingerLogConfig parseLogConfig(String logName,
                                                AbstractConfiguration logConfiguration) throws ConfigurationException {
     logConfiguration.setThrowExceptionOnMissing(true);
+    
+    long ts = System.currentTimeMillis();
 
     String local_dir = null;
     if (logConfiguration.containsKey("logDir")) {
@@ -513,6 +517,9 @@ public class LogConfigUtils {
          config.setEnableLoggingAudit(false);
       }
     }
+    
+    ts = System.currentTimeMillis() - ts;
+    LOG.debug("Loaded:"+logName+" configuration in "+ts+"ms");
 
     return config;
   }
@@ -847,8 +854,11 @@ public class LogConfigUtils {
     }
 
     // initialize producer config with the server set path as the cluster signature
-    KafkaProducerConfig kafkaProducerConfig = new KafkaProducerConfig(serverSetFilePath,
-        Lists.newArrayList(brokerSet), acks);
+    List<String> tmpBrokers = getRandomizedStartOffsetBrokers(SingerUtils.getHostname().hashCode(), brokerSet);
+    
+    // initialize producer config with the server set path as the cluster signature
+    KafkaProducerConfig kafkaProducerConfig = new KafkaProducerConfig(serverSetFilePath, tmpBrokers,
+        acks);
 
     if (partitionClass != null) {
       // check if this config is a valid partitioner class 
@@ -928,6 +938,19 @@ public class LogConfigUtils {
       kafkaProducerConfig.setBufferMemory(bufferMemory);
     }
     return kafkaProducerConfig;
+  }
+  
+  public static List<String> getRandomizedStartOffsetBrokers(int hash, Set<String> brokerSet) {
+    Iterator<String> iterator = Iterables.cycle(brokerSet).iterator();
+    List<String> tmpBrokers = Lists.newArrayList();
+    int startOffset = hash % brokerSet.size();
+    for (int i=0;i<startOffset;i++) {
+      iterator.next();
+    }
+    for (int i=0;i<MAX_SEED_BROKERS;i++) {
+      tmpBrokers.add(iterator.next());
+    }
+    return tmpBrokers;
   }
 
   private static LogStreamReaderConfig parseLogStreamReaderConfig(AbstractConfiguration readerConfiguration) throws ConfigurationException {
