@@ -30,9 +30,7 @@ import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.config.SslConfigs;
 import org.apache.kafka.common.config.internals.BrokerSecurityConfigs;
 
-import com.google.common.base.Joiner;
 import com.pinterest.singer.thrift.configuration.KafkaProducerConfig;
-
 
 public class KafkaUtils {
 

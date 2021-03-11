@@ -1,12 +1,12 @@
 /**
  * Copyright 2019 Pinterest, Inc.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *    http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -29,7 +29,9 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -271,7 +273,8 @@ public class TestLogConfigUtils {
     KafkaProducerConfig producerConfig = null;
     // without shadow mode activation regular serverset file should be sourced
     producerConfig = LogConfigUtils.parseProducerConfig(config);
-    assertEquals(Arrays.asList("xyz:9092"), producerConfig.getBrokerLists());
+    producerConfig = LogConfigUtils.parseProducerConfig(config);
+    assertEquals(new HashSet<>(Arrays.asList("xyz:9092")), new HashSet<>(producerConfig.getBrokerLists()));
 
     // with shadow mode override should be sourced
     LogConfigUtils.SHADOW_MODE_ENABLED = true;
@@ -279,11 +282,11 @@ public class TestLogConfigUtils {
         "discovery.test.prod");
 
     producerConfig = LogConfigUtils.parseProducerConfig(config);
-    assertEquals(Arrays.asList("test:9092"), producerConfig.getBrokerLists());
+    assertEquals(new HashSet<>(Arrays.asList("test:9092")), new HashSet<>(producerConfig.getBrokerLists()));
 
     LogConfigUtils.SHADOW_SERVERSET_MAPPING.put("/discovery/xyz/prod", "discovery.test2.prod");
     producerConfig = LogConfigUtils.parseProducerConfig(config);
-    assertEquals(Arrays.asList("test2:9092"), producerConfig.getBrokerLists());
+    assertEquals(new HashSet<>(Arrays.asList("test2:9092")), new HashSet<>(producerConfig.getBrokerLists()));
   }
 
   @Test
@@ -299,6 +302,15 @@ public class TestLogConfigUtils {
       // fail since no exception should be thrown
       throw e;
     }
+  }
+
+  @Test
+  public void testgetRandomizedStartOffsetBrokers() {
+    List<String> one = LogConfigUtils.getRandomizedStartOffsetBrokers(101,
+        new LinkedHashSet<>(Arrays.asList("1", "2", "3", "4")));
+    List<String> two = LogConfigUtils.getRandomizedStartOffsetBrokers(101,
+        new LinkedHashSet<>(Arrays.asList("1", "2", "3", "4")));
+    assertEquals(one, two);
   }
 
   @Test
