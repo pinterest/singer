@@ -34,6 +34,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.time.Duration;
 
 /**
  * The default implementation of DefaultLogStreamReader that read LogFiles in LogStream one by
@@ -226,6 +227,16 @@ public class DefaultLogStreamReader implements LogStreamReader {
         // Read from next LogFile.
         return readLogMessageAndPosition();
       } else {
+        if (messageAndPosition.isSetLogMessage() && messageAndPosition.getLogMessage().isSetTimestampInNanos()) {
+          long messageTimestamp = Duration.ofNanos(messageAndPosition.getLogMessage().getTimestampInNanos()).toMillis();
+          if (messageTimestamp > 0) {
+            long messageReadLatency = System.currentTimeMillis() - messageTimestamp;
+            OpenTsdbMetricConverter.addMetric("singer.reader.message.latency",
+                (int) messageReadLatency,
+                "log=" + logStream.getSingerLog().getSingerLogConfig().getName(),
+                "host=" + SingerUtils.getHostname());
+          }
+        }
         return messageAndPosition;
       }
     } catch (Exception e) {
