@@ -89,6 +89,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -138,6 +139,7 @@ public class LogConfigUtils {
   private static final long MaximumProcessingTimeSliceInMilliseconds = 864000000L;
   private static final ConcurrentMap<String, Set<String>> KAFKA_SERVER_SETS = Maps
       .newConcurrentMap();
+  private static final Set<String> MEMQ_SERVER_SETS = ConcurrentHashMap.newKeySet();
   public static final Properties SHADOW_SERVERSET_MAPPING = new Properties();
   public static boolean SHADOW_MODE_ENABLED;
 
@@ -300,19 +302,22 @@ public class LogConfigUtils {
     config.setTopic(configuration.getString(SingerConfigDef.TOPIC));
     
     try {
-      final byte[] serversetBytes = Files.readAllBytes(serversetFile.toPath());
-      ConfigFileWatcher watcher = ConfigFileWatcher.defaultInstance();
-      watcher.addWatch(serverSetFilePath, new Function<byte[], Void>() {
+      if (!MEMQ_SERVER_SETS.contains(serverSetFilePath)) {
+        final byte[] serversetBytes = Files.readAllBytes(serversetFile.toPath());
+        ConfigFileWatcher watcher = ConfigFileWatcher.defaultInstance();
+        watcher.addWatch(serverSetFilePath, new Function<byte[], Void>() {
 
-        @Override
-        public Void apply(byte[] data) {
-          if (!Arrays.equals(serversetBytes, data)) {
-            LOG.warn("Serverset:" + serverSetFilePath + " updated, Singer will restart");
-            System.exit(0);
+          @Override
+          public Void apply(byte[] data) {
+            if (!Arrays.equals(serversetBytes, data)) {
+              LOG.warn("Serverset:" + serverSetFilePath + " updated, Singer will restart");
+              System.exit(0);
+            }
+            return null;
           }
-          return null;
-        }
-      });
+        });
+        MEMQ_SERVER_SETS.add(serverSetFilePath);
+      }
     } catch (IOException e) {
       throw new ConfigurationException("Failed to load serverset");
     }
