@@ -122,6 +122,15 @@ public class ConfigFileWatcher {
   }
 
   @VisibleForTesting
+  public List<Function<byte[], Void>> getWatchers(String filePath) {
+    ConfigFileInfo configFileInfo = watchedFileMap.get(filePath);
+    if (configFileInfo == null) {
+      return null;
+    }
+    return configFileInfo.changeWatchers;
+  }
+
+  @VisibleForTesting
   public void runWatcherTaskNow() {
     watcherTask.run();
   }
