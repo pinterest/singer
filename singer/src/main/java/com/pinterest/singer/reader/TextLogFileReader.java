@@ -39,6 +39,8 @@ import java.util.regex.Pattern;
  */
 public class TextLogFileReader implements LogFileReader {
 
+  private static final int MAX_BUFFER_HEADROOM = 300;
+
   private static final Logger LOG = LoggerFactory.getLogger(TextLogFileReader.class);
 
   protected boolean closed;
@@ -59,8 +61,6 @@ public class TextLogFileReader implements LogFileReader {
 
   private boolean trimTailingNewlineCharacter;
 
-  private String prependEnvironmentVariables;
-  
   private Map<String, ByteBuffer> headers;
 
   public TextLogFileReader(LogFile logFile,
@@ -79,7 +79,7 @@ public class TextLogFileReader implements LogFileReader {
                            Map<String, ByteBuffer> headers) throws Exception {
     Preconditions.checkArgument(!Strings.isNullOrEmpty(path));
     Preconditions.checkArgument(byteOffset >= 0);
-    
+
     this.headers = headers;
     if (headers != null) {
       headers.put("hostname", SingerUtils.getByteBuf(hostname));
@@ -98,8 +98,8 @@ public class TextLogFileReader implements LogFileReader {
     this.prependTimestamp = prependTimestamp;
     this.prependHostname = prependHostName;
     this.prependFieldDelimiter = prependFieldDelimiter;
-    this.prependEnvironmentVariables = prependEnvironmentVariables;
-    this.maxBuffer = ByteBuffer.allocate(maxMessageSize * numMessagesPerLogMessage);
+    int capacity = (maxMessageSize * numMessagesPerLogMessage) + MAX_BUFFER_HEADROOM;
+    this.maxBuffer = ByteBuffer.allocate(capacity);
     this.trimTailingNewlineCharacter = trimTailingNewlineCharacter;
 
     // Make sure the path is still associated with the LogFile.
@@ -140,9 +140,6 @@ public class TextLogFileReader implements LogFileReader {
         }
         if (prependHostname) {
           prependStr += hostname + prependFieldDelimiter;
-        }
-        if (prependEnvironmentVariables != null) {
-          prependStr += prependEnvironmentVariables;
         }
         if (prependStr.length() > 0) {
           maxBuffer.put(prependStr.getBytes());
