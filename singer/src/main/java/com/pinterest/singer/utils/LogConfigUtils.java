@@ -91,6 +91,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import java.util.Iterator;
@@ -434,6 +435,14 @@ public class LogConfigUtils {
     return parseLogConfig(parseLogNamespace(logConfigFile), logConfig);
   }
 
+  public static SingerLogConfig parseLogConfigFromFileWithOverrides(File logConfigFile, List<Consumer<AbstractConfiguration>> overrides) throws ConfigurationException {
+    AbstractConfiguration logConfig = new PropertiesConfiguration(logConfigFile);
+    for (Consumer<AbstractConfiguration> consumer : overrides) {
+      consumer.accept(logConfig);
+    }
+    return parseLogConfig(parseLogNamespace(logConfigFile), logConfig);
+  }
+
   public static SingerLogConfig[] parseLogStreamConfigFromFile(String logConfigFile) throws ConfigurationException {
     PropertiesConfiguration logConfig = new PropertiesConfiguration();
     logConfig.setDelimiterParsingDisabled(true);
@@ -644,6 +653,9 @@ public class LogConfigUtils {
           throw new ConfigurationException("Error reading shadow mapping file", e);
         }
       }
+    }
+    if (singerConfiguration.containsKey(("configOverrideDir"))) {
+      singerConfig.setConfigOverrideDir(singerConfiguration.getString("configOverrideDir"));
     }
     return singerConfig;
   }
