@@ -359,4 +359,10 @@ struct SingerConfig {
    */
   23: optional i32 statsPusherFrequencyInSeconds = 180;
 
+  /**
+   * Config override directory
+   */
+
+  24: optional string configOverrideDir;
+
 }

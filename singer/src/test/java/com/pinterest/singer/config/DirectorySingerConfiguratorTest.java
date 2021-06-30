@@ -27,6 +27,9 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -47,9 +50,9 @@ public class DirectorySingerConfiguratorTest extends SingerTestBase {
     // Make the singer config property file
     File singerConfigFile = createSingerConfigFile(makeDirectorySingerConfigProperties());
     // Make two log config properties files in the logConfigDir.
-    createLogConfigPropertiesFile("ads.mohawk.properties", ImmutableMap.of(
+    createLogConfigPropertiesFile("project.logstream1.properties", ImmutableMap.of(
         "writer.kafka.producerConfig.bootstrap.servers", "127.0.0.1:9092"));
-    createLogConfigPropertiesFile("search.discovery.properties",
+    createLogConfigPropertiesFile("project.logstream2.properties",
         ImmutableMap.of("writer.kafka.producerConfig.bootstrap.servers", "127.0.0.1:9092"));
 
     // Check the configurator can load two log configs.
@@ -65,16 +68,16 @@ public class DirectorySingerConfiguratorTest extends SingerTestBase {
       }
     });
     assertEquals(2, singerConfig.getLogConfigsSize());
-    SingerLogConfig adsMohawk = singerConfig.logConfigs.get(0);
-    assertEquals("ads.mohawk", adsMohawk.getName());
-    assertEquals("/mnt/log/singer", adsMohawk.getLogDir());
-    SingerLogConfig search = singerConfig.logConfigs.get(1);
-    assertEquals("search.discovery", search.getName());
-    assertEquals("/mnt/log/singer", search.getLogDir());
+    SingerLogConfig logConfig = singerConfig.logConfigs.get(0);
+    assertEquals("project.logstream1", logConfig.getName());
+    assertEquals("/mnt/log/singer", logConfig.getLogDir());
+    SingerLogConfig logConfig1 = singerConfig.logConfigs.get(1);
+    assertEquals("project.logstream2", logConfig1.getName());
+    assertEquals("/mnt/log/singer", logConfig1.getLogDir());
 
     {
       // Test live changes : adding a new file.
-      createLogConfigPropertiesFile("ads.ads.properties", ImmutableMap.of(
+      createLogConfigPropertiesFile("project.logstream3.properties", ImmutableMap.of(
           "writer.kafka.producerConfig.bootstrap.servers", "127.0.0.1:9092"));
       Thread.sleep(2000);
       // check exit() called with code 0.
@@ -87,7 +90,7 @@ public class DirectorySingerConfiguratorTest extends SingerTestBase {
     exitCode.set(-1);
     {
       // Test live changes : modifying a config to increase batch size from 200 to 300.
-      createLogConfigPropertiesFile("ads.mohawk.properties", ImmutableMap.of("processor.batchSize",
+      createLogConfigPropertiesFile("project.logstream1.properties", ImmutableMap.of("processor.batchSize",
           "300", "writer.kafka.producerConfig.bootstrap.servers", "127.0.0.1:9092"));
       Thread.sleep(2000);
       assertEquals(0, exitCode.get());
@@ -142,6 +145,56 @@ public class DirectorySingerConfiguratorTest extends SingerTestBase {
     SingerLogConfig topic2 = logConfigs[1];
     assertEquals("topic2", topic2.getName());
     assertEquals("/mnt/thrift_logger", topic2.getLogDir());
+  }
+
+  @Test
+  public void testConfiguratorOverride() throws Exception {
+    dumpServerSetFiles();
+    // Make the singer config property file
+    File dir = Files.createTempDirectory("overrideconfigdir").toFile();
+    dir.deleteOnExit();
+    File test1Override = Files.createTempFile(dir.toPath(), "test1", ".properties").toFile();
+    Map<String, String> override1 = new HashMap<>();
+    override1.put("match.config.name", "writer.type");
+    override1.put("match.config.value", "kafka");
+    override1.put("override.writer.kafka.producerConfig.buffer.memory", "1");
+    createPropertyFile(test1Override.getAbsolutePath(), override1);
+    test1Override.deleteOnExit();
+
+    File test2Override = Files.createTempFile(dir.toPath(), "test2", ".properties").toFile();
+    Map<String, String> override2 = new HashMap<>();
+    override2.put("match.config.name", "writer.kafka.producerConfig.bootstrap.servers");
+    override2.put("match.config.value", "127.0.0.2:9092");
+    override2.put("override.writer.kafka.producerConfig.buffer.memory", "2");
+    override2.put("override.writer.kafka.producerConfig.max.request.size", "3");
+    createPropertyFile(test2Override.getAbsolutePath(), override2);
+    test2Override.deleteOnExit();
+
+    Map<String, String> props = makeDirectorySingerConfigProperties();
+    props.put("singer.configOverrideDir", dir.getAbsolutePath());
+
+    File singerConfigFile = createSingerConfigFile(props);
+    // Make two log config properties files in the logConfigDir.
+    createLogConfigPropertiesFile("project.logstream1.properties", ImmutableMap.of(
+        "writer.kafka.producerConfig.bootstrap.servers", "127.0.0.2:9092"));
+    createLogConfigPropertiesFile("project.logstream2.properties",
+        ImmutableMap.of("writer.kafka.producerConfig.bootstrap.servers", "127.0.0.1:9092"));
+
+
+    // Check the configurator can load two log configs.
+    DirectorySingerConfigurator configurator = new DirectorySingerConfigurator(singerConfigFile
+        .getParent());
+    SingerConfig singerConfig = configurator.parseSingerConfig();
+    assertTrue(singerConfig.isSetConfigOverrideDir());
+
+    assertEquals(2, singerConfig.getLogConfigsSize());
+    SingerLogConfig logConfig = singerConfig.logConfigs.get(0);
+    assertEquals("project.logstream1", logConfig.getName());
+    assertEquals(2, logConfig.getLogStreamWriterConfig().getKafkaWriterConfig().getProducerConfig().getBufferMemory());
+    assertEquals(3, logConfig.getLogStreamWriterConfig().getKafkaWriterConfig().getProducerConfig().getMaxRequestSize());
+    SingerLogConfig logConfig1 = singerConfig.logConfigs.get(1);
+    assertEquals("project.logstream2", logConfig1.getName());
+    assertEquals(1, logConfig1.getLogStreamWriterConfig().getKafkaWriterConfig().getProducerConfig().getBufferMemory());
   }
 
   Map<String, String> makeWrongSingerConfigProperties(int propertyNum) {
