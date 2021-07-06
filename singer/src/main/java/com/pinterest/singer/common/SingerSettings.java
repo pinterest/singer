@@ -163,16 +163,16 @@ public final class SingerSettings {
 
           logWritingExecutors.put(clusterSig, threadPool);
         }
-        
-        kafkaProducerMonitorThread = new Thread(new KafkaProducerMetricsMonitor());
-        kafkaProducerMonitorThread.setDaemon(true);
-        kafkaProducerMonitorThread.start();
 
         if (loggingAuditClient != null && logConfig.isEnableLoggingAudit() &&
             logConfig.getAuditConfig() != null){
           loggingAuditClient.addAuditConfig(logConfig.getName(), logConfig.getAuditConfig());
         }
       }
+
+      kafkaProducerMonitorThread = new Thread(new KafkaProducerMetricsMonitor());
+      kafkaProducerMonitorThread.setDaemon(true);
+      kafkaProducerMonitorThread.start();
     }
 
     if (singerConfig != null
