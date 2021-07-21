@@ -20,8 +20,7 @@ import org.apache.kafka.common.PartitionInfo;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Future;
-
+import java.util.concurrent.CompletableFuture;
 /**
  * Write Task Future created for tracking partition batch write status when
  * using {@link CommittableKafkaWriter}
@@ -29,74 +28,25 @@ import java.util.concurrent.Future;
 public class KafkaWritingTaskFuture {
 
   private long firstProduceTimestamp;
-  public boolean success;
-  public Exception exception;
-  private int writtenBytesSize;
-  private int kafkaBatchWriteLatencyInMillis;
   /**
    * a list of the RecordMetadata for every producer record in a KafkaWritingTask.
    * Initialization is needed to prevent NullPointerException when
    * KafkaWritingTask fails.
    */
-  private List<Future<RecordMetadata>> recordMetadataList = new ArrayList<>();
+  private List<CompletableFuture<RecordMetadata>> recordMetadataList = new ArrayList<>();
   private PartitionInfo partitionInfo;
 
   public KafkaWritingTaskFuture(PartitionInfo partitionInfo) {
     this.partitionInfo = partitionInfo;
   }
 
-  public KafkaWritingTaskFuture(boolean successFlag, int bytes, int kafkaLatency) {
-    this.success = successFlag;
-    this.writtenBytesSize = bytes;
-    this.kafkaBatchWriteLatencyInMillis = kafkaLatency;
-    this.exception = null;
-  }
-
-  public KafkaWritingTaskFuture(boolean successFlag, Exception e) {
-    this.success = successFlag;
-    this.exception = e;
-  }
-
-  public int getWrittenBytesSize() {
-    return writtenBytesSize;
-  }
-
-  public int getKafkaBatchWriteLatencyInMillis() {
-    return kafkaBatchWriteLatencyInMillis;
-  }
-
-  public List<Future<RecordMetadata>> getRecordMetadataList() {
+  public List<CompletableFuture<RecordMetadata>> getRecordMetadataList() {
     return recordMetadataList;
   }
 
-  public void setRecordMetadataList(List<Future<RecordMetadata>> recordMetadataList) {
+  public void setRecordMetadataList(List<CompletableFuture<RecordMetadata>> recordMetadataList) {
     this.recordMetadataList = recordMetadataList;
   }
-
-  public boolean isSuccess() {
-    return success;
-  }
-
-  public void setSuccess(boolean success) {
-    this.success = success;
-  }
-
-  public Exception getException() {
-    return exception;
-  }
-
-  public void setException(Exception exception) {
-    this.exception = exception;
-  }
-
-  public void setWrittenBytesSize(int writtenBytesSize) {
-    this.writtenBytesSize = writtenBytesSize;
-  }
-
-  public void setKafkaBatchWriteLatencyInMillis(int kafkaBatchWriteLatencyInMillis) {
-    this.kafkaBatchWriteLatencyInMillis = kafkaBatchWriteLatencyInMillis;
-  }
-
   public long getFirstProduceTimestamp() {
     return firstProduceTimestamp;
   }
