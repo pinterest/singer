@@ -16,6 +16,7 @@
 package com.pinterest.singer.writer.kafka;
 
 import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.when;
 
 import java.nio.ByteBuffer;
@@ -27,8 +28,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -43,6 +44,7 @@ import com.pinterest.singer.thrift.LogPosition;
 import com.pinterest.singer.thrift.configuration.SingerLogConfig;
 
 import org.apache.commons.lang.RandomStringUtils;
+import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
@@ -55,11 +57,13 @@ import org.apache.thrift.TSerializer;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
+import org.mockito.invocation.InvocationOnMock;
 import org.mockito.runners.MockitoJUnitRunner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
+
 import com.pinterest.singer.SingerTestBase;
 import com.pinterest.singer.common.LogStream;
 import com.pinterest.singer.common.LogStreamWriter;
@@ -133,16 +137,19 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
         ProducerRecord<byte[], byte[]> record = new ProducerRecord<byte[], byte[]>("topicx",
             partitionId, logMessage.getKey(), logMessage.getMessage());
         Headers headers = record.headers();
-        headers.add(CommittableKafkaWriter.MESSAGE_ID, 
+        headers.add(CommittableKafkaWriter.MESSAGE_ID,
             ByteBuffer.wrap(new byte[LogStreamWriter.SINGER_DEFAULT_MESSAGEID_LENGTH])
-            .putLong(1L)
-            .putLong(offset++).array());
+                .putLong(1L)
+                .putLong(offset++).array());
         headers.add(CommittableKafkaWriter.ORIGINAL_TIMESTAMP,
             ByteBuffer.allocate(8).putLong(0).array());
         RecordMetadata recordMetadata = new RecordMetadata(
             new TopicPartition(record.topic(), record.partition()), messageId, 0, 0, 0L,
             record.key().length, record.value().length);
-        when(producer.send(record)).thenReturn(ConcurrentUtils.constantFuture(recordMetadata));
+        when(producer.send(eq(record), any(Callback.class))).thenAnswer((InvocationOnMock invocation) -> {
+          ((Callback) invocation.getArguments()[1]).onCompletion(recordMetadata, null);
+          return ConcurrentUtils.constantFuture(recordMetadata);
+        });
 
         if (msgPartitionMap.containsKey(partitionId)) {
           msgPartitionMap.get(partitionId).add(logMessage);
@@ -168,10 +175,10 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
       LogMessageAndPosition pos = new LogMessageAndPosition(msg, position);
       writer.writeLogMessageToCommit(pos);
     }
-    Map<Integer, KafkaWritingTaskFuture> commitableBuckets = writer.getCommitableBuckets();
+    Map<Integer, KafkaWritingTaskFuture> commitableBuckets = writer.getCommittableBuckets();
     for (int partitionId = 0; partitionId < partitions.size(); partitionId++) {
       KafkaWritingTaskFuture kafkaWritingTaskFuture = commitableBuckets.get(partitionId);
-      List<Future<RecordMetadata>> recordMetadataList = kafkaWritingTaskFuture
+      List<CompletableFuture<RecordMetadata>> recordMetadataList = kafkaWritingTaskFuture
           .getRecordMetadataList();
       if (recordMetadataList.size() == 0) {
         continue;
@@ -233,7 +240,7 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
     Map<Integer, List<RecordMetadata>> metadataPartitionMap = new HashMap<>();
     HashFunction crc32 = Hashing.crc32();
     List<LogMessage> logMessages = new ArrayList<>();
-    
+
     LogFile logFile = new LogFile(1L);
 
     CRC32 crc32ForChecksum = new CRC32();
@@ -263,10 +270,10 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
             partitionId, logMessage.getKey(), logMessage.getMessage());
         byte[] headerBytes = serializer.serialize(headers);
         Headers recordHeaders = record.headers();
-        recordHeaders.add(CommittableKafkaWriter.MESSAGE_ID, 
+        recordHeaders.add(CommittableKafkaWriter.MESSAGE_ID,
             ByteBuffer.wrap(new byte[LogStreamWriter.SINGER_DEFAULT_MESSAGEID_LENGTH])
-            .putLong(logFile.getInode())
-            .putLong(offset++).array());
+                .putLong(logFile.getInode())
+                .putLong(offset++).array());
         recordHeaders.add(CommittableKafkaWriter.ORIGINAL_TIMESTAMP,
             ByteBuffer.allocate(8).putLong(0).array());
         recordHeaders.add("loggingAuditHeaders", headerBytes);
@@ -274,7 +281,10 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
         RecordMetadata recordMetadata = new RecordMetadata(
             new TopicPartition(record.topic(), record.partition()), messageId, 0, 0, 0L,
             record.key().length, record.value().length);
-        when(producer.send(record)).thenReturn(ConcurrentUtils.constantFuture(recordMetadata));
+        when(producer.send(eq(record), any(Callback.class))).thenAnswer((InvocationOnMock invocation) -> {
+          ((Callback) invocation.getArguments()[1]).onCompletion(recordMetadata, null);
+          return ConcurrentUtils.constantFuture(recordMetadata);
+        });
 
         if (msgPartitionMap.containsKey(partitionId)) {
           msgPartitionMap.get(partitionId).add(logMessage);
@@ -299,10 +309,10 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
       LogMessageAndPosition pos = new LogMessageAndPosition(msg, position);
       writer.writeLogMessageToCommit(pos);
     }
-    Map<Integer, KafkaWritingTaskFuture> commitableBuckets = writer.getCommitableBuckets();
+    Map<Integer, KafkaWritingTaskFuture> commitableBuckets = writer.getCommittableBuckets();
     for (int partitionId = 0; partitionId < partitions.size(); partitionId++) {
       KafkaWritingTaskFuture kafkaWritingTaskFuture = commitableBuckets.get(partitionId);
-      List<Future<RecordMetadata>> recordMetadataList = kafkaWritingTaskFuture
+      List<CompletableFuture<RecordMetadata>> recordMetadataList = kafkaWritingTaskFuture
           .getRecordMetadataList();
       if (recordMetadataList.size() == 0) {
         continue;
@@ -360,8 +370,11 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
         new PartitionInfo("topicx", 9, new Node(5, "broker5", 9092, "us-east-1b"), null, null),
         new PartitionInfo("topicx", 10, new Node(1, "broker1", 9092, "us-east-1a"), null, null)));
     when(producer.partitionsFor("topicx")).thenReturn(partitions);
-    when(producer.send(any())).thenReturn(ConcurrentUtils
-        .constantFuture(new RecordMetadata(new TopicPartition("topicx", 0), 0L, 0L, 0L, 0L, 0, 0)));
+    when(producer.send(any(), any(Callback.class))).thenAnswer((InvocationOnMock invocation) -> {
+      RecordMetadata rmd = new RecordMetadata(new TopicPartition("topicx", 0), 0L, 0L, 0L, 0L, 0, 0);
+      ((Callback) invocation.getArguments()[1]).onCompletion(rmd, null);
+      return ConcurrentUtils.constantFuture(rmd);
+    });
 
     List<LogMessage> logMessages = new ArrayList<>();
     Set<LoggingAuditHeaders> trackedMessageSet = new HashSet<>();
@@ -375,11 +388,11 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
       writer.writeLogMessageToCommit(
           new LogMessageAndPosition(msg, new LogPosition(new LogFile(1L), 0L)));
     }
-    Map<Integer, KafkaWritingTaskFuture> commitableBuckets = writer.getCommitableBuckets();
+    Map<Integer, KafkaWritingTaskFuture> commitableBuckets = writer.getCommittableBuckets();
     int numMessagesWritten = 0;
     for (Integer partitionId : commitableBuckets.keySet()) {
       KafkaWritingTaskFuture kafkaWritingTaskFuture = commitableBuckets.get(partitionId);
-      List<Future<RecordMetadata>> recordMetadataList = kafkaWritingTaskFuture
+      List<CompletableFuture<RecordMetadata>> recordMetadataList = kafkaWritingTaskFuture
           .getRecordMetadataList();
       numMessagesWritten += recordMetadataList.size();
     }
@@ -408,8 +421,11 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
         new PartitionInfo("topicx", 9, new Node(5, "broker5", 9092, "us-east-1b"), null, null),
         new PartitionInfo("topicx", 10, new Node(1, "broker1", 9092, "us-east-1a"), null, null)));
     when(producer.partitionsFor("topicx")).thenReturn(partitions);
-    when(producer.send(any())).thenReturn(ConcurrentUtils
-        .constantFuture(new RecordMetadata(new TopicPartition("topicx", 0), 0L, 0L, 0L, 0L, 0, 0)));
+    when(producer.send(any(), any(Callback.class))).thenAnswer((InvocationOnMock invocation) -> {
+      RecordMetadata rmd = new RecordMetadata(new TopicPartition("topicx", 0), 0L, 0L, 0L, 0L, 0, 0);
+      ((Callback) invocation.getArguments()[1]).onCompletion(rmd, null);
+      return ConcurrentUtils.constantFuture(rmd);
+    });
 
     List<LogMessage> logMessages = new ArrayList<>();
     Set<LoggingAuditHeaders> trackedMessageSet = new HashSet<>();
@@ -422,11 +438,11 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
       writer.writeLogMessageToCommit(
           new LogMessageAndPosition(msg, new LogPosition(new LogFile(1L), 0L)));
     }
-    Map<Integer, KafkaWritingTaskFuture> commitableBuckets = writer.getCommitableBuckets();
+    Map<Integer, KafkaWritingTaskFuture> commitableBuckets = writer.getCommittableBuckets();
     int numMessagesWritten = 0;
     for (Integer partitionId : commitableBuckets.keySet()) {
       KafkaWritingTaskFuture kafkaWritingTaskFuture = commitableBuckets.get(partitionId);
-      List<Future<RecordMetadata>> recordMetadataList = kafkaWritingTaskFuture
+      List<CompletableFuture<RecordMetadata>> recordMetadataList = kafkaWritingTaskFuture
           .getRecordMetadataList();
       numMessagesWritten += recordMetadataList.size();
     }

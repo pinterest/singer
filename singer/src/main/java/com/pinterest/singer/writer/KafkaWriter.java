@@ -111,7 +111,7 @@ public class KafkaWriter implements LogStreamWriter {
   /**
    *  HeadersInjector will be set if enableHeadersInjector is set to true.
    *  Default is null
-  */
+   */
   protected HeadersInjector headersInjector = null;
 
 
@@ -212,7 +212,7 @@ public class KafkaWriter implements LogStreamWriter {
     this.topic = topic;
     this.enableHeadersInjector = enableHeadersInjector;
     logName = logStream.getSingerLog().getSingerLogConfig().getName();
-    writeTimeoutInSeconds = 0;
+    writeTimeoutInSeconds = 1;
     auditingEnabled = false;
     kafkaClusterSig = null;
     if (this.enableHeadersInjector){
@@ -245,7 +245,7 @@ public class KafkaWriter implements LogStreamWriter {
     this.topic = topic;
     logStream = null;
     logName = null;
-    writeTimeoutInSeconds = 0;
+    writeTimeoutInSeconds = 1;
     auditingEnabled = false;
     kafkaClusterSig = null;
   }
@@ -573,7 +573,7 @@ public class KafkaWriter implements LogStreamWriter {
               result.getKafkaBatchWriteLatencyInMillis());
           if (isLoggingAuditEnabledAndConfigured()) {
             int bucketIndex = result.getPartition();
-            enqueueLoggingAuditEvents(result, mapOfTrackedMessageMaps.get(bucketIndex), mapOfInvalidMessageMaps.get(bucketIndex));
+            enqueueLoggingAuditEvents(result.getRecordMetadataList(), mapOfTrackedMessageMaps.get(bucketIndex), mapOfInvalidMessageMaps.get(bucketIndex));
           }
         }
       }
@@ -632,13 +632,13 @@ public class KafkaWriter implements LogStreamWriter {
    * deserialized; (2) AuditConfig in the SingerLogConfig has skipCorruptedMessageAtCurrentStage set
    * to be true.
    *
-   * @param result the KafkaWritingTaskResult
+   * @param recordMetadataList a list of RecordMetadata of the messages sent
    * @param trackedMessageMap a map in which key is indexWithinTheBucket and value is
    *                          LoggingAuditHeaders object of tracked message
    * @param invalidMessageMap a map in which key is indexWithinTheBucket and value is
    *                          LoggingAuditHeaders object of invalid message
    */
-  public void enqueueLoggingAuditEvents(KafkaWritingTaskResult result,
+  public void enqueueLoggingAuditEvents(List<RecordMetadata> recordMetadataList,
                                         Map<Integer, LoggingAuditHeaders> trackedMessageMap,
                                         Map<Integer, LoggingAuditHeaders> invalidMessageMap){
 
@@ -652,7 +652,7 @@ public class KafkaWriter implements LogStreamWriter {
       // and skipped, thus only 6 messages (withinBucketIndex: 1, 2, 3, 4, 7, 8) are sent to  Kafka
       // which means the RecordMetadataList of result (KafkaWritingTaskResult) should be of size 6.
 
-      int total = result.getRecordMetadataList().size() + invalidMessageMap.size();
+      int total = recordMetadataList.size() + invalidMessageMap.size();
       int skippedSofar = 0;
       for(int i = 0; i < total; i++){
         if (invalidMessageMap.containsKey(i)){
@@ -664,10 +664,10 @@ public class KafkaWriter implements LogStreamWriter {
           if (trackedMessageMap.containsKey(i)){
             // if the message is tracked, an audit event should be sent out.
             int indexInRecordMetadataList = i - skippedSofar;
-            if (indexInRecordMetadataList >= result.getRecordMetadataList().size()){
+            if (indexInRecordMetadataList >= recordMetadataList.size()){
               continue;
             }
-            RecordMetadata metadata = result.getRecordMetadataList().get(indexInRecordMetadataList);
+            RecordMetadata metadata = recordMetadataList.get(indexInRecordMetadataList);
             SingerSettings.getLoggingAuditClient().audit(this.logName, trackedMessageMap.get(i),
                 true, metadata.timestamp(), kafkaClusterSig, topic);
           }
@@ -676,14 +676,14 @@ public class KafkaWriter implements LogStreamWriter {
     } else {
       // In this case, invalid messages are not skipped and still sent to Kafka. This usually means
       // later stage will skip the invalid message.
-      int total = result.getRecordMetadataList().size();
+      int total = recordMetadataList.size();
       for(int i =0; i < total; i++){
         if (trackedMessageMap.containsKey(i)) {
           int indexInRecordMetadataList = i;
-          if (indexInRecordMetadataList >= result.getRecordMetadataList().size()){
+          if (indexInRecordMetadataList >= recordMetadataList.size()){
             continue;
           }
-          RecordMetadata metadata = result.getRecordMetadataList().get(indexInRecordMetadataList);
+          RecordMetadata metadata = recordMetadataList.get(indexInRecordMetadataList);
           SingerSettings.getLoggingAuditClient().audit(this.logName, trackedMessageMap.get(i),
               !invalidMessageMap.containsKey(i),  metadata.timestamp(), kafkaClusterSig, topic);
 
