@@ -9,7 +9,6 @@ setup(
     author='Pinterest, inc.',
     url='http://www.pinterest.com',
     install_requires=[
-        'pinstatsd==1.0.55',
         'thrift==0.8.0'
     ],
     packages=['thrift_logger', 'thrift_logger/thrift_libs'])
