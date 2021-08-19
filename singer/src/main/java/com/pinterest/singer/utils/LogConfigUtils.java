@@ -992,7 +992,20 @@ public class LogConfigUtils {
   private static ThriftReaderConfig parseThriftReaderConfig(AbstractConfiguration thriftReaderConfiguration) {
     int readerBufferSize = thriftReaderConfiguration.getInt(SingerConfigDef.READER_BUFFER_SIZE, SingerConfigDef.DEFAULT_READER_BUFFER_SIZE);
     int maxMessageSize = thriftReaderConfiguration.getInt(SingerConfigDef.MAX_MESSAGE_SIZE, SingerConfigDef.DEFAULT_MAX_MESSAGE_SIZE);
-    return new ThriftReaderConfig(readerBufferSize, maxMessageSize);
+    ThriftReaderConfig config = new ThriftReaderConfig(readerBufferSize, maxMessageSize);
+    if (thriftReaderConfiguration.containsKey("prependEnvironmentVariables")) {
+      String str = thriftReaderConfiguration.getString("prependEnvironmentVariables");
+      String[] variables = str.split("\\|");
+      Map<String, ByteBuffer> headers = new HashMap<>();
+      for (String variable : variables) {
+        String env = System.getenv(variable);
+        if (env != null) {
+          headers.put(variable, ByteBuffer.wrap(env.getBytes()));
+        }
+      }
+      config.setEnvironmentVariables(headers);
+    }
+    return config;
   }
 
   protected static TextReaderConfig parseTextReaderConfig(AbstractConfiguration textReaderConfiguration) throws ConfigurationException {

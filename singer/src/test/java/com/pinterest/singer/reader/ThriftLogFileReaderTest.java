@@ -25,9 +25,15 @@ import com.pinterest.singer.utils.SimpleThriftLogger;
 
 import com.google.common.collect.Lists;
 import org.apache.commons.io.FilenameUtils;
+import org.apache.kafka.common.utils.ByteUtils;
 import org.junit.Test;
 
+import java.nio.ByteBuffer;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class ThriftLogFileReaderTest extends SingerTestBase {
 
@@ -47,7 +53,7 @@ public class ThriftLogFileReaderTest extends SingerTestBase {
     }
 
     // Open reader which cap the log message at 500 bytes
-    LogFileReader reader = new ThriftLogFileReader(logger.getLogFile(), path, 0L, 16000, 500);
+    LogFileReader reader = new ThriftLogFileReader(logger.getLogFile(), path, 0L, 16000, 500, null);
     int count = 0;
     for (int i = 0; i < 403; i++) {
       try {
@@ -82,7 +88,7 @@ public class ThriftLogFileReaderTest extends SingerTestBase {
     }
 
     // Open reader which cap the log message at 500 bytes
-    LogFileReader reader = new ThriftLogFileReader(logger.getLogFile(), path, 0L, 16000, 500);
+    LogFileReader reader = new ThriftLogFileReader(logger.getLogFile(), path, 0L, 16000, 500, null);
     try {
       // Seek to start offset.
       reader.setByteOffset(startOffset);
@@ -98,7 +104,7 @@ public class ThriftLogFileReaderTest extends SingerTestBase {
     }
 
     // Open reader.
-    reader = new ThriftLogFileReader(logger.getLogFile(), path, 0L, 16000, 16000);
+    reader = new ThriftLogFileReader(logger.getLogFile(), path, 0L, 16000, 16000, null);
     List<LogMessageAndPosition> messagesRead = Lists.newArrayListWithExpectedSize(3);
     try {
       // Seek to start offset.
@@ -115,5 +121,41 @@ public class ThriftLogFileReaderTest extends SingerTestBase {
 
     // Return null when no more message in the log file.
     assertThat(messagesRead, is(messagesWritten));
+  }
+
+  public void testEnvironmentVariableInjection() throws Exception {
+    String path = FilenameUtils.concat(getTempPath(), "thrift.log");
+    SimpleThriftLogger<LogMessage> logger = new SimpleThriftLogger<>(path);
+    List<LogMessageAndPosition> messagesWritten;
+    try {
+      messagesWritten = writeThriftLogMessages(logger, 3, 500, 5000);
+    } finally {
+      logger.close();
+    }
+
+    // Open reader.
+    ThriftLogFileReader reader = new ThriftLogFileReader(logger.getLogFile(), path, 0L, 16000, 16000,
+        Collections.singletonMap("test", ByteBuffer.wrap("test_value".getBytes())));
+    List<LogMessageAndPosition> messagesRead = Lists.newArrayListWithExpectedSize(3);
+    try {
+      // Read log file until no more messages.
+      LogMessageAndPosition message = reader.readLogMessageAndPosition();
+      while (message != null) {
+        messagesRead.add(message);
+        assertNotNull(message.getInjectedHeaders());
+        assertEquals(1, message.getInjectedHeaders().size());
+        assertTrue(message.getInjectedHeaders().containsKey("test"));
+        assertTrue(Arrays.equals("test_value".getBytes(), message.getInjectedHeaders().get("test").array()));
+        message = reader.readLogMessageAndPosition();
+      }
+    } finally {
+      reader.close();
+    }
+
+    // Return null when no more message in the log file.
+    assertEquals(
+        messagesRead.stream().map(LogMessageAndPosition::getLogMessage).collect(Collectors.toList()),
+        messagesWritten.stream().map(LogMessageAndPosition::getLogMessage).collect(Collectors.toList())
+    );
   }
 }

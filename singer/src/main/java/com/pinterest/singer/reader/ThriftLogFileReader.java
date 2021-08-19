@@ -34,7 +34,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.file.FileSystems;
+import java.util.Map;
 
 /**
  * Reader that reads from thrift LogFile.
@@ -65,6 +67,8 @@ public class ThriftLogFileReader implements LogFileReader {
   private final String path;
   private final ThriftReader<com.pinterest.singer.thrift.LogMessage> thriftReader;
 
+  private Map<String, ByteBuffer> headers;
+
   /*
    * The maximum message size that is defined in singer configuration file
    */
@@ -86,10 +90,12 @@ public class ThriftLogFileReader implements LogFileReader {
       String path,
       long byteOffset,
       int readBufferSize,
-      int maxMessageSize) throws Exception {
+      int maxMessageSize,
+      Map<String, ByteBuffer> headers) throws Exception {
     Preconditions.checkArgument(!Strings.isNullOrEmpty(path));
     Preconditions.checkArgument(byteOffset >= 0);
 
+    this.headers = headers;
     this.logFile = Preconditions.checkNotNull(logFile);
     this.path = path;
     this.maxMessageSize = maxMessageSize;
@@ -133,7 +139,9 @@ public class ThriftLogFileReader implements LogFileReader {
           logMessage = thriftReader.read();
         } else {
           LogPosition position = new LogPosition(logFile, newByteOffset);
-          return new LogMessageAndPosition(logMessage, position);
+          LogMessageAndPosition logMessageAndPosition = new LogMessageAndPosition(logMessage, position);
+          logMessageAndPosition.setInjectedHeaders(headers);
+          return logMessageAndPosition;
         }
       }
     } catch (TException e) {
