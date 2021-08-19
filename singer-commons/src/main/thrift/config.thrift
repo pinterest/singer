@@ -32,6 +32,8 @@ enum ReaderType {
 struct ThriftReaderConfig {
   1: required i32 readerBufferSize;
   2: required i32 maxMessageSize;
+  // custom environment variables to be injected into thrift logs
+  3:optional map<string, binary> environmentVariables;
 }
 
 enum TextLogMessageType {

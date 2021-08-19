@@ -28,6 +28,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.FileSystems;
+import java.util.HashMap;
 
 /**
  * Factory class that create ThriftLogFileReader instances based on ThriftReaderConfig.
@@ -54,8 +55,15 @@ public class ThriftLogFileReaderFactory implements LogFileReaderFactory {
         logStream.initialize();
         path = logStream.getLogFilePath(logFile);
       }
-      reader = new ThriftLogFileReader(logFile, path, byteOffset,
-          readerConfig.getReaderBufferSize(), readerConfig.getMaxMessageSize());
+      reader = new ThriftLogFileReader(
+          logFile,
+          path,
+          byteOffset,
+          readerConfig.getReaderBufferSize(),
+          readerConfig.getMaxMessageSize(),
+          readerConfig.isSetEnvironmentVariables() ?
+          new HashMap<>(readerConfig.getEnvironmentVariables()) : null
+      );
     } catch (LogFileReaderException e) {
       LOG.warn("Exception in getLogFileReader", e);
       long inode = logFile.getInode();
