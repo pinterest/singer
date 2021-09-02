@@ -24,6 +24,7 @@ import com.pinterest.singer.common.errors.LogStreamReaderException;
 import com.pinterest.singer.common.LogStreamWriter;
 import com.pinterest.singer.common.errors.LogStreamWriterException;
 import com.pinterest.singer.common.SingerMetrics;
+import com.pinterest.singer.config.Decider;
 import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
 import com.pinterest.singer.processor.DefaultLogStreamProcessor;
 import com.pinterest.singer.processor.MemoryEfficientLogStreamProcessor;
@@ -36,6 +37,7 @@ import com.pinterest.singer.thrift.configuration.KafkaWriterConfig;
 import com.pinterest.singer.thrift.configuration.LogStreamProcessorConfig;
 import com.pinterest.singer.thrift.configuration.LogStreamReaderConfig;
 import com.pinterest.singer.thrift.configuration.LogStreamWriterConfig;
+import com.pinterest.singer.thrift.configuration.SamplingType;
 import com.pinterest.singer.thrift.configuration.SingerConfig;
 import com.pinterest.singer.thrift.configuration.SingerLogConfig;
 import com.pinterest.singer.thrift.configuration.SingerRestartConfig;
@@ -46,6 +48,8 @@ import com.pinterest.singer.writer.NoOpLogStreamWriter;
 import com.pinterest.singer.writer.KafkaWriter;
 import com.pinterest.singer.writer.kafka.CommittableKafkaWriter;
 import com.pinterest.singer.writer.pulsar.PulsarWriter;
+
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
@@ -73,6 +77,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -122,6 +127,12 @@ public class DefaultLogMonitor implements LogMonitor, Runnable {
   private boolean dailyRestart = false;
 
   private long restartTimeInMillis = Long.MAX_VALUE;
+
+  /**
+   * The value used for determining whether instance-level decider sampling should be enabled, ranging between 0 and 99
+   * This will be shared across all logstreams monitored by this instance
+   */
+  private int instanceLevelSamplingThresholdValue = ThreadLocalRandom.current().nextInt(0, 100);
 
   /**
    * Constructor.
@@ -184,6 +195,26 @@ public class DefaultLogMonitor implements LogMonitor, Runnable {
     return INSTANCE;
   }
 
+  // a log stream is considered inactive if:
+  // 1. decider is 0
+  // 2. instance sampling disables this logstream
+  // all other cases the logstream will be consider active
+  protected boolean isLogStreamInactive(LogStream logStream) {
+    SingerLogConfig logConfig = logStream.getSingerLog().getSingerLogConfig();
+    String decider = logConfig.getLogDecider();
+    int deciderValue = Decider.getInstance().getDeciderValue(decider);
+    if (deciderValue == 0) {
+      // decider is 0
+      return true;
+    } else if (deciderValue != -1 && logConfig.getLogStreamProcessorConfig().getDeciderBasedSampling().equals(SamplingType.INSTANCE)) {
+      // if decider exists and instance level sampling is enabled and the value of this instance is larger than the decider value
+      // e.g. if decider is 10, the logstream is considered inactive if instanceLevelSamplingThresholdValue is >= than 10
+      // (10 - 99), which would effectively have 10% of the hosts active
+      return deciderValue <= instanceLevelSamplingThresholdValue;
+    }
+    return false;
+  }
+
   /**
    * Monitor all SingerLogs configured.
    * <p>
@@ -197,6 +228,11 @@ public class DefaultLogMonitor implements LogMonitor, Runnable {
     Collection<LogStream> logStreams = LogStreamManager.getLogStreams();
     for (LogStream logStream : logStreams) {
       String logStreamName = logStream.getLogStreamName();
+      if (isLogStreamInactive(logStream)) {
+        // short-circuit if logstream is inactive
+        continue;
+      }
+      // logstream is active, create or get logstream to monitor
       boolean success = false;
       try {
         LogStreamProcessor logStreamProcessor = processedLogStreams.get(logStream);
@@ -259,7 +295,7 @@ public class DefaultLogMonitor implements LogMonitor, Runnable {
           processorConfig.getProcessingIntervalInMillisecondsMax(),
           processorConfig.getProcessingTimeSliceInMilliseconds(),
           singerLogConfig.getLogRetentionInSeconds(),
-          processorConfig.isEnableDeciderBasedSampling());
+          processorConfig.getDeciderBasedSampling().equals(SamplingType.MESSAGE));
     } else {
       return new DefaultLogStreamProcessor(
           logStream,
@@ -568,40 +604,42 @@ public class DefaultLogMonitor implements LogMonitor, Runnable {
   }
 
   private void cleanUpLogs() {
-    List<LogStream> emptyLogStreams = Lists.newArrayListWithCapacity(processedLogStreams.size());
-    // Get all empty log streams.
+    List<LogStream> inactiveLogStreams = Lists.newArrayListWithCapacity(processedLogStreams.size());
+    // Get all inactive log streams.
     for (LogStream logStream : processedLogStreams.keySet()) {
       if (logStream.isEmpty()) {
-        emptyLogStreams.add(logStream);
+        inactiveLogStreams.add(logStream);
+      } else if (isLogStreamInactive(logStream)) {
+        inactiveLogStreams.add(logStream);
       }
     }
 
-    if (emptyLogStreams.size() > 0) {
-      LOG.info("The following log streams are empty: {}", Joiner.on(',').join(emptyLogStreams));
-      // Unregister all empty log streams from monitor.
+    if (inactiveLogStreams.size() > 0) {
+      LOG.info("The following log streams are inactive: {}", Joiner.on(',').join(inactiveLogStreams));
+      // Unregister all inactive log streams from monitor.
       List<LogStream> logStreamsCleanedUp =
-          Lists.newArrayListWithExpectedSize(emptyLogStreams.size());
-      for (LogStream emptyLogStream : emptyLogStreams) {
+          Lists.newArrayListWithExpectedSize(inactiveLogStreams.size());
+      for (LogStream inactiveLogStream : inactiveLogStreams) {
         try {
-          LogStreamProcessor processor = processedLogStreams.get(emptyLogStream);
+          LogStreamProcessor processor = processedLogStreams.get(inactiveLogStream);
           processor.stop();
           processor.close();
-          processedLogStreams.remove(emptyLogStream);
+          processedLogStreams.remove(inactiveLogStream);
 
-          String streamName = emptyLogStream.getLogStreamName();
-          LOG.info("Closed log processor for empty log stream: " + streamName);
-          logStreamsCleanedUp.add(emptyLogStream);
+          String streamName = inactiveLogStream.getLogStreamName();
+          LOG.info("Closed log processor for inactive log stream: " + streamName);
+          logStreamsCleanedUp.add(inactiveLogStream);
 
-          LogStreamManager.removeLogStream(emptyLogStream);
+          LogStreamManager.removeLogStream(inactiveLogStream);
         } catch (IOException e) {
-          LOG.error("Caught IOException while closing an empty stream: " + emptyLogStream
+          LOG.error("Caught IOException while closing an inactive stream: " + inactiveLogStream
               .getLogStreamName(), e);
         } catch (Exception e) {
           LOG.error("Caught unexpected exception", e);
           Stats.incr("singer.monitor.unexpected_exception");
         }
       }
-      LOG.info("Empty log streams are cleaned up: {}", Joiner.on(',').join(logStreamsCleanedUp));
+      LOG.info("Inactive log streams are cleaned up: {}", Joiner.on(',').join(logStreamsCleanedUp));
     }
   }
 
@@ -656,5 +694,10 @@ public class DefaultLogMonitor implements LogMonitor, Runnable {
       throw new ConfigurationException("Cannot expand " + name + " in log stream " + logStreamName,
           e);
     }
+  }
+
+  @VisibleForTesting
+  protected void setInstanceLevelSamplingThresholdValue(int value) {
+    this.instanceLevelSamplingThresholdValue = value;
   }
 }

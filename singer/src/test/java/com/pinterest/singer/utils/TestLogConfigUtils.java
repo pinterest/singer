@@ -17,6 +17,7 @@ package com.pinterest.singer.utils;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.ByteArrayInputStream;
@@ -45,8 +46,10 @@ import org.junit.Test;
 import com.pinterest.singer.common.SingerConfigDef;
 import com.pinterest.singer.config.ConfigFileWatcher;
 import com.pinterest.singer.thrift.configuration.KafkaProducerConfig;
+import com.pinterest.singer.thrift.configuration.LogStreamProcessorConfig;
 import com.pinterest.singer.thrift.configuration.MemqWriterConfig;
 import com.pinterest.singer.thrift.configuration.RealpinWriterConfig;
+import com.pinterest.singer.thrift.configuration.SamplingType;
 import com.pinterest.singer.thrift.configuration.TextReaderConfig;
 
 public class TestLogConfigUtils {
@@ -379,5 +382,36 @@ public class TestLogConfigUtils {
     }
 
     assertEquals(1, l.size());
+  }
+
+  @Test
+  public void testParseLogStreamProcessorConfig() {
+    PropertiesConfiguration conf = new PropertiesConfiguration();
+    conf.setProperty(SingerConfigDef.PROCESS_BATCH_SIZE, "500");
+    conf.setProperty(SingerConfigDef.PROCESS_INTERVAL_MILLIS, "1000");
+    conf.setProperty(SingerConfigDef.PROCESS_INTERVAL_MILLIS_MAX, "5000");
+    conf.setProperty(SingerConfigDef.PROCESS_TIME_SLICE_SECS, "15");
+    conf.setProperty(SingerConfigDef.PROCESS_ENABLE_MEMORY_EFFICIENCY, "true");
+    LogStreamProcessorConfig lspc = LogConfigUtils.parseLogStreamProcessorConfig(conf);
+    assertEquals(500, lspc.getBatchSize());
+    assertEquals(1000, lspc.getProcessingIntervalInMillisecondsMin());
+    assertEquals(5000, lspc.getProcessingIntervalInMillisecondsMax());
+    assertEquals(15000, lspc.getProcessingTimeSliceInMilliseconds());
+    assertEquals(SamplingType.NONE, lspc.getDeciderBasedSampling());
+    assertTrue(lspc.isEnableMemoryEfficientProcessor());
+
+    conf.setProperty(SingerConfigDef.PROCESS_DECIDER_BASED_SAMPLING, "instance");
+    lspc = LogConfigUtils.parseLogStreamProcessorConfig(conf);
+    assertEquals(SamplingType.INSTANCE, lspc.getDeciderBasedSampling());
+
+    // deciderBasedSampling has priority over enableDeciderBasedSampling
+    conf.setProperty(SingerConfigDef.PROCESS_ENABLE_DECIDER_BASED_SAMPLING_SAMPLING, "true");
+    lspc = LogConfigUtils.parseLogStreamProcessorConfig(conf);
+    assertEquals(SamplingType.INSTANCE, lspc.getDeciderBasedSampling());
+
+    // deciderBasedSampling not set, enableDeciderBasedSampling will take effect
+    conf.clearProperty(SingerConfigDef.PROCESS_DECIDER_BASED_SAMPLING);
+    lspc = LogConfigUtils.parseLogStreamProcessorConfig(conf);
+    assertEquals(SamplingType.MESSAGE, lspc.getDeciderBasedSampling());
   }
 }

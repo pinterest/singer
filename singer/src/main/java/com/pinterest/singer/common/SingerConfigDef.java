@@ -43,6 +43,7 @@ public class SingerConfigDef {
   public static final String PROCESS_TIME_SLICE_SECS = "processingTimeSliceInSeconds";
   public static final String PROCESS_ENABLE_MEMORY_EFFICIENCY = "enableMemoryEfficiency";
   public static final String PROCESS_ENABLE_DECIDER_BASED_SAMPLING_SAMPLING = "enableDeciderBasedSampling";
+  public static final String PROCESS_DECIDER_BASED_SAMPLING = "deciderBasedSampling";
   
   public static final String PRODUCER_CONFIG_PREFIX = "producerConfig.";
   public static final String SKIP_NO_LEADER_PARTITIONS = "skipNoLeaderPartitions";
@@ -90,5 +91,6 @@ public class SingerConfigDef {
   public static final String READER_BUFFER_SIZE = "readerBufferSize";
   public static final int DEFAULT_MAX_MESSAGE_SIZE = 100000;
   public static final int DEFAULT_READER_BUFFER_SIZE = 10240;
-  
+
+  public static final String PROCESS_BATCH_SIZE = "batchSize";
 }

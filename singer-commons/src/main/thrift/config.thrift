@@ -9,6 +9,12 @@ struct LogMonitorConfig {
   1: required i32 monitorIntervalInSecs;
 }
 
+enum SamplingType {
+    NONE = 0,
+    MESSAGE = 1,
+    INSTANCE = 2
+}
+
 struct LogStreamProcessorConfig {
   // Minimum processing interval.
   1: required i64 processingIntervalInMillisecondsMin;
@@ -20,8 +26,10 @@ struct LogStreamProcessorConfig {
   4: optional i64 processingTimeSliceInMilliseconds = 864000000;
   // Enable memory efficient processor
   5: optional bool enableMemoryEfficientProcessor = true;
-  // Enable decider based sampling
+  // (DEPRECATED) Enable decider based sampling
   6: optional bool enableDeciderBasedSampling = false;
+  // Sampling type
+  7: optional SamplingType deciderBasedSampling = 0;
 }
 
 enum ReaderType {
@@ -33,7 +41,7 @@ struct ThriftReaderConfig {
   1: required i32 readerBufferSize;
   2: required i32 maxMessageSize;
   // custom environment variables to be injected into thrift logs
-  3:optional map<string, binary> environmentVariables;
+  3: optional map<string, binary> environmentVariables;
 }
 
 enum TextLogMessageType {
