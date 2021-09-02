@@ -42,6 +42,7 @@ import com.pinterest.singer.thrift.configuration.PulsarWriterConfig;
 import com.pinterest.singer.thrift.configuration.ReaderType;
 import com.pinterest.singer.thrift.configuration.RealpinObjectType;
 import com.pinterest.singer.thrift.configuration.RealpinWriterConfig;
+import com.pinterest.singer.thrift.configuration.SamplingType;
 import com.pinterest.singer.thrift.configuration.SingerConfig;
 import com.pinterest.singer.thrift.configuration.SingerLogConfig;
 import com.pinterest.singer.thrift.configuration.SingerRestartConfig;
@@ -1092,7 +1093,7 @@ public class LogConfigUtils {
     return config;
   }
 
-  private static LogStreamProcessorConfig parseLogStreamProcessorConfig(AbstractConfiguration processorConfiguration) {
+  protected static LogStreamProcessorConfig parseLogStreamProcessorConfig(AbstractConfiguration processorConfiguration) {
     processorConfiguration.setThrowExceptionOnMissing(true);
     long minIntervalInMillis;
     if (processorConfiguration.containsKey(SingerConfigDef.PROCESS_INTERVAL_MILLIS)) {
@@ -1102,7 +1103,7 @@ public class LogConfigUtils {
           * 1000L;
     }
 
-    int batchSize = processorConfiguration.getInt("batchSize");
+    int batchSize = processorConfiguration.getInt(SingerConfigDef.PROCESS_BATCH_SIZE);
     processorConfiguration.setThrowExceptionOnMissing(false);
     // Default to processingIntervalInSecondsMin.
     long maxIntervalInMillis = minIntervalInMillis;
@@ -1135,10 +1136,16 @@ public class LogConfigUtils {
           processorConfiguration.getBoolean(SingerConfigDef.PROCESS_ENABLE_MEMORY_EFFICIENCY));
     }
     config.setProcessingTimeSliceInMilliseconds(processingTimeSliceInMilliseconds);
-    
-    if (processorConfiguration.containsKey(SingerConfigDef.PROCESS_ENABLE_DECIDER_BASED_SAMPLING_SAMPLING)) {
-      config.setEnableDeciderBasedSampling(
-          processorConfiguration.getBoolean(SingerConfigDef.PROCESS_ENABLE_DECIDER_BASED_SAMPLING_SAMPLING));
+
+    if (processorConfiguration.containsKey(SingerConfigDef.PROCESS_DECIDER_BASED_SAMPLING)) {
+      SamplingType samplingType = SamplingType.valueOf(
+          processorConfiguration.getString(SingerConfigDef.PROCESS_DECIDER_BASED_SAMPLING).toUpperCase()
+      );
+      config.setDeciderBasedSampling(samplingType);
+    } else if (processorConfiguration.containsKey(SingerConfigDef.PROCESS_ENABLE_DECIDER_BASED_SAMPLING_SAMPLING)) {
+      if (processorConfiguration.getBoolean(SingerConfigDef.PROCESS_ENABLE_DECIDER_BASED_SAMPLING_SAMPLING)) {
+        config.setDeciderBasedSampling(SamplingType.MESSAGE);
+      }
     }
     return config;
   }
