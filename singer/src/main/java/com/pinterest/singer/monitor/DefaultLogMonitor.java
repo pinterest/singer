@@ -202,6 +202,9 @@ public class DefaultLogMonitor implements LogMonitor, Runnable {
   protected boolean isLogStreamInactive(LogStream logStream) {
     SingerLogConfig logConfig = logStream.getSingerLog().getSingerLogConfig();
     String decider = logConfig.getLogDecider();
+    if (decider == null) {
+      return false;
+    }
     int deciderValue = Decider.getInstance().getDeciderValue(decider);
     if (deciderValue == 0) {
       // decider is 0
@@ -228,13 +231,13 @@ public class DefaultLogMonitor implements LogMonitor, Runnable {
     Collection<LogStream> logStreams = LogStreamManager.getLogStreams();
     for (LogStream logStream : logStreams) {
       String logStreamName = logStream.getLogStreamName();
-      if (isLogStreamInactive(logStream)) {
-        // short-circuit if logstream is inactive
-        continue;
-      }
-      // logstream is active, create or get logstream to monitor
       boolean success = false;
       try {
+        if (isLogStreamInactive(logStream)) {
+          // short-circuit if logstream is inactive
+          continue;
+        }
+        // logstream is active, create or get logstream to monitor
         LogStreamProcessor logStreamProcessor = processedLogStreams.get(logStream);
         if (logStreamProcessor == null) {
           LogStreamProcessor processor = createLogStreamProcessor(

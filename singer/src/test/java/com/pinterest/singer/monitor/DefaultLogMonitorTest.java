@@ -23,10 +23,22 @@ public class DefaultLogMonitorTest {
     DefaultLogMonitor logMonitor = new DefaultLogMonitor(1, singerConfig);
     LogStreamProcessorConfig lspc = new LogStreamProcessorConfig();
     SingerLogConfig slc = new SingerLogConfig("test", "/tmp", "thrift.log", lspc, null, null);
-    slc.setLogDecider("test_decider");
+
+    // should be active if decider is null
     SingerLog singerLog = new SingerLog(slc);
     LogStream logStream = new LogStream(singerLog, "thrift.log");
     Decider.setInstance(new HashMap<>());
+    for (SamplingType type : new SamplingType[]{SamplingType.NONE, SamplingType.MESSAGE, SamplingType.INSTANCE}) {
+      lspc.setDeciderBasedSampling(type);
+      for (int i : new int[]{0, 1, 100}) {
+        logMonitor.setInstanceLevelSamplingThresholdValue(i);
+        assertFalse(logMonitor.isLogStreamInactive(logStream));
+      }
+    }
+
+    slc.setLogDecider("test_decider");
+    singerLog = new SingerLog(slc);
+    logStream = new LogStream(singerLog, "thrift.log");
 
     // should always be active if decider doesn't exist
     for (SamplingType type : new SamplingType[]{SamplingType.NONE, SamplingType.MESSAGE, SamplingType.INSTANCE}) {

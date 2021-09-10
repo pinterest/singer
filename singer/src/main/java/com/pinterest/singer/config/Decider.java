@@ -212,11 +212,15 @@ public class Decider {
    * @return
    */
   public int getDeciderValue(String deciderName, int defaultValue) {
-    deciderName = deciderName.toLowerCase();
-    if (mDeciderMap.containsKey(deciderName)) {
-      return mDeciderMap.get(deciderName);
+    try {
+      deciderName = deciderName.toLowerCase();
+      if (mDeciderMap.containsKey(deciderName)) {
+        return mDeciderMap.get(deciderName);
+      }
+      return defaultValue;
+    } catch (Exception e) {
+      return defaultValue;
     }
-    return defaultValue;
   }
 
   /**
