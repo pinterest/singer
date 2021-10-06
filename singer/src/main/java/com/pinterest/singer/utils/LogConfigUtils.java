@@ -1013,7 +1013,7 @@ public class LogConfigUtils {
     textReaderConfiguration.setThrowExceptionOnMissing(true);
     int readerBufferSize = textReaderConfiguration.getInt(SingerConfigDef.READER_BUFFER_SIZE, SingerConfigDef.DEFAULT_READER_BUFFER_SIZE);
     Preconditions.checkArgument(readerBufferSize > 0, "Invalid readerBufferSize");
-    int maxMessageSize = textReaderConfiguration.getInt(SingerConfigDef.READER_BUFFER_SIZE, SingerConfigDef.DEFAULT_READER_BUFFER_SIZE);
+    int maxMessageSize = textReaderConfiguration.getInt(SingerConfigDef.MAX_MESSAGE_SIZE, SingerConfigDef.DEFAULT_MAX_MESSAGE_SIZE);
     Preconditions.checkArgument(maxMessageSize > 0, "Invalid maxMessageSize");
     int numMessagesPerLogMessage = textReaderConfiguration.getInt("numMessagesPerLogMessage");
     Preconditions.checkArgument(numMessagesPerLogMessage > 0, "Invalid numMessagesPerLogMessage");
