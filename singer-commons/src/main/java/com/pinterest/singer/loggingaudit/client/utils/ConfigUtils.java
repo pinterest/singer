@@ -328,6 +328,11 @@ public class ConfigUtils {
       kafkaProducerConfig.setMaxRequestSize(maxRequestSize);
     }
 
+    if (producerConfiguration.containsKey(ProducerConfig.LINGER_MS_CONFIG)) {
+      int lingerMs = producerConfiguration.getInt(ProducerConfig.LINGER_MS_CONFIG);
+      kafkaProducerConfig.setLingerMs(lingerMs);
+    }
+
     if (producerConfiguration.containsKey(LoggingAuditClientConfigDef.SSL_ENABLED_CONFIG)) {
       boolean enabled = producerConfiguration.getBoolean(
           LoggingAuditClientConfigDef.SSL_ENABLED_CONFIG);
