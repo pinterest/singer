@@ -16,7 +16,9 @@
 package com.pinterest.singer.utils;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -302,6 +304,33 @@ public class TestLogConfigUtils {
     try {
       KafkaProducerConfig producerConfig = LogConfigUtils.parseProducerConfig(config);
       assertEquals(2048, producerConfig.getBufferMemory());
+    } catch (ConfigurationException e) {
+      // fail since no exception should be thrown
+      throw e;
+    }
+  }
+
+  @Test
+  public void testProducerLingerMs() throws ConfigurationException {
+    Map<String, Object> map = new HashMap<>();
+    map.put("bootstrap.servers", "localhost:9092");
+    map.put("linger.ms", "300");
+    AbstractConfiguration config = new MapConfiguration(map);
+    try {
+      KafkaProducerConfig producerConfig = LogConfigUtils.parseProducerConfig(config);
+      assertTrue(producerConfig.isSetLingerMs());
+      assertEquals(300, producerConfig.getLingerMs());
+    } catch (ConfigurationException e) {
+      // fail since no exception should be thrown
+      throw e;
+    }
+
+    map.remove("linger.ms");
+    config = new MapConfiguration(map);
+    try {
+      KafkaProducerConfig producerConfig = LogConfigUtils.parseProducerConfig(config);
+      assertFalse(producerConfig.isSetLingerMs());
+      assertEquals(10, producerConfig.getLingerMs());
     } catch (ConfigurationException e) {
       // fail since no exception should be thrown
       throw e;

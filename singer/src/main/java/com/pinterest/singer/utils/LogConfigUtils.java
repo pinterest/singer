@@ -908,6 +908,11 @@ public class LogConfigUtils {
       kafkaProducerConfig.setMaxRequestSize(maxRequestSize);
     }
 
+    if (producerConfiguration.containsKey(ProducerConfig.LINGER_MS_CONFIG)) {
+      int lingerMs = producerConfiguration.getInt(ProducerConfig.LINGER_MS_CONFIG);
+      kafkaProducerConfig.setLingerMs(lingerMs);
+    }
+
     if (producerConfiguration.containsKey(SingerConfigDef.SSL_ENABLED_CONFIG)) {
       boolean enabled = producerConfiguration.getBoolean(SingerConfigDef.SSL_ENABLED_CONFIG);
       kafkaProducerConfig.setSslEnabled(enabled);
