@@ -30,8 +30,11 @@ import org.junit.Test;
 
 import com.google.common.collect.ImmutableMap;
 import com.pinterest.singer.SingerTestBase;
+import com.pinterest.singer.common.LogStream;
+import com.pinterest.singer.common.SingerLog;
 import com.pinterest.singer.thrift.LogFile;
 import com.pinterest.singer.thrift.LogMessageAndPosition;
+import com.pinterest.singer.thrift.configuration.SingerLogConfig;
 import com.pinterest.singer.thrift.configuration.TextLogMessageType;
 import com.pinterest.singer.utils.SingerUtils;
 import com.pinterest.singer.utils.TextLogger;
@@ -45,7 +48,8 @@ public class TestTextLogFileReader extends SingerTestBase {
 
     long inode = SingerUtils.getFileInode(SingerUtils.getPath(path));
     LogFile logFile = new LogFile(inode);
-    LogFileReader reader = new TextLogFileReader(logFile, path, 0, 8192, 102400, 1,
+    LogStream logStream = new LogStream(new SingerLog(new SingerLogConfig()), "test");
+    LogFileReader reader = new TextLogFileReader(logStream, logFile, path, 0, 8192, 102400, 1,
         Pattern.compile("^.*$"), TextLogMessageType.PLAIN_TEXT, false, false, true, null, null,
         null);
     for (int i = 0; i < 100; i++) {
@@ -64,7 +68,8 @@ public class TestTextLogFileReader extends SingerTestBase {
 
     long inode = SingerUtils.getFileInode(SingerUtils.getPath(path));
     LogFile logFile = new LogFile(inode);
-    LogFileReader reader = new TextLogFileReader(logFile, path, 0, 8192, 102400, 1,
+    LogStream logStream = new LogStream(new SingerLog(new SingerLogConfig()), "test");
+    LogFileReader reader = new TextLogFileReader(logStream, logFile, path, 0, 8192, 102400, 1,
         Pattern.compile("^.*$"), TextLogMessageType.PLAIN_TEXT, false, true, false, hostname,
         delimiter, null);
     for (int i = 0; i < 100; i++) {
@@ -84,7 +89,8 @@ public class TestTextLogFileReader extends SingerTestBase {
 
     long inode = SingerUtils.getFileInode(SingerUtils.getPath(path));
     LogFile logFile = new LogFile(inode);
-    LogFileReader reader = new TextLogFileReader(logFile, path, 0, 8192, 102400, 2,
+    LogStream logStream = new LogStream(new SingerLog(new SingerLogConfig()), "test");
+    LogFileReader reader = new TextLogFileReader(logStream, logFile, path, 0, 8192, 102400, 2,
         Pattern.compile("^.*$"), TextLogMessageType.PLAIN_TEXT, false, false, true, null, null,
         null);
     for (int i = 0; i < 100; i = i + 2) {
@@ -103,7 +109,8 @@ public class TestTextLogFileReader extends SingerTestBase {
 
     long inode = SingerUtils.getFileInode(SingerUtils.getPath(path));
     LogFile logFile = new LogFile(inode);
-    LogFileReader reader = new TextLogFileReader(logFile, path, 0, 8192, 102400, 2,
+    LogStream logStream = new LogStream(new SingerLog(new SingerLogConfig()), "test");
+    LogFileReader reader = new TextLogFileReader(logStream, logFile, path, 0, 8192, 102400, 2,
         Pattern.compile("^.*$"), TextLogMessageType.PLAIN_TEXT, false, false, true, "host", null,
         new HashMap<>(ImmutableMap.of("test", ByteBuffer.wrap("value".getBytes()))));
     for (int i = 0; i < 100; i = i + 2) {
@@ -115,7 +122,7 @@ public class TestTextLogFileReader extends SingerTestBase {
     assertNull(reader.readLogMessageAndPosition());
     reader.close();
     
-    reader = new TextLogFileReader(logFile, path, 0, 8192, 102400, 2,
+    reader = new TextLogFileReader(logStream, logFile, path, 0, 8192, 102400, 2,
         Pattern.compile("^.*$"), TextLogMessageType.PLAIN_TEXT, false, false, true, "host", null,
         null);
     for (int i = 0; i < 100; i = i + 2) {

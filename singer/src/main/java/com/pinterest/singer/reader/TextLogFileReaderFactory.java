@@ -54,7 +54,7 @@ public class TextLogFileReaderFactory implements LogFileReaderFactory {
         logStream.initialize();
         path = logStream.getLogFilePath(logFile);
       }
-      reader = new TextLogFileReader(logFile, path, byteOffset,
+      reader = new TextLogFileReader(logStream, logFile, path, byteOffset,
           readerConfig.getReaderBufferSize(),
           readerConfig.getMaxMessageSize(),
           readerConfig.getNumMessagesPerLogMessage(),

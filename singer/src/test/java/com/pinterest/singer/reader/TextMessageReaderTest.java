@@ -16,6 +16,9 @@
 package com.pinterest.singer.reader;
 
 import com.pinterest.singer.SingerTestBase;
+import com.pinterest.singer.common.LogStream;
+import com.pinterest.singer.common.SingerLog;
+import com.pinterest.singer.thrift.configuration.SingerLogConfig;
 import com.pinterest.singer.utils.TextLogger;
 
 import com.google.common.base.Joiner;
@@ -77,10 +80,12 @@ public class TextMessageReaderTest extends SingerTestBase {
 
   @Test
   public void testSingleLineTextMessages() throws Exception {
+    LogStream logStream = new LogStream(new SingerLog(new SingerLogConfig()), "test");
+
     String path = FilenameUtils.concat(getTempPath(), "text.log");
     TextLogger logger = new TextLogger(path);
     TextMessageReader reader = new TextMessageReader(
-        path, 8192, MAX_MESSAGE_SIZE, Pattern.compile("^"));
+        logStream, path, 8192, MAX_MESSAGE_SIZE, Pattern.compile("^"));
 
     // Write first part of the first line.
     logger.logText(SINGLE_LINE_MESSAGE_0[0]);
@@ -122,8 +127,9 @@ public class TextMessageReaderTest extends SingerTestBase {
   public void testMultiLineTextMessages() throws Exception {
     String path = FilenameUtils.concat(getTempPath(), "text.log");
     TextLogger logger = new TextLogger(path);
+    LogStream logStream = new LogStream(new SingerLog(new SingerLogConfig()), "test");
     TextMessageReader reader = new TextMessageReader(
-        path, 8192, MAX_MESSAGE_SIZE, Pattern.compile("[IWF][0-9]{3,} "));
+        logStream, path, 8192, MAX_MESSAGE_SIZE, Pattern.compile("[IWF][0-9]{3,} "));
 
     // Write first part of the first line of the first message.
     logger.logText(MULTI_LINE_MESSAGE_0[0][0]);
@@ -228,8 +234,9 @@ public class TextMessageReaderTest extends SingerTestBase {
   public void testMultipleContinuousReads() throws IOException {
     String path = FilenameUtils.concat(getTempPath(), "test.log");
     TextLogger logger = new TextLogger(path);
+    LogStream logStream = new LogStream(new SingerLog(new SingerLogConfig()), "test");
     TextMessageReader reader = new TextMessageReader(
-        path, 1024, 1024 * 100, Pattern.compile("^.*$"));
+        logStream, path, 1024, 1024 * 100, Pattern.compile("^.*$"));
     List<String> dataWritten = new ArrayList<>();
     for(int i=0; i<100; i++) {
       StringBuilder builder = new StringBuilder();
@@ -253,7 +260,8 @@ public class TextMessageReaderTest extends SingerTestBase {
   public void testLongMessageSkip() throws IOException {
     String path = FilenameUtils.concat(getTempPath(), "test.log");
     TextLogger logger = new TextLogger(path);
-    TextMessageReader reader = new TextMessageReader(path, 1024, 1024, Pattern.compile("^.*$"));
+    LogStream logStream = new LogStream(new SingerLog(new SingerLogConfig()), "test");
+    TextMessageReader reader = new TextMessageReader(logStream, path, 1024, 1024, Pattern.compile("^.*$"));
 
     List<String> dataWritten = new ArrayList<>();
     for (int i = 0; i < 10; i++) {

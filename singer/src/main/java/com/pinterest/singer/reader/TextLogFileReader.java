@@ -15,6 +15,7 @@
  */
 package com.pinterest.singer.reader;
 
+import com.pinterest.singer.common.LogStream;
 import com.pinterest.singer.thrift.LogFile;
 import com.pinterest.singer.thrift.LogMessage;
 import com.pinterest.singer.thrift.LogMessageAndPosition;
@@ -45,6 +46,7 @@ public class TextLogFileReader implements LogFileReader {
 
   protected boolean closed;
   private final LogFile logFile;
+  private final LogStream logStream;
   private final String path;
   private final int numMessagesPerLogMessage;
   private final boolean prependTimestamp;
@@ -63,7 +65,9 @@ public class TextLogFileReader implements LogFileReader {
 
   private Map<String, ByteBuffer> headers;
 
-  public TextLogFileReader(LogFile logFile,
+  public TextLogFileReader(
+                           LogStream logStream,
+                           LogFile logFile,
                            String path,
                            long byteOffset,
                            int readBufferSize,
@@ -80,6 +84,7 @@ public class TextLogFileReader implements LogFileReader {
     Preconditions.checkArgument(!Strings.isNullOrEmpty(path));
     Preconditions.checkArgument(byteOffset >= 0);
 
+    this.logStream = logStream;
     this.headers = headers;
     if (headers != null) {
       headers.put("hostname", SingerUtils.getByteBuf(hostname));
@@ -91,7 +96,7 @@ public class TextLogFileReader implements LogFileReader {
     this.path = path;
     this.numMessagesPerLogMessage = numMessagesPerLogMessage;
     this.serializer = new TSerializer();
-    this.textMessageReader = new TextMessageReader(path, readBufferSize, maxMessageSize,
+    this.textMessageReader = new TextMessageReader(logStream, path, readBufferSize, maxMessageSize,
         messageStartPattern);
     this.textMessageReader.setByteOffset(byteOffset);
     this.textLogMessageType = messageType;

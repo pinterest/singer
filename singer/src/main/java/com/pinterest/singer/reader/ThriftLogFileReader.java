@@ -15,6 +15,7 @@
  */
 package com.pinterest.singer.reader;
 
+import com.pinterest.singer.common.LogStream;
 import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
 import com.pinterest.singer.thrift.LogFile;
 import com.pinterest.singer.thrift.LogMessage;
@@ -64,6 +65,7 @@ public class ThriftLogFileReader implements LogFileReader {
   }
 
   private final LogFile logFile;
+  private final LogStream logStream;
   private final String path;
   private final ThriftReader<com.pinterest.singer.thrift.LogMessage> thriftReader;
 
@@ -86,6 +88,7 @@ public class ThriftLogFileReader implements LogFileReader {
 
   @SuppressWarnings({ "rawtypes", "unchecked" })
   public ThriftLogFileReader(
+      LogStream logStream,
       LogFile logFile,
       String path,
       long byteOffset,
@@ -94,7 +97,7 @@ public class ThriftLogFileReader implements LogFileReader {
       Map<String, ByteBuffer> headers) throws Exception {
     Preconditions.checkArgument(!Strings.isNullOrEmpty(path));
     Preconditions.checkArgument(byteOffset >= 0);
-
+    this.logStream = logStream;
     this.headers = headers;
     this.logFile = Preconditions.checkNotNull(logFile);
     this.path = path;
@@ -135,7 +138,7 @@ public class ThriftLogFileReader implements LogFileReader {
         if (messageSize > maxMessageSize) {
           LOG.warn("Found a message at offset " + newByteOffset + "that exceeds the size limit in "
               + logFile.toString() + ": messageSize =  " + messageSize);
-          OpenTsdbMetricConverter.incr("singer.thrift_reader.skip_message", 1, "path=" + path);
+          OpenTsdbMetricConverter.incr("singer.thrift_reader.skip_message", 1, "path=" + path, "log=" + logStream.getSingerLog().getLogName());
           logMessage = thriftReader.read();
         } else {
           LogPosition position = new LogPosition(logFile, newByteOffset);
@@ -146,7 +149,7 @@ public class ThriftLogFileReader implements LogFileReader {
       }
     } catch (TException e) {
       LOG.error("Caught TException while reading " + logFile, e);
-      OpenTsdbMetricConverter.incr("singer.reader.exception.texception", 1, "path=" + path);
+      OpenTsdbMetricConverter.incr("singer.reader.exception.texception", 1, "path=" + path, "log=" + logStream.getSingerLog().getLogName());
       throw new LogFileReaderException("Cannot read a log message.", e);
     } catch (Exception e) {
       LOG.error("Caught exception when read a log message from log file: " + logFile, e);
@@ -184,7 +187,7 @@ public class ThriftLogFileReader implements LogFileReader {
       return thriftReader.getByteOffset();
     } catch (Exception e) {
       LOG.error("Caught exception when get reader byte offset of log file: " + logFile, e);
-      Stats.incr("singer.reader.exception.unexpected");
+      OpenTsdbMetricConverter.incr("singer.reader.exception.unexpected", "log=" + logStream.getSingerLog().getLogName());
       throw new LogFileReaderException("Can not get byte offset of the thrift reader", e);
     }
   }
@@ -203,7 +206,7 @@ public class ThriftLogFileReader implements LogFileReader {
               "Caught exception when set reader byte offset of log file: %s to: %d",
               logFile, byteOffset),
           e);
-      Stats.incr("singer.reader.exception.unexpected");
+      OpenTsdbMetricConverter.incr("singer.reader.exception.unexpected", "log=" + logStream.getSingerLog().getLogName());
       throw new LogFileReaderException("Can not set byte offset on the thrift reader", e);
     }
   }
