@@ -15,6 +15,9 @@
  */
 package com.pinterest.singer.reader;
 
+import com.pinterest.singer.common.LogStream;
+import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
+
 import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
@@ -40,6 +43,7 @@ public class TextMessageReader implements Closeable {
 
   // The ByteOffsetInputStream to read from.
   private final ByteOffsetInputStream byteOffsetInputStream;
+  private final LogStream logStream;
 
   private final int maxMessageLength;
   private final Pattern messageStartPattern;
@@ -55,11 +59,13 @@ public class TextMessageReader implements Closeable {
   private ByteBuffer messageBuffer;
 
   public TextMessageReader(
+      LogStream logStream,
       String path,
       int readBufferSize,
       int maxMessageLength,
       Pattern messageStartPattern) throws IOException {
     Preconditions.checkArgument(!Strings.isNullOrEmpty(path));
+    this.logStream = logStream;
     this.maxMessageLength = maxMessageLength;
     this.byteOffsetInputStream = new ByteOffsetInputStream(
         new RandomAccessFile(path, "r"), readBufferSize);
@@ -105,7 +111,7 @@ public class TextMessageReader implements Closeable {
         // note buffer needs to be copied here to save space
       } else {
         // Skip the current line if we already exceed maxMessageLength.
-        Stats.incr("singer.reader.textMessageReader.bytesSkipped", lineBuffer.position());
+        OpenTsdbMetricConverter.incr("singer.reader.textMessageReader.bytesSkipped", lineBuffer.position(), "log=" + logStream.getSingerLog().getLogName());
       }
       // Read the next line.
       nextStartLine = readLine(maxMessageLength);
@@ -167,7 +173,9 @@ public class TextMessageReader implements Closeable {
       aByte = byteOffsetInputStream.read();
     }
 
-    Stats.incr("singer.reader.textMessageReader.bytesSkipped", bytesSkipped);
+    if (bytesSkipped > 0) {
+      OpenTsdbMetricConverter.incr("singer.reader.textMessageReader.bytesSkipped", bytesSkipped, "log=" + logStream.getSingerLog().getLogName());
+    }
 
     if (aByte == -1) {
       // We have reached eof before the end of the line. There is no complete line remaining in

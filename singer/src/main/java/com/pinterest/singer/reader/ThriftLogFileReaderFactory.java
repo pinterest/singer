@@ -56,6 +56,7 @@ public class ThriftLogFileReaderFactory implements LogFileReaderFactory {
         path = logStream.getLogFilePath(logFile);
       }
       reader = new ThriftLogFileReader(
+          logStream,
           logFile,
           path,
           byteOffset,

@@ -19,8 +19,11 @@ import static org.hamcrest.core.Is.is;
 import static org.junit.Assert.assertThat;
 
 import com.pinterest.singer.SingerTestBase;
+import com.pinterest.singer.common.LogStream;
+import com.pinterest.singer.common.SingerLog;
 import com.pinterest.singer.thrift.LogMessage;
 import com.pinterest.singer.thrift.LogMessageAndPosition;
+import com.pinterest.singer.thrift.configuration.SingerLogConfig;
 import com.pinterest.singer.utils.SimpleThriftLogger;
 
 import com.google.common.collect.Lists;
@@ -52,8 +55,10 @@ public class ThriftLogFileReaderTest extends SingerTestBase {
       logger.close();
     }
 
+    LogStream logStream = new LogStream(new SingerLog(new SingerLogConfig()), "test");
+
     // Open reader which cap the log message at 500 bytes
-    LogFileReader reader = new ThriftLogFileReader(logger.getLogFile(), path, 0L, 16000, 500, null);
+    LogFileReader reader = new ThriftLogFileReader(logStream, logger.getLogFile(), path, 0L, 16000, 500, null);
     int count = 0;
     for (int i = 0; i < 403; i++) {
       try {
@@ -87,8 +92,10 @@ public class ThriftLogFileReaderTest extends SingerTestBase {
       logger.close();
     }
 
+    LogStream logStream = new LogStream(new SingerLog(new SingerLogConfig()), "test");
+
     // Open reader which cap the log message at 500 bytes
-    LogFileReader reader = new ThriftLogFileReader(logger.getLogFile(), path, 0L, 16000, 500, null);
+    LogFileReader reader = new ThriftLogFileReader(logStream, logger.getLogFile(), path, 0L, 16000, 500, null);
     try {
       // Seek to start offset.
       reader.setByteOffset(startOffset);
@@ -104,7 +111,7 @@ public class ThriftLogFileReaderTest extends SingerTestBase {
     }
 
     // Open reader.
-    reader = new ThriftLogFileReader(logger.getLogFile(), path, 0L, 16000, 16000, null);
+    reader = new ThriftLogFileReader(logStream, logger.getLogFile(), path, 0L, 16000, 16000, null);
     List<LogMessageAndPosition> messagesRead = Lists.newArrayListWithExpectedSize(3);
     try {
       // Seek to start offset.
@@ -133,8 +140,10 @@ public class ThriftLogFileReaderTest extends SingerTestBase {
       logger.close();
     }
 
+    LogStream logStream = new LogStream(new SingerLog(new SingerLogConfig()), "test");
+
     // Open reader.
-    ThriftLogFileReader reader = new ThriftLogFileReader(logger.getLogFile(), path, 0L, 16000, 16000,
+    ThriftLogFileReader reader = new ThriftLogFileReader(logStream, logger.getLogFile(), path, 0L, 16000, 16000,
         Collections.singletonMap("test", ByteBuffer.wrap("test_value".getBytes())));
     List<LogMessageAndPosition> messagesRead = Lists.newArrayListWithExpectedSize(3);
     try {
