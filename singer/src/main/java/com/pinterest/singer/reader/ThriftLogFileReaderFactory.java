@@ -17,6 +17,7 @@ package com.pinterest.singer.reader;
 
 import com.pinterest.singer.common.LogStream;
 import com.pinterest.singer.common.SingerMetrics;
+import com.pinterest.singer.common.SingerSettings;
 import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
 import com.pinterest.singer.thrift.LogFile;
 import com.pinterest.singer.thrift.configuration.ThriftReaderConfig;
@@ -62,6 +63,7 @@ public class ThriftLogFileReaderFactory implements LogFileReaderFactory {
           byteOffset,
           readerConfig.getReaderBufferSize(),
           readerConfig.getMaxMessageSize(),
+          SingerUtils.getHostNameBasedOnConfig(logStream, SingerSettings.getSingerConfig()),
           readerConfig.isSetEnvironmentVariables() ?
           new HashMap<>(readerConfig.getEnvironmentVariables()) : null
       );
