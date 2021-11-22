@@ -131,10 +131,22 @@ public class CommittableKafkaWriter extends KafkaWriter {
   public void startCommit() throws LogStreamWriterException {
     committableProducer = KafkaProducerManager.getProducer(producerConfig);
     Preconditions.checkNotNull(committableProducer);
+    List<PartitionInfo> partitions;
+    try {
+      partitions = committableProducer.partitionsFor(topic);
+    } catch (Exception e) {
+      LOG.error("Exception when calling partitionsFor on topic " + topic + ", resetting producer", e);
+      KafkaProducerManager.resetProducer(producerConfig);
+      OpenTsdbMetricConverter.incr("singer.writer.start_commit.error", 1, "topic=" + topic,
+          "host=" + HOSTNAME);
+      OpenTsdbMetricConverter.incr("singer.writer.producer_reset", 1, "topic=" + topic,
+          "host=" + HOSTNAME);
+      throw e;
+    }
+
     if (producerConfig.isTransactionEnabled()) {
       committableProducer.beginTransaction();
     }
-    List<PartitionInfo> partitions = committableProducer.partitionsFor(topic);
 
     committableValidPartitions = partitions;
     if (skipNoLeaderPartitions) {
