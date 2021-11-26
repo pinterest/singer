@@ -187,7 +187,7 @@
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-s3</artifactId>
-            <version>1.11.35</version>
+            <version>1.12.118</version>
         </dependency>
         <dependency>
 		    <groupId>com.salesforce.kafka.test</groupId>
