@@ -296,6 +296,9 @@ public class CommittableKafkaWriter extends KafkaWriter {
     try {
       writerFuture.get();
     } catch (CompletionException | InterruptedException | ExecutionException e) {
+      if (e instanceof InterruptedException) {
+        Thread.currentThread().interrupt();
+      }
       throw new LogStreamWriterException("Failed to write messages to topic " + topic, e);
     }
   }
