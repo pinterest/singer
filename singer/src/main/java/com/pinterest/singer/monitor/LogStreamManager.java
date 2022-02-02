@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedMap;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.TimeUnit;
@@ -474,7 +475,7 @@ public class LogStreamManager implements PodWatcher {
   }
 
   /**
-   * Stop threads inside LogStreamManager 
+   * Stop threads inside LogStreamManager
    */
   public void stop() {
       if(recursiveDirectoryWatcher != null) {
@@ -531,7 +532,7 @@ public class LogStreamManager implements PodWatcher {
               SortedMap<String, Collection<LogStream>> logStreamsForPodPath = dirStreams.subMap(fromKey, toKey);
 
               // iterate through the subMap
-              long maxElapsedTime = checkAndCleanupLogStreams(podUid, logStreamsForPodPath,
+              long maxElapsedTime = checkAndCleanupLogStreamsForPod(podUid, logStreamsForPodPath,
                       SingerSettings.getSingerConfig().getKubeConfig().getDefaultDeletionTimeoutInSeconds());
 
               if(logStreamsForPodPath.size()==0) {
@@ -562,8 +563,34 @@ public class LogStreamManager implements PodWatcher {
       Stats.incr(SingerMetrics.ACTIVE_POD_DELETION_TASKS);
   }
 
+  public CompletableFuture<Void> drainAndStopLogStreams() {
+    CompletableFuture<Void> returnFuture = new CompletableFuture<>();
+    SingerSettings.getBackgroundTaskExecutor().schedule(new Runnable() {
+      @Override
+      public void run() {
+        try {
+          checkAndCleanupLogStreams(SingerSettings.getSingerConfig().getAdminConfig()
+              .getDefaultDeletionTimeoutInSeconds());
+          if (getLogStreams().size() != 0) {
+            // reschedule itself again for review in a few seconds
+            SingerSettings.getBackgroundTaskExecutor().schedule(this,
+                SingerSettings.getSingerConfig().getAdminConfig()
+                    .getDeletionCheckIntervalInSeconds(), TimeUnit.SECONDS);
+            LOG.debug("Rescheduling cleanup check");
+          } else {
+            LOG.info("Done");
+            returnFuture.complete(null);
+          }
+        } catch (Exception e) {
+          returnFuture.completeExceptionally(e);
+        }
+      }
+    }, 0, TimeUnit.MILLISECONDS);
+    return returnFuture;
+  }
+
   /**
-   * Check if the supplied logstreams can be removed because there have been no new events for the supplied 
+   * Check if the supplied logstreams can be removed because there have been no new events for the supplied
    * deletion timeout.
    *
    * Context: When a pod is stopped there still may be un-flushed data i.e. data that has not yet been
@@ -576,7 +603,7 @@ public class LogStreamManager implements PodWatcher {
    * @param deletionTimeout
    * @return
    */
-  private long checkAndCleanupLogStreams(final String podUid, SortedMap<String, Collection<LogStream>> subMap,
+  private long checkAndCleanupLogStreamsForPod(final String podUid, SortedMap<String, Collection<LogStream>> subMap,
           int deletionTimeout) {
       long maxDeltaTime = 0;
       for (Iterator<Entry<String, Collection<LogStream>>> dirStreamEntryIterator = subMap.entrySet().iterator(); dirStreamEntryIterator.hasNext();) {
@@ -608,6 +635,36 @@ public class LogStreamManager implements PodWatcher {
           LOG.info("For POD(" + podUid + ") Path logstream stream remaining:" + entry.getValue().size());
       }
       return maxDeltaTime;
+  }
+
+  private long checkAndCleanupLogStreams(int deletionTimeout) {
+    long maxDeltaTime = 0;
+    Map<String, Collection<LogStream>> map = getDirStreams();
+    for (Iterator<Entry<String, Collection<LogStream>>> dirStreamEntryIterator = map.entrySet().iterator(); dirStreamEntryIterator.hasNext();) {
+      Entry<String, Collection<LogStream>> entry = dirStreamEntryIterator.next();
+      for (Iterator<LogStream> logStreamIterator = entry.getValue().iterator(); logStreamIterator.hasNext();) {
+        LogStream logStream = logStreamIterator.next();
+        // if we have exceeded the timeout then remove this logstream
+        // completed cycle time is updated by DefaultLogMonitor
+        long lastCompleteCycleTime = logStream.getLastCompleteCycleTime();
+        long latestPivotTimestamp = Math.max(logStream.getLatestProcessedMessageTime(), lastCompleteCycleTime);
+        long latency = Math.max(logStream.getLastStreamModificationTime() - latestPivotTimestamp, 0);
+        long deltaTimeInSeconds = (System.currentTimeMillis() - logStream.getLastStreamModificationTime()) / 1000;
+        LOG.info("latency: " + latency);
+        if (latency == 0 && deltaTimeInSeconds > deletionTimeout) {
+          // Clearing all logpaths inside this logstream will make DefaultLogMonitor stop
+          // corresponding log processors in next iteration (log message: "Start monitoring cycle")
+          logStream.clearAllLogPaths();
+          LOG.info("Cleared all log paths in logstream(" + logStream + ")");
+          logStreamIterator.remove();
+        }
+        maxDeltaTime = Math.max(deltaTimeInSeconds, maxDeltaTime);
+      }
+      if (entry.getValue().isEmpty()) {
+        dirStreamEntryIterator.remove();
+      }
+    }
+    return maxDeltaTime;
   }
 
   /**
