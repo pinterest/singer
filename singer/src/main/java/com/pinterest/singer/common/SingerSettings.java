@@ -15,6 +15,7 @@
  */
 package com.pinterest.singer.common;
 
+import com.pinterest.singer.admin.AdminServer;
 import com.pinterest.singer.common.errors.SingerLogException;
 import com.pinterest.singer.config.SingerDirectoryWatcher;
 import com.pinterest.singer.environment.Environment;
@@ -33,6 +34,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -207,7 +209,13 @@ public final class SingerSettings {
         instance.start();
       }
     }
-    
+
+    if (singerConfig != null && singerConfig.isAdminEnabled()) {
+      LOG.info("AdminServer is enabled");
+      new File(singerConfig.getAdminConfig().getSocketFile()).getParentFile().mkdirs();
+      AdminServer.getInstance(singerConfig.getAdminConfig()).start();
+    }
+
     if (singerConfig != null && singerConfig.isSetLogMonitorConfig()) {
       LOG.info("Log monitor started");
       int monitorIntervalInSecs = singerConfig.getLogMonitorConfig().getMonitorIntervalInSecs();

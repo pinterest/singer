@@ -261,6 +261,30 @@ struct KubeConfig {
 
 }
 
+struct AdminConfig {
+
+  /**
+   * socket file of the admin server
+   */
+  1: optional string socketFile = "/tmp/singer/admin.sock"
+
+  /**
+   * allowed uids
+   */
+  2: optional list<i64> allowedUids = [0]
+
+  /**
+  *
+  */
+  3: optional i32 defaultDeletionTimeoutInSeconds = 3600;
+
+  /**
+   *
+   */
+  4: optional i32 deletionCheckIntervalInSeconds = 20;
+
+}
+
 /**
  * The singer config, synthesized from both the singer's own config and possible user config files.
  */
@@ -374,5 +398,12 @@ struct SingerConfig {
    */
 
   24: optional string configOverrideDir;
+
+  25: optional bool adminEnabled = false;
+
+  /**
+  *  Admin server configs
+  */
+  26: optional AdminConfig adminConfig;
 
 }

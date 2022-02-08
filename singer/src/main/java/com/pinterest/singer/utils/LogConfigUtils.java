@@ -25,6 +25,7 @@ import com.pinterest.singer.loggingaudit.thrift.LoggingAuditStage;
 import com.pinterest.singer.loggingaudit.thrift.configuration.LoggingAuditClientConfig;
 import com.pinterest.singer.loggingaudit.thrift.configuration.AuditConfig;
 import com.pinterest.singer.metrics.StatsPusher;
+import com.pinterest.singer.thrift.configuration.AdminConfig;
 import com.pinterest.singer.thrift.configuration.NoOpWriteConfig;
 import com.pinterest.singer.thrift.configuration.FileNameMatchMode;
 import com.pinterest.singer.thrift.configuration.HeartbeatWriterConfig;
@@ -99,6 +100,7 @@ import java.util.Iterator;
 import java.io.StringReader;
 import java.util.HashSet;
 import java.util.Arrays;
+import java.util.stream.Collectors;
 
 /**
  * Utility class for parsing singer related config file. The following is a
@@ -185,6 +187,13 @@ public class LogConfigUtils {
       errors.add(e.getMessage());
     }
 
+    try {
+      if(result.isAdminEnabled()) {
+        result.setAdminConfig(parseAdminConfig(new SubsetConfiguration(configHeader, SingerConfigDef.SINGER_ADMIN_CONFIG_PREFIX)));
+      }
+    } catch (ConfigurationException e) {
+      errors.add(e.getMessage());
+    }
     // check if heartbeat is enabled, don't auto enable if configuration is set
     // by default heartbeat is enabled in thrift so it will need to be explicitly
     // disabled
@@ -269,7 +278,28 @@ public class LogConfigUtils {
     }
     return config;
   }
-  
+
+  private static AdminConfig parseAdminConfig(SubsetConfiguration configuration) throws ConfigurationException {
+    AdminConfig adminConfig = new AdminConfig();
+    if (configuration.containsKey(SingerConfigDef.ADMIN_SOCKET_FILE)) {
+      adminConfig.setSocketFile(configuration.getString(SingerConfigDef.ADMIN_SOCKET_FILE));
+    }
+
+    if (configuration.containsKey(SingerConfigDef.ADMIN_ALLOWED_UIDS)) {
+      List<Long> allowedUids = Arrays.stream(configuration.getString(SingerConfigDef.ADMIN_ALLOWED_UIDS).split(",")).map(Long::parseLong).collect(Collectors.toList());
+      adminConfig.setAllowedUids(allowedUids);
+    }
+
+    if (configuration.containsKey(SingerConfigDef.ADMIN_DEFAULT_DELETION_TIMEOUT)) {
+      adminConfig.setDefaultDeletionTimeoutInSeconds(configuration.getInt(SingerConfigDef.ADMIN_DEFAULT_DELETION_TIMEOUT));
+    }
+
+    if (configuration.containsKey(SingerConfigDef.ADMIN_DELETION_CHECK_INTERVAL)) {
+      adminConfig.setDeletionCheckIntervalInSeconds(configuration.getInt(SingerConfigDef.ADMIN_DELETION_CHECK_INTERVAL));
+    }
+    return adminConfig;
+  }
+
   public static MemqWriterConfig parseMemqWriterConfig(SubsetConfiguration configuration) throws ConfigurationException {
     configuration.setThrowExceptionOnMissing(false);
     MemqWriterConfig config = new MemqWriterConfig();
@@ -586,6 +616,10 @@ public class LogConfigUtils {
 
     if (singerConfiguration.containsKey("kubernetesEnabled")) {
       singerConfig.setKubernetesEnabled(singerConfiguration.getBoolean("kubernetesEnabled"));
+    }
+
+    if (singerConfiguration.containsKey("adminEnabled")) {
+      singerConfig.setAdminEnabled(singerConfiguration.getBoolean("adminEnabled"));
     }
 
     if (singerConfiguration.containsKey("heartbeatEnabled")) {
