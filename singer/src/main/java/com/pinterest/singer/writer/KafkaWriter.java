@@ -154,10 +154,10 @@ public class KafkaWriter implements LogStreamWriter {
     this.producerConfig = producerConfig;
     // cache the class and instance instead of doing reflections each time 
     try {
-      @SuppressWarnings("unchecked")
-      Class<KafkaMessagePartitioner> partitionerClass 
-            = (Class<KafkaMessagePartitioner>) Class.forName(partitionerClassName);
-      partitioner = partitionerClass.getConstructor().newInstance();
+      partitioner = Class.forName(partitionerClassName).asSubclass(KafkaMessagePartitioner.class).newInstance();
+      if (producerConfig.isSetPartitionerConfigs()) {
+        partitioner.configure(producerConfig.getPartitionerConfigs());
+      }
     } catch (Exception e) {
       LOG.error("Invalid partitioner configuration", e);
       throw e;
