@@ -31,4 +31,5 @@ struct KafkaProducerConfig {
  13: optional i32 retries = 5;
  14: optional i32 bufferMemory = 33554432;
  15: optional i32 lingerMs = 10;
+ 16: optional map<string, string> partitionerConfigs;
 }

@@ -16,6 +16,7 @@
 package com.pinterest.singer.writer;
 
 import java.util.List;
+import java.util.Map;
 
 import org.apache.kafka.common.PartitionInfo;
 
@@ -27,7 +28,9 @@ import org.apache.kafka.common.PartitionInfo;
  * - Returned partition id must be absolute
  */
 public interface KafkaMessagePartitioner {
-  
-  public int partition(Object messageKey, List<PartitionInfo> partitions);
+  default void configure(Map<String, String> partitionerConfig) {
+
+  }
+  int partition(Object messageKey, List<PartitionInfo> partitions);
 
 }

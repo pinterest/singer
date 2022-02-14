@@ -66,6 +66,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
+import java.util.Collections;
 import java.util.HashMap;
 import org.apache.commons.configuration.AbstractConfiguration;
 import org.apache.commons.configuration.Configuration;
@@ -921,6 +922,18 @@ public class LogConfigUtils {
             "Unknown partitioner class: " + partitionClass);
       }
       kafkaProducerConfig.setPartitionerClass(partitionClass);
+      Iterator<String> partitionerConfigKeys = producerConfiguration.getKeys("partitioner");
+      Map<String, String> partitionerConfigs = null;
+      while (partitionerConfigKeys.hasNext()) {
+        String partitionerConfigKey = partitionerConfigKeys.next();
+        if (partitionerConfigs == null) partitionerConfigs = new HashMap<>();
+        partitionerConfigs.put(partitionerConfigKey, producerConfiguration.getString(partitionerConfigKey));
+      }
+      if (partitionerConfigs != null) {
+        kafkaProducerConfig.setPartitionerConfigs(partitionerConfigs);
+      } else {
+        kafkaProducerConfig.setPartitionerConfigs(Collections.emptyMap());
+      }
     } else {
       kafkaProducerConfig.setPartitionerClass(SingerConfigDef.DEFAULT_PARTITIONER);
     }
