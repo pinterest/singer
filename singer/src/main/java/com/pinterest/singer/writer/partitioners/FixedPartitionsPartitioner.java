@@ -40,7 +40,6 @@ public class FixedPartitionsPartitioner implements KafkaMessagePartitioner {
   private static final Logger logger = LoggerFactory.getLogger(FixedPartitionsPartitioner.class);
 
   private final Map<Integer, List<Integer>> partitionMap = new HashMap<>();
-  private final ThreadLocalRandom random = ThreadLocalRandom.current();
   private int partitionCount = 1;
 
 
@@ -62,9 +61,9 @@ public class FixedPartitionsPartitioner implements KafkaMessagePartitioner {
     if (!partitionMap.containsKey(numOfPartitions)){
       List<Integer> selectedPartitions = new ArrayList<>();
       while (selectedPartitions.size() < Math.min(partitionCount, numOfPartitions)) {
-        int selectedPartition = Math.abs(random.nextInt(numOfPartitions));
+        int selectedPartition = Math.abs(ThreadLocalRandom.current().nextInt(numOfPartitions));
         while (selectedPartitions.contains(selectedPartition)) {
-          selectedPartition = Math.abs(random.nextInt(numOfPartitions));
+          selectedPartition = Math.abs(ThreadLocalRandom.current().nextInt(numOfPartitions));
         }
         selectedPartitions.add(selectedPartition);
       }
@@ -72,6 +71,6 @@ public class FixedPartitionsPartitioner implements KafkaMessagePartitioner {
       logger.info("For " + numOfPartitions + " partitions, delivering to partitions " + selectedPartitions.stream().map(Object::toString).collect(Collectors.joining(" ")));
     }
     List<Integer> listOfPartitions = partitionMap.get(numOfPartitions);
-    return listOfPartitions.get(random.nextInt(listOfPartitions.size()));
+    return listOfPartitions.get(ThreadLocalRandom.current().nextInt(listOfPartitions.size()));
   }
 }
