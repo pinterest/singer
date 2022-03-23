@@ -166,14 +166,14 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
       }
     }
 
-    writer.startCommit();
+    writer.startCommit(false);
 
     LogFile logFile = new LogFile(1L);
     int byteOffset = 0;
     for (LogMessage msg : logMessages) {
       LogPosition position = new LogPosition(logFile, byteOffset++);
       LogMessageAndPosition pos = new LogMessageAndPosition(msg, position);
-      writer.writeLogMessageToCommit(pos);
+      writer.writeLogMessageToCommit(pos, false);
     }
     Map<Integer, KafkaWritingTaskFuture> commitableBuckets = writer.getCommittableBuckets();
     for (int partitionId = 0; partitionId < partitions.size(); partitionId++) {
@@ -197,7 +197,7 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
       }
     }
 
-    writer.endCommit(logMessages.size());
+    writer.endCommit(logMessages.size(), false);
     // validate if writes are throwing any error
     writer.close();
   }
@@ -301,13 +301,13 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
       }
     }
 
-    writer.startCommit();
+    writer.startCommit(false);
 
     int byteOffset = 0;
     for (LogMessage msg : logMessages) {
       LogPosition position = new LogPosition(logFile, byteOffset++);
       LogMessageAndPosition pos = new LogMessageAndPosition(msg, position);
-      writer.writeLogMessageToCommit(pos);
+      writer.writeLogMessageToCommit(pos, false);
     }
     Map<Integer, KafkaWritingTaskFuture> commitableBuckets = writer.getCommittableBuckets();
     for (int partitionId = 0; partitionId < partitions.size(); partitionId++) {
@@ -331,7 +331,7 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
       }
     }
 
-    writer.endCommit(logMessages.size());
+    writer.endCommit(logMessages.size(), false);
     // validate if writes are throwing any error
     writer.close();
   }
@@ -382,11 +382,11 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
     Set<LoggingAuditHeaders> invalidMessageSet = new HashSet<>();
     corruptLogMessages(logMessages, invalidMessageSet, 0.8);
 
-    writer.startCommit();
+    writer.startCommit(false);
 
     for (LogMessage msg : logMessages) {
       writer.writeLogMessageToCommit(
-          new LogMessageAndPosition(msg, new LogPosition(new LogFile(1L), 0L)));
+          new LogMessageAndPosition(msg, new LogPosition(new LogFile(1L), 0L)), false);
     }
     Map<Integer, KafkaWritingTaskFuture> commitableBuckets = writer.getCommittableBuckets();
     int numMessagesWritten = 0;
@@ -399,7 +399,7 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
     int expectedNumMessages = logMessages.size() - invalidMessageSet.size();
     assertEquals(expectedNumMessages, numMessagesWritten);
 
-    writer.endCommit(expectedNumMessages);
+    writer.endCommit(expectedNumMessages, false);
     // validate if writes are throwing any error
     writer.close();
   }
@@ -432,11 +432,11 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
     populateLogMessagesForLoggingAuditTests(logMessages, trackedMessageSet, true, 0.65);
     Set<LoggingAuditHeaders> invalidMessageSet = new HashSet<>();
     corruptLogMessages(logMessages, invalidMessageSet, 0.8);
-    writer.startCommit();
+    writer.startCommit(false);
 
     for (LogMessage msg : logMessages) {
       writer.writeLogMessageToCommit(
-          new LogMessageAndPosition(msg, new LogPosition(new LogFile(1L), 0L)));
+          new LogMessageAndPosition(msg, new LogPosition(new LogFile(1L), 0L)), false);
     }
     Map<Integer, KafkaWritingTaskFuture> commitableBuckets = writer.getCommittableBuckets();
     int numMessagesWritten = 0;
@@ -447,7 +447,7 @@ public class TestCommittableKafkaWriter extends SingerTestBase {
       numMessagesWritten += recordMetadataList.size();
     }
     assertEquals(logMessages.size(), numMessagesWritten);
-    writer.endCommit(logMessages.size());
+    writer.endCommit(logMessages.size(), false);
     // validate if writes are throwing any error
     writer.close();
   }
