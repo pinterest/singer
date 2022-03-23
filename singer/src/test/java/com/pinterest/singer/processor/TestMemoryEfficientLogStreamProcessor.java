@@ -93,11 +93,12 @@ public class TestMemoryEfficientLogStreamProcessor extends com.pinterest.singer.
     }
 
     @Override
-    public void startCommit() throws LogStreamWriterException {
+    public void startCommit(boolean isDraining) throws LogStreamWriterException {
     }
 
     @Override
-    public void writeLogMessageToCommit(LogMessageAndPosition logMessageAndPosition) throws LogStreamWriterException {
+    public void writeLogMessageToCommit(LogMessageAndPosition logMessageAndPosition,
+                                        boolean isDraining) throws LogStreamWriterException {
       if (throwOnWrite) {
         throw new LogStreamWriterException("Write error");
       } else {
@@ -106,7 +107,7 @@ public class TestMemoryEfficientLogStreamProcessor extends com.pinterest.singer.
     }
 
     @Override
-    public void endCommit(int numLogMessagesRead) throws LogStreamWriterException {
+    public void endCommit(int numLogMessagesRead, boolean isDraining) throws LogStreamWriterException {
       if (throwOnWrite) {
         throw new LogStreamWriterException("Write error");
       }

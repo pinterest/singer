@@ -26,6 +26,7 @@ import com.pinterest.singer.common.LogStream;
 import com.pinterest.singer.common.LogStreamReader;
 import com.pinterest.singer.common.LogStreamWriter;
 import com.pinterest.singer.common.errors.LogStreamWriterException;
+import com.pinterest.singer.monitor.LogStreamManager;
 import com.pinterest.singer.thrift.LogMessage;
 import com.pinterest.singer.thrift.LogMessageAndPosition;
 import com.pinterest.singer.thrift.LogPosition;
@@ -71,6 +72,7 @@ public class MemoryEfficientLogStreamProcessor extends DefaultLogStreamProcessor
     int logMessagesRead = 0;
     // Read a batch of LogMessages.
     LogMessageAndPosition logMessageAndPosition = null;
+    boolean isDraining = LogStreamManager.getInstance().isDraining();
     for (int i = 0; i < this.batchSize; ++i) {
       try {
         // use a tmp variable to preserve valid last read message
@@ -100,7 +102,7 @@ public class MemoryEfficientLogStreamProcessor extends DefaultLogStreamProcessor
       // this situation can happen if there is partial write success
       if (i == 0) {
         // because there is some data to read we need to prepare the commit
-        writer.startCommit();
+        writer.startCommit(isDraining);
       }
       emitMessageSizeMetrics(logStream, logMessageAndPosition.getLogMessage());
       
@@ -108,12 +110,12 @@ public class MemoryEfficientLogStreamProcessor extends DefaultLogStreamProcessor
           && deciderValue <= ThreadLocalRandom.current().nextInt(FULL_THROUGHPUT)) {
         continue;
       }
-      writer.writeLogMessageToCommit(logMessageAndPosition);
+      writer.writeLogMessageToCommit(logMessageAndPosition, isDraining);
     }
 
     if (logMessagesRead > 0) {
       // Write the batch of LogMessages.
-      writer.endCommit(logMessagesRead);
+      writer.endCommit(logMessagesRead, isDraining);
 
       LogMessage lastMessage = logMessageAndPosition.getLogMessage();
       if (lastMessage.isSetTimestampInNanos()) {

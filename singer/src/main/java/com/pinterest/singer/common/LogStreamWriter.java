@@ -52,34 +52,38 @@ public interface LogStreamWriter extends Closeable {
   default boolean isCommittableWriter() {
     return false;
   }
-  
+
   /**
    * Start a new commit and run any pre-commit steps
    * @throws LogStreamWriterException
+   * @param isDraining
    */
-  default void startCommit() throws LogStreamWriterException {
+  default void startCommit(boolean isDraining) throws LogStreamWriterException {
     throw new UnsupportedOperationException();
   }
 
   /**
    * Send 1 LogMessage to the writer, note that writer is expected to not finalize
    * the messages until the commit method is invoked
-   * 
+   *
    * @param logMessageAndPosition
+   * @param isDraining
    * @throws LogStreamWriterException
    */
-  default void writeLogMessageToCommit(LogMessageAndPosition logMessageAndPosition) throws LogStreamWriterException {
+  default void writeLogMessageToCommit(LogMessageAndPosition logMessageAndPosition,
+                                       boolean isDraining) throws LogStreamWriterException {
     throw new UnsupportedOperationException();
   }
 
   /**
-   * Commit all logmessages written using {@link LogStreamWriter#writeCommittableLogMessage}
-   * 
+   * Commit all logmessages written using {@link LogStreamWriter#writeLogMessageToCommit}
+   *
    * NOTE: by default this method throws UnsupportedOperationException
-   * @param numLogMessagesRead 
+   * @param numLogMessagesRead
+   * @param isDraining
    * @throws LogStreamWriterException
    */
-  default void endCommit(int numLogMessagesRead) throws LogStreamWriterException {
+  default void endCommit(int numLogMessagesRead, boolean isDraining) throws LogStreamWriterException {
     throw new UnsupportedOperationException();
   }
 }

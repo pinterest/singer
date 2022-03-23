@@ -36,6 +36,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -91,6 +92,7 @@ public class LogStreamManager implements PodWatcher {
    * MissingDirChecker will access it.
    */
   private final Map<SingerLog, String> singerLogsWithoutDir = new ConcurrentHashMap<>();
+  private AtomicBoolean draining = new AtomicBoolean(false);
 
   /**
    * This needs to be threadsafe since pods are dynamically created and new LogStreams
@@ -565,6 +567,7 @@ public class LogStreamManager implements PodWatcher {
 
   public CompletableFuture<Void> drainAndStopLogStreams() {
     CompletableFuture<Void> returnFuture = new CompletableFuture<>();
+    draining.set(true);
     SingerSettings.getBackgroundTaskExecutor().schedule(new Runnable() {
       @Override
       public void run() {
@@ -715,5 +718,10 @@ public class LogStreamManager implements PodWatcher {
    */
   public SortedMap<String, Collection<LogStream>> getDirStreams() {
     return dirStreams;
+  }
+
+
+  public boolean isDraining() {
+    return draining.get();
   }
 }

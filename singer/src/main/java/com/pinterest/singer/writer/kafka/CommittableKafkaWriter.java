@@ -128,7 +128,7 @@ public class CommittableKafkaWriter extends KafkaWriter {
   }
 
   @Override
-  public void startCommit() throws LogStreamWriterException {
+  public void startCommit(boolean isDraining) throws LogStreamWriterException {
     committableProducer = KafkaProducerManager.getProducer(producerConfig);
     Preconditions.checkNotNull(committableProducer);
     List<PartitionInfo> partitions;
@@ -138,9 +138,9 @@ public class CommittableKafkaWriter extends KafkaWriter {
       LOG.error("Exception when calling partitionsFor on topic " + topic + ", resetting producer", e);
       KafkaProducerManager.resetProducer(producerConfig);
       OpenTsdbMetricConverter.incr("singer.writer.start_commit.error", 1, "topic=" + topic,
-          "host=" + HOSTNAME);
+          "host=" + HOSTNAME, "drain=" + isDraining);
       OpenTsdbMetricConverter.incr("singer.writer.producer_reset", 1, "topic=" + topic,
-          "host=" + HOSTNAME);
+          "host=" + HOSTNAME, "drain=" + isDraining);
       throw e;
     }
 
@@ -177,7 +177,7 @@ public class CommittableKafkaWriter extends KafkaWriter {
   }
 
   @Override
-  public void writeLogMessageToCommit(LogMessageAndPosition message) throws LogStreamWriterException {
+  public void writeLogMessageToCommit(LogMessageAndPosition message, boolean isDraining) throws LogStreamWriterException {
     LogMessage msg = message.getLogMessage();
     ProducerRecord<byte[], byte[]> keyedMessage;
     byte[] key = null;
@@ -236,7 +236,7 @@ public class CommittableKafkaWriter extends KafkaWriter {
   }
 
   @Override
-  public void endCommit(int numLogMessages) throws LogStreamWriterException {
+  public void endCommit(int numLogMessages, boolean isDraining) throws LogStreamWriterException {
     committableProducer.flush();
 
     List<CompletableFuture<Integer>> bucketFutures = new ArrayList<>();
@@ -255,7 +255,7 @@ public class CommittableKafkaWriter extends KafkaWriter {
       CompletableFuture<Integer> bucketFuture = CompletableFuture.allOf(futureList.toArray(new CompletableFuture[0]))
           .handleAsync((v, t) -> {
             if (t != null) {
-              handleBucketException(leaderNode, size, t);
+              handleBucketException(leaderNode, size, isDraining, t);
               if (t instanceof RuntimeException) {
                 throw (RuntimeException) t;
               } else {
@@ -266,9 +266,9 @@ public class CommittableKafkaWriter extends KafkaWriter {
             // we shouldn't have latency greater than 2B milliseconds so it should be okay
             // to downcast to integer
             OpenTsdbMetricConverter.incrGranular(SingerMetrics.BROKER_WRITE_SUCCESS, 1,
-                "broker=" + leaderNode);
+                "broker=" + leaderNode, "drain=" + isDraining);
             OpenTsdbMetricConverter.addGranularMetric(SingerMetrics.BROKER_WRITE_LATENCY,
-                kafkaLatency, "broker=" + leaderNode);
+                kafkaLatency, "broker=" + leaderNode, "drain=" + isDraining);
             return kafkaLatency;
           });
       bucketFutures.add(bucketFuture);
@@ -286,10 +286,10 @@ public class CommittableKafkaWriter extends KafkaWriter {
         .whenComplete(
             (v, t) -> {
               if (t != null) {
-                handleBatchException(numLogMessages, t);
+                handleBatchException(numLogMessages, isDraining, t);
               } else {
                 timerTask.cancel(true);
-                onBatchComplete(numLogMessages, bucketFutures);
+                onBatchComplete(numLogMessages, bucketFutures, isDraining);
               }
             }
         );
@@ -303,25 +303,25 @@ public class CommittableKafkaWriter extends KafkaWriter {
     }
   }
 
-  private void handleBucketException(int leaderNode, int size, Throwable t) {
+  private void handleBucketException(int leaderNode, int size, boolean isDraining, Throwable t) {
     if (t instanceof org.apache.kafka.common.errors.RecordTooLargeException) {
       LOG.error("Kafka write failure due to excessively large message size", t);
       OpenTsdbMetricConverter.incr(SingerMetrics.OVERSIZED_MESSAGES, 1, "topic=" + topic,
-          "host=" + KafkaWriter.HOSTNAME);
+          "host=" + KafkaWriter.HOSTNAME, "drain=" + isDraining);
     } else if (t instanceof org.apache.kafka.common.errors.SslAuthenticationException) {
       LOG.error("Kafka write failure due to SSL authentication failure", t);
       OpenTsdbMetricConverter.incr(SingerMetrics.WRITER_SSL_EXCEPTION, 1, "topic=" + topic,
-          "host=" + KafkaWriter.HOSTNAME);
+          "host=" + KafkaWriter.HOSTNAME, "drain=" + isDraining);
     } else if (t instanceof Exception) {
       LOG.error("Failed to write " + size + " messages to kafka", t);
       OpenTsdbMetricConverter.incr(SingerMetrics.WRITE_FAILURE, 1, "topic=" + topic,
-          "host=" + KafkaWriter.HOSTNAME);
+          "host=" + KafkaWriter.HOSTNAME, "drain=" + isDraining);
       OpenTsdbMetricConverter.incrGranular(SingerMetrics.BROKER_WRITE_FAILURE, 1,
-          "broker=" + leaderNode);
+          "broker=" + leaderNode, "drain=" + isDraining);
     }
   }
 
-  private void onBatchComplete(int numLogMessages, List<CompletableFuture<Integer>> bucketFutures) {
+  private void onBatchComplete(int numLogMessages, List<CompletableFuture<Integer>> bucketFutures, boolean isDraining) {
     int bytesWritten = 0;
     for (Entry<Integer, KafkaWritingTaskFuture> entry : committableBuckets.entrySet()) {
       List<CompletableFuture<RecordMetadata>> futureList = entry.getValue().getRecordMetadataList();
@@ -342,10 +342,10 @@ public class CommittableKafkaWriter extends KafkaWriter {
       OpenTsdbMetricConverter.incr(SingerMetrics.NUM_COMMITED_TRANSACTIONS, 1, "topic=" + topic,
           "host=" + HOSTNAME, "logname=" + logName);
     }
-    updateWriteSuccessMetrics(numLogMessages, bytesWritten, maxKafkaBatchWriteLatency);
+    updateWriteSuccessMetrics(numLogMessages, bytesWritten, maxKafkaBatchWriteLatency, isDraining);
   }
 
-  private void handleBatchException(int numLogMessages, Throwable t) {
+  private void handleBatchException(int numLogMessages, boolean isDraining, Throwable t) {
     LOG.error("Caught exception when write " + numLogMessages + " messages to producer.", t);
 
     SingerRestartConfig restartConfig = SingerSettings.getSingerConfig().singerRestartConfig;
@@ -356,10 +356,10 @@ public class CommittableKafkaWriter extends KafkaWriter {
     if (producerConfig.isTransactionEnabled()) {
       committableProducer.abortTransaction();
       OpenTsdbMetricConverter.incr(SingerMetrics.NUM_ABORTED_TRANSACTIONS, 1, "topic=" + topic,
-          "host=" + HOSTNAME, "logname=" + logName);
+          "host=" + HOSTNAME, "logname=" + logName, "drain=" + isDraining);
     }
     KafkaProducerManager.resetProducer(producerConfig);
-    updateWriteFailureMetrics(numLogMessages);
+    updateWriteFailureMetrics(numLogMessages, isDraining);
     throw new CompletionException("Failed to write messages to topic " + topic, t);
   }
 
@@ -370,26 +370,26 @@ public class CommittableKafkaWriter extends KafkaWriter {
     }
   }
 
-  private void updateWriteFailureMetrics(int numLogMessages) {
+  private void updateWriteFailureMetrics(int numLogMessages, boolean isDraining) {
     OpenTsdbMetricConverter.incr("singer.writer.producer_reset", 1, "topic=" + topic,
-        "host=" + HOSTNAME);
+        "host=" + HOSTNAME, "drain=" + isDraining);
     OpenTsdbMetricConverter.incr("singer.writer.num_kafka_messages_delivery_failure",
-        numLogMessages, "topic=" + topic, "host=" + HOSTNAME, "logname=" + logName);
+        numLogMessages, "topic=" + topic, "host=" + HOSTNAME, "logname=" + logName, "drain=" + isDraining);
     OpenTsdbMetricConverter.incr(SingerMetrics.SINGER_WRITER
-        + "num_committable_kafka_messages_delivery_failure", numLogMessages,
-        "topic=" + topic, "host=" + HOSTNAME, "logname=" + logName);
+            + "num_committable_kafka_messages_delivery_failure", numLogMessages,
+        "topic=" + topic, "host=" + HOSTNAME, "logname=" + logName, "drain=" + isDraining);
   }
 
-  private void updateWriteSuccessMetrics(int numLogMessages, int bytesWritten, int maxKafkaBatchWriteLatency) {
+  private void updateWriteSuccessMetrics(int numLogMessages, int bytesWritten, int maxKafkaBatchWriteLatency, boolean isDraining) {
     OpenTsdbMetricConverter.gauge(SingerMetrics.KAFKA_THROUGHPUT, bytesWritten, "topic=" + topic,
-        "host=" + HOSTNAME, "logname=" + logName);
+        "host=" + HOSTNAME, "logname=" + logName, "drain=" + isDraining);
     OpenTsdbMetricConverter.gauge(SingerMetrics.KAFKA_LATENCY, maxKafkaBatchWriteLatency,
-        "topic=" + topic, "host=" + HOSTNAME, "logname=" + logName);
+        "topic=" + topic, "host=" + HOSTNAME, "logname=" + logName, "drain=" + isDraining);
     OpenTsdbMetricConverter.incr(SingerMetrics.NUM_KAFKA_MESSAGES, numLogMessages,
-        "topic=" + topic, "host=" + HOSTNAME, "logname=" + logName);
+        "topic=" + topic, "host=" + HOSTNAME, "logname=" + logName, "drain=" + isDraining);
     OpenTsdbMetricConverter.incr(SingerMetrics.SINGER_WRITER
-        + "num_committable_kafka_messages_delivery_success", numLogMessages,
-        "topic=" + topic, "host=" + HOSTNAME, "logname=" + logName);
+            + "num_committable_kafka_messages_delivery_success", numLogMessages,
+        "topic=" + topic, "host=" + HOSTNAME, "logname=" + logName, "drain=" + isDraining);
   }
 
   @Override
