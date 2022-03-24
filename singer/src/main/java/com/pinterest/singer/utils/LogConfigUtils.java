@@ -563,6 +563,10 @@ public class LogConfigUtils {
          config.setEnableLoggingAudit(false);
       }
     }
+
+    if (logConfiguration.containsKey(SingerConfigDef.SKIP_DRAINING)) {
+      config.setSkipDraining(logConfiguration.getBoolean(SingerConfigDef.SKIP_DRAINING));
+    }
     
     ts = System.currentTimeMillis() - ts;
     LOG.debug("Loaded:"+logName+" configuration in "+ts+"ms");
