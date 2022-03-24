@@ -100,4 +100,5 @@ public class SingerConfigDef {
   public static final int DEFAULT_READER_BUFFER_SIZE = 10240;
 
   public static final String PROCESS_BATCH_SIZE = "batchSize";
+  public static final String SKIP_DRAINING = "skipDraining";
 }

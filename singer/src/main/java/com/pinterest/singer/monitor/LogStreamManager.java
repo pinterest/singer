@@ -647,6 +647,12 @@ public class LogStreamManager implements PodWatcher {
       Entry<String, Collection<LogStream>> entry = dirStreamEntryIterator.next();
       for (Iterator<LogStream> logStreamIterator = entry.getValue().iterator(); logStreamIterator.hasNext();) {
         LogStream logStream = logStreamIterator.next();
+        if (logStream.getSingerLog().getSingerLogConfig().isSkipDraining()) {
+          // don't track this logstream during draining
+          LOG.info("Skip draining " + logStream);
+          logStreamIterator.remove();
+          continue;
+        }
         // if we have exceeded the timeout then remove this logstream
         // completed cycle time is updated by DefaultLogMonitor
         long lastCompleteCycleTime = logStream.getLastCompleteCycleTime();

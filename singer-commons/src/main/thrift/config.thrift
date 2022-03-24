@@ -212,6 +212,11 @@ struct SingerLogConfig {
    *  audit configuration for the logStreams created from this SingerLogConfig
    */
   13: optional loggingaudit_config.AuditConfig auditConfig;
+
+  /**
+   *  this log will be skipped directly when draining is enabled
+   */
+  14: optional bool skipDraining = false;
 }
 
 /**
