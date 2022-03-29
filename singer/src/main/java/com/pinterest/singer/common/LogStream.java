@@ -169,8 +169,12 @@ public class LogStream {
       logFilePaths.clear();
       logFilePathsIndex.clear();
       for (File entry : logFiles) {
-        long inode = SingerUtils.getFileInode(entry.toPath());
-        append(new LogFile(inode), entry.toPath().toString());
+        try {
+          long inode = SingerUtils.getFileInode(entry.toPath());
+          append(new LogFile(inode), entry.toPath().toString());
+        } catch (Exception e) {
+          LOG.warn("Could not parse inode of file " + entry.toPath() + ", dropping it from logstream " + this);
+        }
       }
     }
     OpenTsdbMetricConverter.incr(SingerMetrics.LOGSTREAM_INITIALIZE, 1,
