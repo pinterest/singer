@@ -100,7 +100,7 @@
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-core</artifactId>
-            <version>1.11.306</version>
+            <version>1.12.186</version>
         </dependency>
         <dependency>
             <groupId>com.google.guava</groupId>
@@ -187,7 +187,7 @@
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-s3</artifactId>
-            <version>1.11.35</version>
+            <version>1.12.186</version>
         </dependency>
         <dependency>
 		    <groupId>com.salesforce.kafka.test</groupId>
