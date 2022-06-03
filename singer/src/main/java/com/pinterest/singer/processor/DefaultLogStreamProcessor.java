@@ -434,7 +434,7 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
     LogPosition position = new LogPosition(firstLogFileAndPath.getLogFile(), 0L);
     LOG.info("Process log stream: {} from beginning of the stream: {}", stream, position);
     OpenTsdbMetricConverter.incr(
-        "singer.processor.committed_position_reset", 1, "log=" + logStream.getLogStreamName());
+        "singer.processor.committed_position_reset", 1, "log=" + logStream.getSingerLog().getLogName());
     return position;
   }
 
