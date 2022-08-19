@@ -200,7 +200,7 @@ struct SingerLogConfig {
    * the maximum retention of a log file based on its last modification time.
    * Default value is -1 that means that there is no log retention enforcement by Singer.
    */
-  9: optional i32 logRetentionInSeconds = -1;
+  9: optional i32 logRetentionInSeconds = 7200;
   10: optional bool enableHeadersInjector = false;
   /**
    * headers injector class
