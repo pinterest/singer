@@ -68,13 +68,13 @@ public class CommittableKafkaWriter extends KafkaWriter {
   private static final Logger LOG = LoggerFactory.getLogger(CommittableKafkaWriter.class);
   public static final String MESSAGE_ID = "_mid";
   public static final String ORIGINAL_TIMESTAMP = "_ots";
-  protected List<PartitionInfo> committableValidPartitions;
-  protected Map<Integer, Map<Integer, LoggingAuditHeaders>> committableMapOfTrackedMessageMaps;
-  protected Map<Integer, Map<Integer, LoggingAuditHeaders>> committableMapOfInvalidMessageMaps;
-  protected Map<Integer, Integer> committableMapOfOriginalIndexWithinBucket;
-  protected Map<Integer, KafkaWritingTaskFuture> committableBuckets;
-  protected KafkaProducer<byte[], byte[]> committableProducer;
-  protected static final ScheduledExecutorService executionTimer;
+  private List<PartitionInfo> committableValidPartitions;
+  private Map<Integer, Map<Integer, LoggingAuditHeaders>> committableMapOfTrackedMessageMaps;
+  private Map<Integer, Map<Integer, LoggingAuditHeaders>> committableMapOfInvalidMessageMaps;
+  private Map<Integer, Integer> committableMapOfOriginalIndexWithinBucket;
+  private Map<Integer, KafkaWritingTaskFuture> committableBuckets;
+  private KafkaProducer<byte[], byte[]> committableProducer;
+  private static final ScheduledExecutorService executionTimer;
   static {
     ScheduledThreadPoolExecutor tmpTimer = new ScheduledThreadPoolExecutor(1);
     tmpTimer.setRemoveOnCancelPolicy(true);
@@ -237,6 +237,7 @@ public class CommittableKafkaWriter extends KafkaWriter {
 
   @Override
   public void endCommit(int numLogMessages, boolean isDraining) throws LogStreamWriterException {
+    committableProducer.flush();
 
     List<CompletableFuture<Integer>> bucketFutures = new ArrayList<>();
     for(KafkaWritingTaskFuture f : committableBuckets.values()) {
@@ -295,11 +296,14 @@ public class CommittableKafkaWriter extends KafkaWriter {
     try {
       writerFuture.get();
     } catch (CompletionException | InterruptedException | ExecutionException e) {
+      if (e instanceof InterruptedException) {
+        Thread.currentThread().interrupt();
+      }
       throw new LogStreamWriterException("Failed to write messages to topic " + topic, e);
     }
   }
 
-  protected void handleBucketException(int leaderNode, int size, boolean isDraining, Throwable t) {
+  private void handleBucketException(int leaderNode, int size, boolean isDraining, Throwable t) {
     if (t instanceof org.apache.kafka.common.errors.RecordTooLargeException) {
       LOG.error("Kafka write failure due to excessively large message size", t);
       OpenTsdbMetricConverter.incr(SingerMetrics.OVERSIZED_MESSAGES, 1, "topic=" + topic,
@@ -317,7 +321,7 @@ public class CommittableKafkaWriter extends KafkaWriter {
     }
   }
 
-  protected void onBatchComplete(int numLogMessages, List<CompletableFuture<Integer>> bucketFutures, boolean isDraining) {
+  private void onBatchComplete(int numLogMessages, List<CompletableFuture<Integer>> bucketFutures, boolean isDraining) {
     int bytesWritten = 0;
     for (Entry<Integer, KafkaWritingTaskFuture> entry : committableBuckets.entrySet()) {
       List<CompletableFuture<RecordMetadata>> futureList = entry.getValue().getRecordMetadataList();
@@ -341,7 +345,7 @@ public class CommittableKafkaWriter extends KafkaWriter {
     updateWriteSuccessMetrics(numLogMessages, bytesWritten, maxKafkaBatchWriteLatency, isDraining);
   }
 
-  protected void handleBatchException(int numLogMessages, boolean isDraining, Throwable t) {
+  private void handleBatchException(int numLogMessages, boolean isDraining, Throwable t) {
     LOG.error("Caught exception when write " + numLogMessages + " messages to producer.", t);
 
     SingerRestartConfig restartConfig = SingerSettings.getSingerConfig().singerRestartConfig;

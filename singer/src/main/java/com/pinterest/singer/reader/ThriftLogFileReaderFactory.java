@@ -86,4 +86,3 @@ public class ThriftLogFileReaderFactory implements LogFileReaderFactory {
     return reader;
   }
 }
-

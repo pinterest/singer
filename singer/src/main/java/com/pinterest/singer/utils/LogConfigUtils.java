@@ -1014,10 +1014,7 @@ public class LogConfigUtils {
     return kafkaProducerConfig;
   }
   
-  public static List<String> getRandomizedStartOffsetBrokers(int hash, Set<String> brokerSet) throws ConfigurationException {
-    if (brokerSet == null || brokerSet.isEmpty()) {
-      throw new ConfigurationException("serverset file is empty");
-    }
+  public static List<String> getRandomizedStartOffsetBrokers(int hash, Set<String> brokerSet) {
     Iterator<String> iterator = Iterables.cycle(brokerSet).iterator();
     List<String> tmpBrokers = Lists.newArrayList();
     int startOffset = hash % brokerSet.size();
