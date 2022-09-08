@@ -104,6 +104,7 @@ public class DirectorySingerConfigurator implements SingerConfigurator {
         LOG.info("No override configs to apply in " + configOverrideDir);
       }
     }
+    int badConfigs = 0;
     for (File newFile : files) {
       try {
     	LOG.info("Attempting to parse log config file:" + newFile.getAbsolutePath());
@@ -114,11 +115,16 @@ public class DirectorySingerConfigurator implements SingerConfigurator {
           singerLogConfig = LogConfigUtils.parseLogConfigFromFile(newFile);
         }
         singerConfig.addToLogConfigs(singerLogConfig);
-      } catch (ConfigurationException e) {
+      } catch (Exception e) {
         Stats.incr(SingerMetrics.SINGER_CONFIGURATOR_CONFIG_ERRORS);
-        LOG.error("Failed to parse Singer client config file {}, exception: {}. Skip and continue.",
-            newFile.getPath(), ExceptionUtils.getFullStackTrace(e));
+        LOG.error("Failed to parse log config file {}, exception: {}, Skip and continue.",
+                newFile.getPath(), ExceptionUtils.getFullStackTrace(e));
+        badConfigs++;
       }
+    }
+
+    if (badConfigs > 0) {
+      LOG.error("Number of bad log config files is {}", badConfigs);
     }
 
     // add topic configs from datapipelines.properties

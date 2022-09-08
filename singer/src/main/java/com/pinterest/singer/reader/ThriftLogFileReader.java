@@ -16,6 +16,7 @@
 package com.pinterest.singer.reader;
 
 import com.pinterest.singer.common.LogStream;
+import com.pinterest.singer.common.SingerSettings;
 import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
 import com.pinterest.singer.thrift.LogFile;
 import com.pinterest.singer.thrift.LogMessage;
@@ -111,7 +112,7 @@ public class ThriftLogFileReader implements LogFileReader {
     }
 
     this.thriftReader = new ThriftReader(
-        path, new LogMessageFactory(), new BinaryProtocolFactory(), readBufferSize,
+        path, new com.pinterest.singer.reader.ThriftLogFileReader.LogMessageFactory(), new com.pinterest.singer.reader.ThriftLogFileReader.BinaryProtocolFactory(), readBufferSize,
         maxMessageSizeInternal);
     this.thriftReader.setByteOffset(byteOffset);
 

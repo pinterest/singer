@@ -197,6 +197,51 @@ public class DirectorySingerConfiguratorTest extends SingerTestBase {
     assertEquals(1, logConfig1.getLogStreamWriterConfig().getKafkaWriterConfig().getProducerConfig().getBufferMemory());
   }
 
+  @Test
+  public void testSkipBadConfigEmptyServerset() throws Exception {
+    dumpServerSetFiles();
+    // create serverset dir + file
+    String path = "discovery.m10nkafka.prod";
+    LogConfigUtils.DEFAULT_SERVERSET_DIR = "target/serversets";
+    new File(LogConfigUtils.DEFAULT_SERVERSET_DIR).mkdirs();
+    File emptyServerset = new File(LogConfigUtils.DEFAULT_SERVERSET_DIR + path);
+    if (!emptyServerset.createNewFile()) { System.out.println("File already exists"); }
+
+    File singerConfigFile = createSingerConfigFile(makeDirectorySingerConfigProperties());
+    // Bad log config (raises /0 exception)
+    createLogConfigPropertiesFile("project.logstream1.properties");
+    // Good log config
+    createLogConfigPropertiesFile("project.logstream2.properties",
+            ImmutableMap.of("writer.kafka.producerConfig.bootstrap.servers", "127.0.0.1:9092"));
+
+    // Check the configurator can load two log configs.
+    DirectorySingerConfigurator configurator = new DirectorySingerConfigurator(singerConfigFile
+            .getParent());
+    SingerConfig singerConfig = configurator.parseSingerConfig();
+    // There should only be one config
+    assertEquals(1, singerConfig.getLogConfigsSize());
+    LogConfigUtils.DEFAULT_SERVERSET_DIR = "/var/serverset";
+  }
+  @Test
+  public void testSkipBadConfigConversionError() throws Exception {
+    dumpServerSetFiles();
+    // create serverset dir + file
+    File singerConfigFile = createSingerConfigFile(makeDirectorySingerConfigProperties());
+    // Bad log config (conversion error in max.request.size [non-int])
+    createLogConfigPropertiesFile("project.logstream1.properties",
+            ImmutableMap.of("writer.kafka.producerConfig.bootstrap.servers", "127.0.0.1:9092", "writer.kafka.producerConfig.max.request.size", "1111E2"));
+    // Good log config
+    createLogConfigPropertiesFile("project.logstream2.properties",
+            ImmutableMap.of("writer.kafka.producerConfig.bootstrap.servers", "127.0.0.1:9092"));
+
+    // Check the configurator can load two log configs.
+    DirectorySingerConfigurator configurator = new DirectorySingerConfigurator(singerConfigFile
+            .getParent());
+    SingerConfig singerConfig = configurator.parseSingerConfig();
+    // There should only be one config
+    assertEquals(1, singerConfig.getLogConfigsSize());
+  }
+
   Map<String, String> makeWrongSingerConfigProperties(int propertyNum) {
 
     if (propertyNum == 4) {
