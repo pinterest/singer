@@ -189,12 +189,6 @@
             <artifactId>aws-java-sdk-s3</artifactId>
             <version>1.12.248</version>
         </dependency>
-        <dependency>
-		    <groupId>com.salesforce.kafka.test</groupId>
-		    <artifactId>kafka-junit4</artifactId>
-		    <version>3.2.0</version>
-		    <scope>test</scope>
-		</dependency>
 		<dependency>
 			<groupId>io.dropwizard.metrics</groupId>
 			<artifactId>metrics-core</artifactId>
