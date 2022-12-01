@@ -18,6 +18,9 @@
             <comments>A business-friendly OSS license</comments>
         </license>
     </licenses>
+    <properties>
+		<memq.version>0.2.15</memq.version>
+	</properties>
     <developers>
         <developer>
             <id>yuyang08</id>
@@ -205,6 +208,11 @@
             <artifactId>junixsocket-server</artifactId>
             <version>2.4.0</version>
         </dependency>
+        <dependency>
+			<groupId>com.pinterest.memq</groupId>
+			<artifactId>memq-client</artifactId>
+			<version>${memq.version}</version>
+		</dependency>
     </dependencies>
     <build>
         <resources>
