@@ -20,8 +20,10 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -48,7 +50,6 @@ import com.pinterest.singer.common.errors.LogStreamWriterException;
 import com.pinterest.singer.loggingaudit.thrift.LoggingAuditHeaders;
 import com.pinterest.singer.loggingaudit.thrift.configuration.AuditConfig;
 import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
-import com.pinterest.singer.metrics.PinterestOpenTsdbStatsPusher;
 import com.pinterest.singer.thrift.LogMessage;
 import com.pinterest.singer.thrift.LogMessageAndPosition;
 import com.pinterest.singer.thrift.LogPosition;
@@ -59,6 +60,7 @@ public class MemqWriter2 implements LogStreamWriter {
   public static final String HOSTNAME = SingerSettings.getEnvironment().getHostname();
   private static final Logger LOG = LoggerFactory.getLogger(MemqWriter2.class);
   private static ThreadLocal<CRC32> localCRC = ThreadLocal.withInitial(CRC32::new);
+  public static Map<String, MetricRegistry> additionalMetricRegistries = new ConcurrentHashMap<>();
   private MemqProducer<byte[], byte[]> client;
   private LogStream logStream;
   private String topic;
@@ -104,7 +106,7 @@ public class MemqWriter2 implements LogStreamWriter {
     // we create a tag based on the topic and log name of the producer, and get or create the registry from the pusher
     String metricTag = String.join(" ", "topic=" + topic, "host=" + MiscUtils.getHostname(), "logname=" + logName);
     MetricRegistry registry =
-        ((MemQMetricsRegistry) PinterestOpenTsdbStatsPusher.additionalMetricRegistries.compute(metricTag, (k, v) -> v == null ? new MemQMetricsRegistry() : v))
+        ((MemQMetricsRegistry) additionalMetricRegistries.compute(metricTag, (k, v) -> v == null ? new MemQMetricsRegistry() : v))
         .getRegistry();
     MemqProducer.Builder<byte[], byte[]> builder = new MemqProducer.Builder<byte[], byte[]>()
         .cluster(config.getCluster())

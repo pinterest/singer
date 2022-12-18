@@ -19,7 +19,7 @@
         </license>
     </licenses>
     <properties>
-		<memq.version>0.2.15</memq.version>
+		<memq.version>0.2.18</memq.version>
 	</properties>
     <developers>
         <developer>
