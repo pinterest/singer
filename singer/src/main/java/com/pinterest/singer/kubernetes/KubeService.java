@@ -267,11 +267,22 @@ public class KubeService implements Runnable {
             JsonArray ary = obj.get("items").getAsJsonArray();
             for (int i = 0; i < ary.size(); i++) {
                 JsonObject metadata = ary.get(i).getAsJsonObject().get("metadata").getAsJsonObject();
+                // pod name
                 String name = metadata.get("name").getAsString();
-                podNames.add(name);
                 // to support namespace based POD directories
+                // pod namespace
                 String namespace = metadata.get("namespace").getAsString();
-                podNames.add(namespace + "_" + name);
+                // pod uid
+                String podUid = metadata.get("uid").getAsString();
+
+                // coexist of 2 format: namespace_podname or namespace_podname_uid
+                String formatOne = namespace + "_" + name;
+                String formatTwo = namespace + "_" + name + "_" + podUid;
+                if (new File(podLogDirectory + '/' + formatOne).exists()) {
+                    podNames.add(formatOne);
+                } else {
+                    podNames.add(formatTwo);
+                }
                 LOG.debug("Found active POD name in JSON:" + name);
             }
         }

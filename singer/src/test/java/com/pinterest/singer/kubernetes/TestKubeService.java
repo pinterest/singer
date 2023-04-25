@@ -16,6 +16,7 @@
 package com.pinterest.singer.kubernetes;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -28,9 +29,8 @@ import java.nio.file.Files;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Map.Entry;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
 
@@ -99,8 +99,9 @@ public class TestKubeService {
     }
 
     @Test
-    public void testGoodPodFetch() throws KeyManagementException, ClientProtocolException, NoSuchAlgorithmException,
-            KeyStoreException, MalformedURLException, IOException {
+    public void testGoodPodFetch()
+        throws KeyManagementException, ClientProtocolException, NoSuchAlgorithmException,
+               KeyStoreException, MalformedURLException, IOException {
         registerGoodResponse();
 
         KubeConfig kubeConfig = new KubeConfig();
@@ -108,21 +109,43 @@ public class TestKubeService {
         Set<String> fetchPodNamesFromMetadata = poll.fetchPodNamesFromMetadata();
 
         // check uid count is correct
-        assertEquals(12, fetchPodNamesFromMetadata.size());
-        
-        Map<String, String> podToNamespaceMap = new HashMap<>();
-        podToNamespaceMap.put("enimanager-ppl56", "default");
-        podToNamespaceMap.put("zk-update-monitor-r1vlt", "default");
-        podToNamespaceMap.put("tcollector-q4qx8", "default");
-        podToNamespaceMap.put("metrics-agent-8vm9g", "default");
-        podToNamespaceMap.put("kubernetes-dashboard-1835568627-hhfhj", "kube-system");
-        podToNamespaceMap.put("test-ci-0", "kubernetes-plugin");
-        for (Entry<String, String> entry : podToNamespaceMap.entrySet()) {
-          String name = entry.getKey();
-          String namespace = entry.getValue();
-          assertTrue(fetchPodNamesFromMetadata.contains(name));
-          assertTrue(fetchPodNamesFromMetadata.contains(namespace + "_" + name));
+        assertEquals(6, fetchPodNamesFromMetadata.size());
+
+        List<String> podNameList = new ArrayList<>();
+        podNameList.add(
+            "default" + "_" + "enimanager-ppl56" + "_" + "b1a2a0c2-d3ab-11e7-a1db-0674200569b6");
+        podNameList.add("default" + "_" + "zk-update-monitor-r1vlt" + "_"
+            + "7d1d8b00-b532-11e7-b628-0674200569b6");
+        podNameList.add(
+            "default" + "_" + "tcollector-q4qx8" + "_" + "8ad2dba8-b84c-11e7-b628-0674200569b6");
+        podNameList.add(
+            "default" + "_" + "metrics-agent-8vm9g" + "_" + "bfc5f760-b8e1-11e7-b628-0674200569b6");
+        podNameList.add("kube-system" + "_" + "kubernetes-dashboard-1835568627-hhfhj" + "_"
+            + "a343643b-b936-11e7-b628-0674200569b6");
+        podNameList.add(
+            "kubernetes-plugin" + "_" + "test-ci-0" + "_" + "f084af12-cbe6-11e7-a1db-0674200569b6");
+        for (String podName : podNameList) {
+            assertTrue(fetchPodNamesFromMetadata.contains(podName));
         }
+    }
+
+    @Test
+    public void testPodFetchWithTwoFormats() throws IOException {
+        registerGoodResponse();
+
+        String firstFormat = "default_enimanager-ppl56";
+        String secondFormat = "default_enimanager-ppl56_b1a2a0c2-d3ab-11e7-a1db-0674200569b6";
+        String podDirectory = "target/kube";
+        File f = new File(podDirectory + "/" + firstFormat);
+        if (!f.exists()) {
+            f.mkdirs();
+        }
+        KubeConfig kubeConfig = new KubeConfig();
+        kubeConfig.setPodLogDirectory(podDirectory);
+        KubeService poll = new KubeService(kubeConfig);
+        Set<String> fetchPodNamesFromMetadata = poll.fetchPodNamesFromMetadata();
+        assertFalse(fetchPodNamesFromMetadata.contains(secondFormat));
+        f.delete();
     }
 
     @Test
