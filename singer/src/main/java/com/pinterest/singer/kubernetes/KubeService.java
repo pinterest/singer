@@ -1,12 +1,12 @@
 /**
  * Copyright 2019 Pinterest, Inc.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *    http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -48,9 +48,9 @@ import com.twitter.ostrich.stats.Stats;
 /**
  * Service that detects new Kubernetes pods by watching directory and kubelet
  * metadata and creates events for any subscribing listeners.
- * 
+ *
  * This class is a singleton.
- * 
+ *
  * Note: this service starts and maintains 3 threads: Thread 1 - for kubernetes
  * md poll Thread 2 - for filesystemeventfetcher Thread 3 - for processing
  * filesystemeventfetcher events
@@ -97,7 +97,7 @@ public class KubeService implements Runnable {
     private void init(KubeConfig kubeConfig) {
         if (kubeConfig.getPollFrequencyInSeconds() > MD_MAX_POLL_DELAY) {
             throw new IllegalArgumentException("Too long kubeMdPollFrequency, should be configured to less than "
-                    + MD_MAX_POLL_DELAY + " seconds");
+                + MD_MAX_POLL_DELAY + " seconds");
         }
         // convert to milliseconds
         pollFrequency = kubeConfig.getPollFrequencyInSeconds() * MILLISECONDS_IN_SECONDS;
@@ -116,8 +116,8 @@ public class KubeService implements Runnable {
     public void run() {
         // fetch existing pod directories
         updatePodNamesFromFileSystem();
-        
-        // we should wait for some time 
+
+        // we should wait for some time
         try {
             Thread.sleep(kubePollDelay);
         } catch (InterruptedException e1) {
@@ -147,7 +147,7 @@ public class KubeService implements Runnable {
 
     /**
      * Load POD that are already on the file system
-     * 
+     *
      * This method should have an effect on data if Singer was restarted
      */
     private void updatePodNamesFromFileSystem() {
@@ -197,11 +197,11 @@ public class KubeService implements Runnable {
 
     /**
      * Clear the set of Pod Names and update it with the latest fetch from kubelet
-     * 
+     *
      * Following a listener design, currently we only have 1 listener but in future
      * if we want to do something else as well when these events happen then this
      * might come in handy.
-     * 
+     *
      * @throws IOException
      */
     public void updatePodNames() throws IOException {
@@ -226,7 +226,7 @@ public class KubeService implements Runnable {
 
     /**
      * Update all {@link PodWatcher} about the pod that changed (created or deleted)
-     * 
+     *
      * @param podName
      * @param isDelete
      */
@@ -247,11 +247,11 @@ public class KubeService implements Runnable {
 
     /**
      * Fetch Pod IDs from metadata.
-     * 
+     *
      * Note: inside singer we refer to pod's identifier as a the PodName
-     * 
+     *
      * e.g. see src/test/resources/pods-goodresponse.json
-     * 
+     *
      * @return set of pod names
      * @throws IOException
      */
@@ -267,11 +267,22 @@ public class KubeService implements Runnable {
             JsonArray ary = obj.get("items").getAsJsonArray();
             for (int i = 0; i < ary.size(); i++) {
                 JsonObject metadata = ary.get(i).getAsJsonObject().get("metadata").getAsJsonObject();
+                // pod name
                 String name = metadata.get("name").getAsString();
-                podNames.add(name);
                 // to support namespace based POD directories
+                // pod namespace
                 String namespace = metadata.get("namespace").getAsString();
-                podNames.add(namespace + "_" + name);
+                // pod uid
+                String podUid = metadata.get("uid").getAsString();
+
+                // coexist of 2 format: namespace_podname or namespace_podname_uid
+                String formatOne = namespace + "_" + name;
+                String formatTwo = namespace + "_" + name + "_" + podUid;
+                if (new File(podLogDirectory + '/' + formatOne).exists()) {
+                    podNames.add(formatOne);
+                } else {
+                    podNames.add(formatTwo);
+                }
                 LOG.debug("Found active POD name in JSON:" + name);
             }
         }
@@ -281,7 +292,7 @@ public class KubeService implements Runnable {
 
     /**
      * Return the poll frequency in milliseconds
-     * 
+     *
      * @return poll frequency in milliseconds
      */
     public int getPollFrequency() {
@@ -290,10 +301,10 @@ public class KubeService implements Runnable {
 
     /**
      * Get {@link Set} of active pods polled from kubelets.
-     * 
+     *
      * Note: This is a point in time snapshot of the actual {@link Set} object (for
      * concurrency control)
-     * 
+     *
      * @return
      */
     public Set<String> getActivePodSet() {
@@ -304,7 +315,7 @@ public class KubeService implements Runnable {
 
     /**
      * Add a watcher to the registered watcher set
-     * 
+     *
      * @param watcher
      */
     public synchronized void addWatcher(PodWatcher watcher) {
@@ -313,7 +324,7 @@ public class KubeService implements Runnable {
 
     /**
      * Remove a watcher from registered watcher set
-     * 
+     *
      * @param watcher
      */
     public synchronized void removeWatcher(PodWatcher watcher) {
@@ -322,7 +333,7 @@ public class KubeService implements Runnable {
 
     /**
      * Starts the poll service.
-     * 
+     *
      * Note: This method is idempotent
      */
     public void start() {
@@ -375,7 +386,7 @@ public class KubeService implements Runnable {
 
     /**
      * Check if there are any new events available in the eventfetcher queue
-     * 
+     *
      * @throws InterruptedException
      */
     public void checkAndProcessFsEvents() throws InterruptedException {
@@ -392,7 +403,7 @@ public class KubeService implements Runnable {
                     // ignore tombstone files
                     return;
                 }
-                LOG.info("New pod directory discovered by FSM:" + event.logDir() + " " + podLogDirectory 
+                LOG.info("New pod directory discovered by FSM:" + event.logDir() + " " + podLogDirectory
                     + " podname:" + podName);
                 Stats.incr(SingerMetrics.PODS_CREATED);
                 Stats.incr(SingerMetrics.NUMBER_OF_PODS);
