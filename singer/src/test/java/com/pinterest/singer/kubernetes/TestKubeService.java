@@ -146,6 +146,13 @@ public class TestKubeService {
         Set<String> fetchPodNamesFromMetadata = poll.fetchPodNamesFromMetadata();
         assertFalse(fetchPodNamesFromMetadata.contains(secondFormat));
         f.delete();
+        f = new File(podDirectory + "/" + secondFormat);
+        if (!f.exists()) {
+            f.mkdirs();
+        }
+        fetchPodNamesFromMetadata = poll.fetchPodNamesFromMetadata();
+        assertFalse(fetchPodNamesFromMetadata.contains(firstFormat));
+        f.delete();
     }
 
     @Test
