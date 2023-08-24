@@ -19,6 +19,7 @@ import com.pinterest.singer.common.LogStream;
 import com.pinterest.singer.common.SingerLog;
 import com.pinterest.singer.thrift.LogFile;
 import com.pinterest.singer.thrift.LogFileAndPath;
+import com.pinterest.singer.thrift.configuration.SingerConfig;
 import com.pinterest.singer.thrift.configuration.SingerLogConfig;
 
 import com.pinterest.singer.utils.SingerUtils;
@@ -82,7 +83,9 @@ public class LogDirectoryScannerTest extends com.pinterest.singer.SingerTestBase
     try {
       LogStream toMonitor = initializeTestLogStream(testDir, filePrefix);
 
-      FileSystemMonitor fileSystemMonitor = new FileSystemMonitor(Arrays.asList(toMonitor), "testLogDirectoryScanner");
+      SingerConfig singerConfig = new SingerConfig();
+      FileSystemMonitor fileSystemMonitor = new FileSystemMonitor(singerConfig, Arrays.asList(toMonitor),
+          "testLogDirectoryScanner");
       fileSystemMonitor.start();
 
       File[] files = createTestLogFiles(testDir, filePrefix, NUM_FILES);
@@ -130,8 +133,9 @@ public class LogDirectoryScannerTest extends com.pinterest.singer.SingerTestBase
     final File testDir = this.tempDir.newFolder();
     try {
       LogStream toMonitor = initializeTestLogStream(testDir, filePrefix);
+      SingerConfig singerConfig = new SingerConfig();
       FileSystemMonitor fileSystemMonitor =
-          new FileSystemMonitor(Arrays.asList(toMonitor), "testLogDirectoryScannerWithFileDeletion");
+          new FileSystemMonitor(singerConfig, Arrays.asList(toMonitor), "testLogDirectoryScannerWithFileDeletion");
       fileSystemMonitor.start();
 
       File[] files = createTestLogFiles(testDir, filePrefix, NUM_FILES);

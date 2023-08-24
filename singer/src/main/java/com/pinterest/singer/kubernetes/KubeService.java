@@ -1,12 +1,12 @@
 /**
  * Copyright 2019 Pinterest, Inc.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *    http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -48,9 +48,9 @@ import com.twitter.ostrich.stats.Stats;
 /**
  * Service that detects new Kubernetes pods by watching directory and kubelet
  * metadata and creates events for any subscribing listeners.
- * 
+ *
  * This class is a singleton.
- * 
+ *
  * Note: this service starts and maintains 3 threads: Thread 1 - for kubernetes
  * md poll Thread 2 - for filesystemeventfetcher Thread 3 - for processing
  * filesystemeventfetcher events
@@ -116,7 +116,7 @@ public class KubeService implements Runnable {
     public void run() {
         // fetch existing pod directories
         updatePodNamesFromFileSystem();
-        
+
         // we should wait for some time 
         try {
             Thread.sleep(kubePollDelay);
@@ -147,7 +147,7 @@ public class KubeService implements Runnable {
 
     /**
      * Load POD that are already on the file system
-     * 
+     *
      * This method should have an effect on data if Singer was restarted
      */
     private void updatePodNamesFromFileSystem() {
@@ -197,11 +197,11 @@ public class KubeService implements Runnable {
 
     /**
      * Clear the set of Pod Names and update it with the latest fetch from kubelet
-     * 
+     *
      * Following a listener design, currently we only have 1 listener but in future
      * if we want to do something else as well when these events happen then this
      * might come in handy.
-     * 
+     *
      * @throws IOException
      */
     public void updatePodNames() throws IOException {
@@ -226,7 +226,7 @@ public class KubeService implements Runnable {
 
     /**
      * Update all {@link PodWatcher} about the pod that changed (created or deleted)
-     * 
+     *
      * @param podName
      * @param isDelete
      */
@@ -247,11 +247,11 @@ public class KubeService implements Runnable {
 
     /**
      * Fetch Pod IDs from metadata.
-     * 
+     *
      * Note: inside singer we refer to pod's identifier as a the PodName
-     * 
+     *
      * e.g. see src/test/resources/pods-goodresponse.json
-     * 
+     *
      * @return set of pod names
      * @throws IOException
      */
@@ -298,7 +298,7 @@ public class KubeService implements Runnable {
 
     /**
      * Return the poll frequency in milliseconds
-     * 
+     *
      * @return poll frequency in milliseconds
      */
     public int getPollFrequency() {
@@ -307,10 +307,10 @@ public class KubeService implements Runnable {
 
     /**
      * Get {@link Set} of active pods polled from kubelets.
-     * 
+     *
      * Note: This is a point in time snapshot of the actual {@link Set} object (for
      * concurrency control)
-     * 
+     *
      * @return
      */
     public Set<String> getActivePodSet() {
@@ -321,7 +321,7 @@ public class KubeService implements Runnable {
 
     /**
      * Add a watcher to the registered watcher set
-     * 
+     *
      * @param watcher
      */
     public synchronized void addWatcher(PodWatcher watcher) {
@@ -330,7 +330,7 @@ public class KubeService implements Runnable {
 
     /**
      * Remove a watcher from registered watcher set
-     * 
+     *
      * @param watcher
      */
     public synchronized void removeWatcher(PodWatcher watcher) {
@@ -339,7 +339,7 @@ public class KubeService implements Runnable {
 
     /**
      * Starts the poll service.
-     * 
+     *
      * Note: This method is idempotent
      */
     public void start() {
@@ -349,7 +349,7 @@ public class KubeService implements Runnable {
             thKubeServiceThread.start();
 
             try {
-                fsEventFetcher = new FileSystemEventFetcher();
+                fsEventFetcher = new FileSystemEventFetcher(SingerSettings.getSingerConfig());
                 fsEventFetcher.start("KubernetesDirectory");
                 LOG.info("Creating a file system monitor:" + podLogDirectory);
                 fsEventFetcher.registerPath(new File(podLogDirectory).toPath());
@@ -392,7 +392,7 @@ public class KubeService implements Runnable {
 
     /**
      * Check if there are any new events available in the eventfetcher queue
-     * 
+     *
      * @throws InterruptedException
      */
     public void checkAndProcessFsEvents() throws InterruptedException {
@@ -409,7 +409,7 @@ public class KubeService implements Runnable {
                     // ignore tombstone files
                     return;
                 }
-                LOG.info("New pod directory discovered by FSM:" + event.logDir() + " " + podLogDirectory 
+                LOG.info("New pod directory discovered by FSM:" + event.logDir() + " " + podLogDirectory
                     + " podname:" + podName);
                 Stats.incr(SingerMetrics.PODS_CREATED);
                 Stats.incr(SingerMetrics.NUMBER_OF_PODS);

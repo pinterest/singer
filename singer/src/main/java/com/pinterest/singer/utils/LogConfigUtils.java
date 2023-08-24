@@ -697,6 +697,9 @@ public class LogConfigUtils {
     if (singerConfiguration.containsKey(("configOverrideDir"))) {
       singerConfig.setConfigOverrideDir(singerConfiguration.getString("configOverrideDir"));
     }
+    if (singerConfiguration.containsKey("fsEventQueueImplementation")) {
+      singerConfig.setFsEventQueueImplementation(singerConfiguration.getString("fsEventQueueImplementation"));
+    }
     return singerConfig;
   }
 

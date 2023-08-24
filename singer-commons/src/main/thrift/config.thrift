@@ -411,4 +411,9 @@ struct SingerConfig {
   */
   26: optional AdminConfig adminConfig;
 
+  /**
+    * FS Event Queue implementation
+    */
+  27: optional string fsEventQueueImplementation;
+
 }

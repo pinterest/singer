@@ -61,6 +61,7 @@ import com.pinterest.singer.kubernetes.KubeService;
 import com.pinterest.singer.kubernetes.PodWatcher;
 import com.pinterest.singer.thrift.LogFile;
 import com.pinterest.singer.thrift.configuration.FileNameMatchMode;
+import com.pinterest.singer.thrift.configuration.SingerConfig;
 import com.pinterest.singer.thrift.configuration.SingerLogConfig;
 import com.pinterest.singer.utils.SingerUtils;
 import com.twitter.ostrich.stats.Stats;
@@ -114,12 +115,13 @@ public class LogStreamManager implements PodWatcher {
 
   protected LogStreamManager() {
     missingDirChecker = new MissingDirChecker();
-    if(SingerSettings.getSingerConfig()!=null &&
-      SingerSettings.getSingerConfig().isKubernetesEnabled()) {
+    SingerConfig singerConfig = SingerSettings.getSingerConfig();
+    if(singerConfig!=null &&
+        singerConfig.isKubernetesEnabled()) {
       KubeService.getInstance().addWatcher(this);
-      podLogDirectory = SingerSettings.getSingerConfig().getKubeConfig().getPodLogDirectory();
+      podLogDirectory = singerConfig.getKubeConfig().getPodLogDirectory();
       try {
-        recursiveDirectoryWatcher = new FileSystemEventFetcher();
+        recursiveDirectoryWatcher = new FileSystemEventFetcher(singerConfig);
         recursiveDirectoryWatcher.start("RecursiveDirectoryWatcher");
 
         recursiveEventProcessor = new RecursiveFSEventProcessor(this);
