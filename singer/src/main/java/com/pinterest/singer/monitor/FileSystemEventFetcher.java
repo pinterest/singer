@@ -18,6 +18,7 @@ package com.pinterest.singer.monitor;
 import com.pinterest.singer.common.SingerConfigDef;
 import com.pinterest.singer.common.SingerMetrics;
 import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
+import com.pinterest.singer.thrift.configuration.SingerConfig;
 import com.pinterest.singer.utils.SingerUtils;
 
 import com.twitter.ostrich.stats.Stats;
@@ -31,6 +32,7 @@ import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
@@ -51,8 +53,20 @@ public class FileSystemEventFetcher implements Runnable {
   private Thread thread;
   private String name;
 
-  public FileSystemEventFetcher() throws IOException {
-    fileSystemEvents = new LinkedBlockingQueue<>();
+  @SuppressWarnings({ "unchecked", "rawtypes" })
+  public FileSystemEventFetcher(SingerConfig config) throws IOException {
+    if (config != null && config.getFsEventQueueImplementation() != null) {
+      try {
+        LOG.warn("Queue implementation: " + config.getFsEventQueueImplementation());
+        Class<? extends LinkedBlockingQueue> asSubclass = Class
+            .forName(config.getFsEventQueueImplementation()).asSubclass(LinkedBlockingQueue.class);
+        fileSystemEvents = asSubclass.newInstance();
+      } catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {
+        throw new IOException(e);
+      }
+    } else {
+      fileSystemEvents = new LinkedBlockingQueue<>();
+    }
     watchService = FileSystems.getDefault().newWatchService();
   }
 
@@ -94,7 +108,7 @@ public class FileSystemEventFetcher implements Runnable {
    *  @param name of the event fetcher.
    */
   public void start(String name) {
-    // we don't want to start another thread for the 
+    // we don't want to start another thread for the
     // same instance of FileSystemEventFetcher
     if(this.thread == null) {
         this.name = name;

@@ -59,14 +59,14 @@ public class FileSystemMonitor implements Runnable {
   private Thread thread;
   private String name;
 
-  public FileSystemMonitor(String name) throws IOException {
-    this.name = name;
-    initialize();
-  }
+//  public FileSystemMonitor(String name) throws IOException {
+//    this.name = name;
+//    initialize();
+//  }
 
   public FileSystemMonitor(SingerConfig singerConfig, String name) throws IOException {
     this.name = name;
-    initialize();
+    initialize(singerConfig);
   }
 
   /**
@@ -74,9 +74,9 @@ public class FileSystemMonitor implements Runnable {
    * @param streamsToWatch LogStreams to keep track of the contents
    * @throws IOException If the watch service can not be initialized
    */
-  public FileSystemMonitor(Collection<LogStream> streamsToWatch, String name) throws IOException {
+  public FileSystemMonitor(SingerConfig singerConfig, Collection<LogStream> streamsToWatch, String name) throws IOException {
     this.name = name;
-    initialize();
+    initialize(singerConfig);
     for (LogStream stream : streamsToWatch) {
       Path logDir = SingerUtils.getPath(stream.getLogDir());
       fileSystemEventFetcher.registerPath(logDir);
@@ -114,8 +114,8 @@ public class FileSystemMonitor implements Runnable {
     thread.join();
   }
 
-  private void initialize() throws IOException {
-    fileSystemEventFetcher = new FileSystemEventFetcher();
+  private void initialize(SingerConfig singerConfig) throws IOException {
+    fileSystemEventFetcher = new FileSystemEventFetcher(singerConfig);
     fileSystemEventFetcher.start(name);
   }
 

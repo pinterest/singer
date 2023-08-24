@@ -69,7 +69,9 @@ public class FileSystemMonitorTest extends com.pinterest.singer.SingerTestBase {
     LogStream toMonitor = new LogStream(new SingerLog(config), filePrefix);
     LogStream toMonitor2 = new LogStream(new SingerLog(config2), filePrefix2);
 
-    FileSystemMonitor t = new FileSystemMonitor(Arrays.asList(toMonitor, toMonitor2), "testTwoLogStreamsInSameDir");
+    SingerConfig singerConfig = new SingerConfig();
+    FileSystemMonitor t = new FileSystemMonitor(singerConfig,
+        Arrays.asList(toMonitor, toMonitor2), "testTwoLogStreamsInSameDir");
     t.start();
 
     final int NUM_FILES = 10;
@@ -179,7 +181,8 @@ public class FileSystemMonitorTest extends com.pinterest.singer.SingerTestBase {
     config.setLogStreamRegex("test.tmp");
     LogStream toMonitor = LogStreamManager.createNewLogStream(new SingerLog(config), filePrefix);
 
-    FileSystemMonitor t = new FileSystemMonitor(Arrays.asList(toMonitor), "testRenameFile");
+    SingerConfig singerConfig = new SingerConfig();
+    FileSystemMonitor t = new FileSystemMonitor(singerConfig, Arrays.asList(toMonitor), "testRenameFile");
     verifyFiles(testDir.list(), toMonitor);
 
     int NUM_FILES = 10;
@@ -222,7 +225,8 @@ public class FileSystemMonitorTest extends com.pinterest.singer.SingerTestBase {
 
     SingerLogConfig config = createSingerLogConfig(filePrefix, testDir.getAbsolutePath());
     LogStream toMonitor = new LogStream(new SingerLog(config), filePrefix);
-    FileSystemMonitor t = new FileSystemMonitor(Arrays.asList(toMonitor), "testAddFiles");
+    SingerConfig singerConfig = new SingerConfig();
+    FileSystemMonitor t = new FileSystemMonitor(singerConfig, Arrays.asList(toMonitor), "testAddFiles");
     verifyFiles(testDir.list(), toMonitor);
 
     int NUM_FILES = 10;
@@ -244,7 +248,8 @@ public class FileSystemMonitorTest extends com.pinterest.singer.SingerTestBase {
     config.setLogStreamRegex("test.tmp");
 
     LogStream toMonitor = LogStreamManager.createNewLogStream(new SingerLog(config), filePrefix);
-    FileSystemMonitor t = new FileSystemMonitor(Arrays.asList(toMonitor), "testRemoveFiles");
+    SingerConfig singerConfig = new SingerConfig();
+    FileSystemMonitor t = new FileSystemMonitor(singerConfig, Arrays.asList(toMonitor), "testRemoveFiles");
     verifyFiles(testDir.list(), toMonitor);
 
     final int NUM_FILES = 10;
@@ -283,7 +288,9 @@ public class FileSystemMonitorTest extends com.pinterest.singer.SingerTestBase {
     LogStream toMonitor = new LogStream(new SingerLog(config), filePrefix);
     LogStream toMonitor2 = new LogStream(new SingerLog(config2), filePrefix2);
 
-    FileSystemMonitor t = new FileSystemMonitor(Arrays.asList(toMonitor, toMonitor2), "testWatchMultipleDirectories");
+    SingerConfig singerConfig = new SingerConfig();
+    FileSystemMonitor t = new FileSystemMonitor(singerConfig,
+        Arrays.asList(toMonitor, toMonitor2), "testWatchMultipleDirectories");
     t.start();
     Thread.sleep(FILE_EVENT_WAIT_TIME_MS);
     verifyFiles(testDir.list(), toMonitor);
@@ -328,7 +335,8 @@ public class FileSystemMonitorTest extends com.pinterest.singer.SingerTestBase {
     config.setLogStreamRegex("test.tmp");
 
     LogStream toMonitor = new LogStream(new SingerLog(config), filePrefix);
-    FileSystemMonitor t = new FileSystemMonitor(Arrays.asList(toMonitor), "testLogFileRotation");
+    SingerConfig singerConfig = new SingerConfig();
+    FileSystemMonitor t = new FileSystemMonitor(singerConfig, Arrays.asList(toMonitor), "testLogFileRotation");
     t.start();
     Thread.sleep(FILE_EVENT_WAIT_TIME_MS);
 
