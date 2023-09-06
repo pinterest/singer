@@ -51,7 +51,7 @@ public class TestTextLogFileReader extends SingerTestBase {
     LogStream logStream = new LogStream(new SingerLog(new SingerLogConfig()), "test");
     LogFileReader reader = new TextLogFileReader(logStream, logFile, path, 0, 8192, 102400, 1,
         Pattern.compile("^.*$"), TextLogMessageType.PLAIN_TEXT, false, false, true, null, null,
-        null);
+        null, null);
     for (int i = 0; i < 100; i++) {
       LogMessageAndPosition log = reader.readLogMessageAndPosition();
       assertEquals(dataWritten.get(i).trim(), new String(log.getLogMessage().getMessage()));
@@ -70,7 +70,7 @@ public class TestTextLogFileReader extends SingerTestBase {
     LogFile logFile = new LogFile(inode);
     LogStream logStream = new LogStream(new SingerLog(new SingerLogConfig()), "test");
     LogFileReader reader = new TextLogFileReader(logStream, logFile, path, 0, 8192, 102400, 1,
-        Pattern.compile("^.*$"), TextLogMessageType.PLAIN_TEXT, false, true, false, hostname,
+        Pattern.compile("^.*$"), TextLogMessageType.PLAIN_TEXT, false, true, false, hostname, "n/a",
         delimiter, null);
     for (int i = 0; i < 100; i++) {
       LogMessageAndPosition log = reader.readLogMessageAndPosition();
@@ -91,8 +91,8 @@ public class TestTextLogFileReader extends SingerTestBase {
     LogFile logFile = new LogFile(inode);
     LogStream logStream = new LogStream(new SingerLog(new SingerLogConfig()), "test");
     LogFileReader reader = new TextLogFileReader(logStream, logFile, path, 0, 8192, 102400, 2,
-        Pattern.compile("^.*$"), TextLogMessageType.PLAIN_TEXT, false, false, true, null, null,
-        null);
+        Pattern.compile("^.*$"), TextLogMessageType.PLAIN_TEXT, false, false, true, null, "n/a",
+        null, null);
     for (int i = 0; i < 100; i = i + 2) {
       LogMessageAndPosition log = reader.readLogMessageAndPosition();
       assertEquals(dataWritten.get(i) + dataWritten.get(i + 1).trim(),
@@ -111,11 +111,15 @@ public class TestTextLogFileReader extends SingerTestBase {
     LogFile logFile = new LogFile(inode);
     LogStream logStream = new LogStream(new SingerLog(new SingerLogConfig()), "test");
     LogFileReader reader = new TextLogFileReader(logStream, logFile, path, 0, 8192, 102400, 2,
-        Pattern.compile("^.*$"), TextLogMessageType.PLAIN_TEXT, false, false, true, "host", null,
+        Pattern.compile("^.*$"), TextLogMessageType.PLAIN_TEXT, false, false, true, "host", "n/a", null,
         new HashMap<>(ImmutableMap.of("test", ByteBuffer.wrap("value".getBytes()))));
     for (int i = 0; i < 100; i = i + 2) {
       LogMessageAndPosition log = reader.readLogMessageAndPosition();
-      assertEquals(3, log.getInjectedHeadersSize());
+      assertEquals(4, log.getInjectedHeadersSize());
+      assertTrue(log.getInjectedHeaders().containsKey("hostname"));
+      assertTrue(log.getInjectedHeaders().containsKey("file"));
+      assertTrue(log.getInjectedHeaders().containsKey("availabilityZone"));
+      assertTrue(log.getInjectedHeaders().containsKey("test"));
       assertEquals(dataWritten.get(i) + dataWritten.get(i + 1).trim(),
           new String(log.getLogMessage().getMessage()));
     }
@@ -123,7 +127,7 @@ public class TestTextLogFileReader extends SingerTestBase {
     reader.close();
     
     reader = new TextLogFileReader(logStream, logFile, path, 0, 8192, 102400, 2,
-        Pattern.compile("^.*$"), TextLogMessageType.PLAIN_TEXT, false, false, true, "host", null,
+        Pattern.compile("^.*$"), TextLogMessageType.PLAIN_TEXT, false, false, true, "host", "n/a", null,
         null);
     for (int i = 0; i < 100; i = i + 2) {
       LogMessageAndPosition log = reader.readLogMessageAndPosition();

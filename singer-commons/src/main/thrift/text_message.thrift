@@ -8,4 +8,5 @@ struct TextMessage {
   2: optional string host;
   3: optional string filename;
   4: optional string prependEnvironmentVariables;
+  5: optional string availabilityZone;
 }

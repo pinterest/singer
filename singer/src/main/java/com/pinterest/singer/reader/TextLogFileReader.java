@@ -60,7 +60,7 @@ public class TextLogFileReader implements LogFileReader {
   private final TextLogMessageType textLogMessageType;
 
   private String hostname;
-
+  private String availabilityZone;
   private boolean trimTailingNewlineCharacter;
 
   private Map<String, ByteBuffer> headers;
@@ -79,6 +79,7 @@ public class TextLogFileReader implements LogFileReader {
                            boolean prependHostName,
                            boolean trimTailingNewlineCharacter,
                            String hostname,
+                           String availabilityZone,
                            String prependFieldDelimiter,
                            Map<String, ByteBuffer> headers) throws Exception {
     Preconditions.checkArgument(!Strings.isNullOrEmpty(path));
@@ -89,9 +90,11 @@ public class TextLogFileReader implements LogFileReader {
     if (headers != null) {
       headers.put("hostname", SingerUtils.getByteBuf(hostname));
       headers.put("file", SingerUtils.getByteBuf(path));
+      headers.put("availabilityZone", SingerUtils.getByteBuf(availabilityZone));
     }
 
     this.hostname = hostname;
+    this.availabilityZone = availabilityZone;
     this.logFile = Preconditions.checkNotNull(logFile);
     this.path = path;
     this.numMessagesPerLogMessage = numMessagesPerLogMessage;
@@ -172,6 +175,7 @@ public class TextLogFileReader implements LogFileReader {
         TextMessage textMessage = new TextMessage();
         textMessage.setFilename(path);
         textMessage.setHost(hostname);
+        textMessage.setAvailabilityZone(availabilityZone);
         textMessage.addToMessages(TextMessageReader.bufToString(out));
         logMessage = new LogMessage(ByteBuffer.wrap(serializer.serialize(textMessage)));
         break;

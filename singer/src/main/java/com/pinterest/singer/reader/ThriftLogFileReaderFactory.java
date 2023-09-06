@@ -64,6 +64,7 @@ public class ThriftLogFileReaderFactory implements LogFileReaderFactory {
           readerConfig.getReaderBufferSize(),
           readerConfig.getMaxMessageSize(),
           SingerUtils.getHostNameBasedOnConfig(logStream, SingerSettings.getSingerConfig()),
+          SingerSettings.getEnvironment().getLocality(),
           readerConfig.isSetEnvironmentVariables() ?
           new HashMap<>(readerConfig.getEnvironmentVariables()) : null
       );
