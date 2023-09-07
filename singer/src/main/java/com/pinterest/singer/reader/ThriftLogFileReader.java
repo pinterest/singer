@@ -95,6 +95,7 @@ public class ThriftLogFileReader implements LogFileReader {
       int readBufferSize,
       int maxMessageSize,
       String hostname,
+      String availabilityZone,
       Map<String, ByteBuffer> headers) throws Exception {
     Preconditions.checkArgument(!Strings.isNullOrEmpty(path));
     Preconditions.checkArgument(byteOffset >= 0);
@@ -108,6 +109,7 @@ public class ThriftLogFileReader implements LogFileReader {
     if (headers != null) {
       headers.put("hostname", SingerUtils.getByteBuf(hostname));
       headers.put("file", SingerUtils.getByteBuf(path));
+      headers.put("availabilityZone", SingerUtils.getByteBuf(availabilityZone));
     }
 
     this.thriftReader = new ThriftReader(

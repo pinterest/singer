@@ -58,7 +58,7 @@ public class ThriftLogFileReaderTest extends SingerTestBase {
     LogStream logStream = new LogStream(new SingerLog(new SingerLogConfig()), "test");
 
     // Open reader which cap the log message at 500 bytes
-    LogFileReader reader = new ThriftLogFileReader(logStream, logger.getLogFile(), path, 0L, 16000, 500,"localhost", null);
+    LogFileReader reader = new ThriftLogFileReader(logStream, logger.getLogFile(), path, 0L, 16000, 500,"localhost", "us-east-1a",null);
     int count = 0;
     for (int i = 0; i < 403; i++) {
       try {
@@ -95,7 +95,7 @@ public class ThriftLogFileReaderTest extends SingerTestBase {
     LogStream logStream = new LogStream(new SingerLog(new SingerLogConfig()), "test");
 
     // Open reader which cap the log message at 500 bytes
-    LogFileReader reader = new ThriftLogFileReader(logStream, logger.getLogFile(), path, 0L, 16000, 500, "localhost", null);
+    LogFileReader reader = new ThriftLogFileReader(logStream, logger.getLogFile(), path, 0L, 16000, 500, "localhost", "us-east-1a",null);
     try {
       // Seek to start offset.
       reader.setByteOffset(startOffset);
@@ -111,7 +111,7 @@ public class ThriftLogFileReaderTest extends SingerTestBase {
     }
 
     // Open reader.
-    reader = new ThriftLogFileReader(logStream, logger.getLogFile(), path, 0L, 16000, 16000, "localhost", null);
+    reader = new ThriftLogFileReader(logStream, logger.getLogFile(), path, 0L, 16000, 16000, "localhost", "us-east-1a",null);
     List<LogMessageAndPosition> messagesRead = Lists.newArrayListWithExpectedSize(3);
     try {
       // Seek to start offset.
@@ -145,7 +145,7 @@ public class ThriftLogFileReaderTest extends SingerTestBase {
     map.put("test", ByteBuffer.wrap("test_value".getBytes()));
 
     // Open reader.
-    ThriftLogFileReader reader = new ThriftLogFileReader(logStream, logger.getLogFile(), path, 0L, 16000, 16000, "localhost",
+    ThriftLogFileReader reader = new ThriftLogFileReader(logStream, logger.getLogFile(), path, 0L, 16000, 16000, "localhost", "us-east-1a",
         map);
     List<LogMessageAndPosition> messagesRead = Lists.newArrayListWithExpectedSize(3);
     try {
@@ -154,11 +154,12 @@ public class ThriftLogFileReaderTest extends SingerTestBase {
       while (message != null) {
         messagesRead.add(message);
         assertNotNull(message.getInjectedHeaders());
-        assertEquals(1 + 2, message.getInjectedHeaders().size());
+        assertEquals(1 + 3, message.getInjectedHeaders().size());
         assertTrue(message.getInjectedHeaders().containsKey("test"));
         assertTrue(Arrays.equals("test_value".getBytes(), message.getInjectedHeaders().get("test").array()));
         assertTrue(message.getInjectedHeaders().containsKey("hostname"));
         assertTrue(message.getInjectedHeaders().containsKey("file"));
+        assertTrue(message.getInjectedHeaders().containsKey("availabilityZone"));
         message = reader.readLogMessageAndPosition();
       }
     } finally {

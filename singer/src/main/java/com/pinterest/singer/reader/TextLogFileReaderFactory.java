@@ -64,6 +64,7 @@ public class TextLogFileReaderFactory implements LogFileReaderFactory {
           readerConfig.isPrependHostname(),
           readerConfig.isTrimTailingNewlineCharacter(),
           SingerUtils.getHostNameBasedOnConfig(logStream, SingerSettings.getSingerConfig()),
+          SingerSettings.getEnvironment().getLocality(),
           readerConfig.getPrependFieldDelimiter(),
           readerConfig.getEnvironmentVariables() != null
           ? new HashMap<>(readerConfig.getEnvironmentVariables())
