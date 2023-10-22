@@ -37,6 +37,7 @@ import com.pinterest.singer.thrift.configuration.KafkaWriterConfig;
 import com.pinterest.singer.thrift.configuration.LogStreamProcessorConfig;
 import com.pinterest.singer.thrift.configuration.LogStreamReaderConfig;
 import com.pinterest.singer.thrift.configuration.LogStreamWriterConfig;
+import com.pinterest.singer.thrift.configuration.MemqWriterConfig;
 import com.pinterest.singer.thrift.configuration.SamplingType;
 import com.pinterest.singer.thrift.configuration.SingerConfig;
 import com.pinterest.singer.thrift.configuration.SingerLogConfig;
@@ -47,6 +48,7 @@ import com.pinterest.singer.utils.SingerUtils;
 import com.pinterest.singer.writer.NoOpLogStreamWriter;
 import com.pinterest.singer.writer.KafkaWriter;
 import com.pinterest.singer.writer.kafka.CommittableKafkaWriter;
+import com.pinterest.singer.writer.memq.MemqWriter2;
 import com.pinterest.singer.writer.pulsar.PulsarWriter;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -359,9 +361,16 @@ public class DefaultLogMonitor implements LogMonitor, Runnable {
         return createNoOpWriter(logStream, writerConfig.getNoOpWriteConfig());
       case PULSAR:
         return new PulsarWriter().init(logStream, writerConfig.getPulsarWriterConfig());
+      case MEMQ:
+        return createMemqWriter(logStream, writerConfig.getMemqWriterConfig());
       default:
         throw new LogStreamWriterException("Unsupported log writer type.");
     }
+  }
+  
+  protected LogStreamWriter createMemqWriter(LogStream logStream,
+                                             MemqWriterConfig memqWriterConfig) throws ConfigurationException {
+    return new MemqWriter2(logStream, memqWriterConfig);
   }
 
   /**
