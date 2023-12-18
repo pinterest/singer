@@ -1,12 +1,12 @@
 /**
  * Copyright 2019 Pinterest, Inc.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *    http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -27,23 +27,28 @@ import com.pinterest.singer.thrift.configuration.SingerConfig;
  */
 public class KubeServiceChecker {
 
-	public static void main(String[] args) {
-		SingerConfig singerConfig = new SingerConfig();
-		singerConfig.setKubernetesEnabled(true);
-		singerConfig.setKubeConfig(new KubeConfig());
-        SingerSettings.setSingerConfig(singerConfig);
-		
-		KubeService service = KubeService.getInstance();
-		try {
-			Set<String> podUids = service.fetchPodNamesFromMetadata();
-			for (String puid : podUids) {
-				System.out.println(puid);
-			}
-		} catch (Exception e) {
-			System.err.println("Failed to fetch Pod IDs. Reason:"+e.getMessage());
-			e.printStackTrace();
-			System.exit(-1);
-		}
-	}
+  public static void main(String[] args) {
+    if (args.length < 1) {
+      System.out.println("Usage: KubeServiceChecker [singer_config_dir]");
+    }
+    SingerConfig singerConfig = new SingerConfig();
+    singerConfig.setKubernetesEnabled(true);
+    KubeConfig kubeConfig = new KubeConfig();
+    kubeConfig.setPodLogDirectory(args[0]);
+    singerConfig.setKubeConfig(kubeConfig);
+    SingerSettings.setSingerConfig(singerConfig);
+
+    KubeService service = KubeService.getInstance();
+    try {
+      Set<String> podUids = service.fetchPodNamesFromMetadata();
+      for (String puid : podUids) {
+        System.out.println(puid);
+      }
+    } catch (Exception e) {
+      System.err.println("Failed to fetch Pod IDs. Reason:" + e.getMessage());
+      e.printStackTrace();
+      System.exit(-1);
+    }
+  }
 
 }
