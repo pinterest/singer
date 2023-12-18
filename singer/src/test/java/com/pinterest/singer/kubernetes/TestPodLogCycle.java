@@ -16,6 +16,7 @@
 package com.pinterest.singer.kubernetes;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.io.File;
@@ -70,6 +71,7 @@ public class TestPodLogCycle {
 
         podLogPath = new File("").getAbsolutePath() + "/target/pods";
         kubeConfig.setPodLogDirectory(podLogPath);
+        kubeConfig.setIgnorePodDirectory("/Ignore");
         delete(new File(podLogPath));
         new File(podLogPath).mkdirs();
 
@@ -100,6 +102,11 @@ public class TestPodLogCycle {
 
         new File(podLogPath + "/a1223-1111-2222-3333/var/log").mkdirs();
         new File(podLogPath + "/a1223-1111-2222-3333/var/log/access.log").createNewFile();
+
+        // This should be ignored
+        new File(podLogPath + "/b2334-1111-2222-3333/Ignore").mkdirs();
+        new File(podLogPath + "/b2334-1111-2222-3333/var/log").mkdirs();
+        new File(podLogPath + "/b2334-1111-2222-3333/var/log/access.log").createNewFile();
 
         LogStreamManager lsm = LogStreamManager.getInstance();
         KubeService instance = KubeService.getInstance();
@@ -168,6 +175,50 @@ public class TestPodLogCycle {
         instance.stop();
         LogStreamManager.reset();
     }
+
+    @Test
+    public void testPodIgnore() throws InterruptedException, SingerLogException, IOException {
+        SingerLogConfig logConfig2 = new SingerLogConfig();
+        logConfig2.setLogDir("/var/log");
+        logConfig2.setFilenameMatchMode(FileNameMatchMode.PREFIX);
+        logConfig2.setName("test2");
+        logConfig2.setLogStreamRegex("access2.log");
+
+        List<SingerLogConfig> logConfigs = Arrays.asList(logConfig2);
+        SingerSettings.getSingerConfig().setLogConfigs(logConfigs);
+        SingerSettings.initializeConfigMap(config);
+
+        LogStreamManager lsm = LogStreamManager.getInstance();
+        KubeService instance = KubeService.getInstance();
+        instance.start();
+
+        Thread.sleep(SingerTestBase.FILE_EVENT_WAIT_TIME_MS);
+
+        assertEquals("Shouldn't have found any pods:" + Arrays.toString(new File(podLogPath).list()), 0,
+            instance.getActivePodSet().size());
+        assertEquals(0, lsm.getSingerLogPaths().size());
+
+        new File(podLogPath + "/b2121-1111-2222-3333/Ignore").mkdirs();
+        Thread.sleep(SingerTestBase.FILE_EVENT_WAIT_TIME_MS);
+
+        new File(podLogPath + "/b2121-1111-2222-3333/var/log").mkdirs();
+        Thread.sleep(SingerTestBase.FILE_EVENT_WAIT_TIME_MS);
+
+        File file = new File(podLogPath + "/b2121-1111-2222-3333/var/log/access2.log");
+        file.createNewFile();
+        Thread.sleep(SingerTestBase.FILE_EVENT_WAIT_TIME_MS);
+
+        assertEquals(0, instance.getActivePodSet().size());
+        assertEquals(0, lsm.getSingerLogPaths().size());
+        assertEquals(0, SingerSettings.getFsMonitorMap().size());
+        assertFalse("failed:" + SingerSettings.getFsMonitorMap(),
+            SingerSettings.getFsMonitorMap().containsKey("b2121-1111-2222-3333"));
+
+        instance.stop();
+        LogStreamManager.reset();
+    }
+
+
 
     @Test
     public void testPodExternalPodDeletion() throws InterruptedException, IOException {

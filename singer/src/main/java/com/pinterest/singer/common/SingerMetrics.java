@@ -87,6 +87,7 @@ public class SingerMetrics {
   public static final String PODS_TOMBSTONE_MARKER = KUBE_PREFIX + "pod_tombstone_marker";
   public static final String PODS_DELETED = KUBE_PREFIX + "pod_deleted";
   public static final String PODS_CREATED = KUBE_PREFIX + "pod_created";
+  public static final String PODS_IGNORED = KUBE_PREFIX + "pod_ignored";
   // Time elapsed between when Kubernetes deleted the pod and when Singer wrote tombstone marker
   public static final String POD_DELETION_TIME_ELAPSED = KUBE_PREFIX + "pod_deletion_time_elapsed";
   public static final String NUMBER_OF_PODS = KUBE_PREFIX + "number_of_pods";

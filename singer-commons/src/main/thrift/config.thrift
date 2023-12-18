@@ -264,6 +264,12 @@ struct KubeConfig {
    */
   5: optional i32 kubePollStartDelaySeconds = 10;
 
+  /**
+  * Directory that serves as a flag that indicates
+  * a pod should be ingored
+  */
+  6: optional string ignorePodDirectory = "";
+
 }
 
 struct AdminConfig {

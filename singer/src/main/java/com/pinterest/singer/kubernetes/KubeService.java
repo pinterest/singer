@@ -18,7 +18,9 @@ package com.pinterest.singer.kubernetes;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardWatchEventKinds;
 import java.nio.file.WatchEvent;
 import java.util.Date;
@@ -38,6 +40,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.pinterest.singer.common.SingerMetrics;
 import com.pinterest.singer.common.SingerSettings;
+import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
 import com.pinterest.singer.monitor.FileSystemEvent;
 import com.pinterest.singer.monitor.FileSystemEventFetcher;
 import com.pinterest.singer.thrift.configuration.KubeConfig;
@@ -71,6 +74,7 @@ public class KubeService implements Runnable {
     private int pollFrequency;
     private Set<PodWatcher> registeredWatchers = new HashSet<>();
     private String podLogDirectory;
+    private String ignorePodDirectory;
     private Thread thKubeServiceThread;
     private FileSystemEventFetcher fsEventFetcher;
     private Thread thFsEventThread;
@@ -103,6 +107,7 @@ public class KubeService implements Runnable {
         pollFrequency = kubeConfig.getPollFrequencyInSeconds() * MILLISECONDS_IN_SECONDS;
         podLogDirectory = kubeConfig.getPodLogDirectory();
         kubePollDelay = kubeConfig.getKubePollStartDelaySeconds() * MILLISECONDS_IN_SECONDS;
+        ignorePodDirectory = kubeConfig.getIgnorePodDirectory();
     }
 
     public synchronized static KubeService getInstance() {
@@ -117,7 +122,7 @@ public class KubeService implements Runnable {
         // fetch existing pod directories
         updatePodNamesFromFileSystem();
 
-        // we should wait for some time 
+        // we should wait for some time
         try {
             Thread.sleep(kubePollDelay);
         } catch (InterruptedException e1) {
@@ -178,8 +183,9 @@ public class KubeService implements Runnable {
         if (directories != null) {
             for (File directory : directories) {
                 String podName = directory.getName();
-                if (temp.contains("." + podName)) {
-                    LOG.info("Ignoring POD directory " + podName + " since there is a tombstone file present");
+                if (temp.contains("." + podName) || checkIgnoreDirectory(podName)) {
+                    LOG.info("Ignoring POD directory " + podName
+                      + " since there is a tombstone file present or has ignored directory inside");
                     // Skip adding this pod to the active podset
                     continue;
                 }
@@ -278,11 +284,13 @@ public class KubeService implements Runnable {
                 // coexist of 2 format: namespace_podname or namespace_podname_uid
                 String formatOne = namespace + "_" + name;
                 String formatTwo = namespace + "_" + name + "_" + podUid;
-                String path_format = podLogDirectory;
-                if (!podLogDirectory.endsWith("/")) {
-                    path_format = podLogDirectory + "/";
+                // Ignore pod if Ignore directory exists, this indicates that the pod is running its own dedicated logging agent (dual mode)
+                if (checkIgnoreDirectory(formatOne) || checkIgnoreDirectory(formatTwo)) {
+                    LOG.debug("Ignoring pod " + name + ", ignore flag found inside pod log directory");
+                    OpenTsdbMetricConverter.incr(SingerMetrics.PODS_IGNORED, "podname=" + name);
+                    continue;
                 }
-                if (new File(path_format + formatOne).exists()) {
+                if (Files.exists(Paths.get(podLogDirectory, formatOne))) {
                     podNames.add(formatOne);
                     LOG.debug("Added format one: " + formatOne);
                 } else {
@@ -405,9 +413,11 @@ public class KubeService implements Runnable {
         if (kind.equals(StandardWatchEventKinds.ENTRY_CREATE)) {
             if (!file.toFile().isFile()) {
                 String podName = file.toFile().getName();
-                if (podName.startsWith(".")) {
-                    // ignore tombstone files
-                    return;
+                boolean ignoreDir = checkIgnoreDirectory(podName);
+                if (podName.startsWith(".") || ignoreDir) {
+                  // ignore tombstone files & pod directories running a dedicated singer instance
+                  if (ignoreDir) OpenTsdbMetricConverter.incr(SingerMetrics.PODS_IGNORED, "podname=" + ignoreDir);
+                  return;
                 }
                 LOG.info("New pod directory discovered by FSM:" + event.logDir() + " " + podLogDirectory
                     + " podname:" + podName);
@@ -437,5 +447,9 @@ public class KubeService implements Runnable {
             instance.stop();
             instance = null;
         }
+    }
+
+    private boolean checkIgnoreDirectory(String podName) {
+      return Files.exists(Paths.get(podLogDirectory, podName, ignorePodDirectory));
     }
 }
