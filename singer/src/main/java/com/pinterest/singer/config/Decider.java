@@ -16,6 +16,7 @@
 package com.pinterest.singer.config;
 
 import com.pinterest.singer.utils.HashUtils;
+import com.pinterest.singer.utils.SingerUtils;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
@@ -101,6 +102,11 @@ public class Decider {
   @VisibleForTesting
   public Map<String, Integer> getDeciderMap() {
     return mDeciderMap;
+  }
+
+  public static String generateDisableDecider(String logName) {
+    return "singer_disable_" + logName + "___"
+        + SingerUtils.getHostnamePrefix().replace('-', '_') + "___decider";
   }
 
   /**
