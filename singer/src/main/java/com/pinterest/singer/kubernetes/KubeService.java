@@ -450,6 +450,7 @@ public class KubeService implements Runnable {
     }
 
     private boolean checkIgnoreDirectory(String podName) {
+      if (ignorePodDirectory == null || ignorePodDirectory.isEmpty()) return false;
       return Files.exists(Paths.get(podLogDirectory, podName, ignorePodDirectory));
     }
 }
