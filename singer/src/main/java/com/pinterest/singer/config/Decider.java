@@ -119,7 +119,6 @@ public class Decider {
    * @return the disable decider name if it exists, null otherwise
    */
   public String getDisableDecider(String logName) {
-    LOG.warn("Calling get disable decider");
     Set<String> disableDeciderList = new HashSet<>();
     String deciderName = null;
     for (String key : mDeciderMap.keySet()) {
@@ -127,8 +126,9 @@ public class Decider {
         disableDeciderList.add(key);
       }
     }
+    String convertedHostname = SingerUtils.HOSTNAME.replace("-", "_");
     for (String decider : disableDeciderList) {
-      if (SingerUtils.HOSTNAME.startsWith(decider.split("___")[1])) {
+      if (convertedHostname.startsWith(decider.split("___")[1])) {
         deciderName =
             deciderName != null && deciderName.length() > decider.length() ? deciderName : decider;
       }
