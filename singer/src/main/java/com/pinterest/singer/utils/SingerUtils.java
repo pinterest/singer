@@ -38,6 +38,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Date;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.configuration.ConfigurationException;
 import org.apache.commons.io.comparator.LastModifiedFileComparator;
 import org.apache.commons.io.comparator.NameFileComparator;
@@ -89,23 +90,6 @@ public class SingerUtils {
       hostName = System.getenv("HOSTNAME");
     }
     return hostName;
-  }
-
-  /**
-   * @return the prefix of the host name
-   */
-  public static String getHostnamePrefix() {
-    String hostNameStringPrefix = "null";
-    if (HOSTNAME != null) {
-      String hostNameToSplit = "";
-      String[] substrs = HOSTNAME.split("\\d+");
-      if (substrs.length > 0) {
-        hostNameToSplit = substrs[0];
-      }
-      int dashIndex = hostNameToSplit.lastIndexOf('-');
-      hostNameStringPrefix = dashIndex == -1 ? hostNameToSplit : hostNameToSplit.substring(0, dashIndex);
-    }
-    return hostNameStringPrefix;
   }
 
   public static Path getPath(String filePathStr) {
@@ -359,6 +343,10 @@ public class SingerUtils {
         file.delete();
       }
     }
+  }
+  @VisibleForTesting
+  public static void setHostname(String hostname) {
+    HOSTNAME = hostname;
   }
   
 }

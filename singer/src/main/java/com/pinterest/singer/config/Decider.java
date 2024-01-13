@@ -15,6 +15,7 @@
  */
 package com.pinterest.singer.config;
 
+import com.pinterest.singer.common.SingerSettings;
 import com.pinterest.singer.utils.HashUtils;
 import com.pinterest.singer.utils.SingerUtils;
 
@@ -31,8 +32,12 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Basic Decider Framework.
@@ -104,9 +109,31 @@ public class Decider {
     return mDeciderMap;
   }
 
-  public static String generateDisableDecider(String logName) {
-    return "singer_disable_" + logName + "___"
-        + SingerUtils.getHostnamePrefix().replace('-', '_') + "___decider";
+  /***
+   * Given a log name, return the decider name that is used to disable the log. The disable decider
+   * name is required to be in the format of "singer_disable_logName___HOSTNAMEPREFIX___decider".
+   * Additionally, if there are multiple deciders that match this format , the one with the largest
+   * character count will be returned.
+   *
+   * @param logName
+   * @return the disable decider name if it exists, null otherwise
+   */
+  public String getDisableDecider(String logName) {
+    LOG.warn("Calling get disable decider");
+    Set<String> disableDeciderList = new HashSet<>();
+    String deciderName = null;
+    for (String key : mDeciderMap.keySet()) {
+      if (key.startsWith("singer_disable_" + logName + "___")) {
+        disableDeciderList.add(key);
+      }
+    }
+    for (String decider : disableDeciderList) {
+      if (SingerUtils.HOSTNAME.startsWith(decider.split("___")[1])) {
+        deciderName =
+            deciderName != null && deciderName.length() > decider.length() ? deciderName : decider;
+      }
+    }
+    return deciderName;
   }
 
   /**
