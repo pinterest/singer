@@ -349,6 +349,7 @@ public class DefaultLogStreamProcessorTest extends com.pinterest.singer.SingerTe
         processor.close();
       }
     }
+    SingerUtils.setHostname(SingerUtils.getHostname());
   }
   private static List<LogMessage> getMessages(List<LogMessageAndPosition> messageAndPositions) {
     List<LogMessage> messages = Lists.newArrayListWithExpectedSize(messageAndPositions.size());
