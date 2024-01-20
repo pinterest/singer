@@ -312,7 +312,7 @@ public class DefaultLogStreamProcessorTest extends com.pinterest.singer.SingerTe
   @Test
   public void testDisableDecider() throws Exception {
     DefaultLogStreamProcessor processor = null;
-    SingerUtils.setHostname("localhost");
+    SingerUtils.setHostname("localhost-19970722");
     try {
       SingerConfig singerConfig = new SingerConfig();
       singerConfig.setThreadPoolSize(1);
@@ -338,7 +338,8 @@ public class DefaultLogStreamProcessorTest extends com.pinterest.singer.SingerTe
       assertEquals(false, processor.isLoggingAllowedByDecider());
 
       Decider.getInstance().getDeciderMap().put("singer_disable_test___localhost___decider", 50);
-      assertEquals(true, processor.isLoggingAllowedByDecider());
+      Decider.getInstance().getDeciderMap().put("singer_disable_test___localhost_19970722___decider", 100);
+      assertEquals(false, processor.isLoggingAllowedByDecider());
 
     } catch (Exception e) {
       e.printStackTrace();

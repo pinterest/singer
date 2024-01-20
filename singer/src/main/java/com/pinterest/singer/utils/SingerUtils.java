@@ -34,9 +34,11 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.List;
 
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.configuration.ConfigurationException;
@@ -76,6 +78,7 @@ public class SingerUtils {
 
   public static final FileSystem defaultFileSystem = FileSystems.getDefault();
   public static String HOSTNAME = getHostname();
+  public static List<String> HOSTNAME_PREFIXES = getHostnamePrefixes();
 
   public static String getHostname() {
     String hostName;
@@ -90,6 +93,25 @@ public class SingerUtils {
       hostName = System.getenv("HOSTNAME");
     }
     return hostName;
+  }
+
+  /***
+   * Gradually builds substrings from hostname separated by dashes
+   * will return hostname if hostname does not contain dashes
+   *
+   * @param
+   * @return a list of hostname prefixes
+   */
+  public static List<String> getHostnamePrefixes() {
+    List<String> hostPrefixes = new ArrayList<>();
+    String [] splitHostname = HOSTNAME.split("-");
+    StringBuilder currentPrefix = new StringBuilder();
+    for (String prefix : splitHostname) {
+      currentPrefix.append(prefix);
+      hostPrefixes.add(currentPrefix.toString());
+      currentPrefix.append("-");
+    }
+    return hostPrefixes;
   }
 
   public static Path getPath(String filePathStr) {
@@ -347,6 +369,7 @@ public class SingerUtils {
   @VisibleForTesting
   public static void setHostname(String hostname) {
     HOSTNAME = hostname;
+    HOSTNAME_PREFIXES = getHostnamePrefixes();
   }
-  
+
 }

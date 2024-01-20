@@ -69,7 +69,7 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
   private final String logDecider;
 
   // Decider used in conjunction with logDecider to disable the logstream at a fleet level
-  private final String logstreamNameForDecider;
+  private final List<String> disableDeciders;
 
   // LogStream to be processed.
   protected final LogStream logStream;
@@ -168,8 +168,9 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
     this.exceedTimeSliceLimit = false;
     this.lastModificationTimeProcessed = new AtomicLong(-1);
     this.lastCompletedCycleTime = new AtomicLong(-1);
-    this.logstreamNameForDecider =
-        logStream.getSingerLog().getSingerLogConfig().getName().replaceAll("[^a-zA-Z0-9]", "_");
+    this.disableDeciders =
+        Decider.getInstance().generateDisableDeciders(
+            this.logStream.getSingerLog().getSingerLogConfig().getName());
   }
 
   @Override
@@ -258,10 +259,15 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
       if (map.containsKey(logDecider)) {
         result = map.get(logDecider) != 0;
       }
-      String disableDecider = Decider.getInstance().getDisableDecider(logstreamNameForDecider);
-      if (result && disableDecider != null && map.get(disableDecider) == 100) {
-        LOG.info("Disabling log stream {} because fleet disable decider is set to 100", logStream.getLogStreamName());
-        result = false;
+      if (result && disableDeciders != null) {
+        for (String disableDecider : disableDeciders) {
+          if (map.containsKey(disableDecider) && map.get(disableDecider) == 100) {
+            LOG.info("Disabling log stream {} because fleet disable decider {} is set to 100",
+                logStream.getLogStreamName(), disableDecider);
+            result = false;
+            break;
+          }
+        }
       }
     }
     return result;
