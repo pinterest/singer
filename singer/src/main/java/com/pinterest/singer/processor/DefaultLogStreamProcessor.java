@@ -248,7 +248,7 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
   /**
    * If the decider is not set, this method will return true.
    * If a decider is set, return false when the decider's value is 0
-   * and disable decider's (if exists) value is 100.
+   * or disable decider's (if exists) value is 100.
    *
    * @return true or false.
    */
