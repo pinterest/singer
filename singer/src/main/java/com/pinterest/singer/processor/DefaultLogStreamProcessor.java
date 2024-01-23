@@ -265,7 +265,7 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
             LOG.info("Disabling log stream {} because fleet disable decider {} is set to 100",
                 logStream.getLogStreamName(), disableDecider);
             OpenTsdbMetricConverter.gauge(
-                "singer.processor.disable_decider_active", 1, "log=" + logStream.getSingerLog().getLogName());
+                SingerMetrics.DISABLE_DECIDER_ACTIVE, 1, "log=" + logStream.getSingerLog().getLogName());
             result = false;
             break;
           }

@@ -96,13 +96,16 @@ public class SingerUtils {
   }
 
   /***
-   * Gradually builds substrings from hostname separated by a given regex,
+   * Gradually builds substrings separated by dashes from hostname given a regex,
    * will return hostname if hostname can't be split by regex
    *
    * @param
    * @return a list of hostname prefixes
    */
   public static List<String> getHostnamePrefixes(String regex) {
+    if (regex == null || regex.isEmpty()) {
+      return Arrays.asList(HOSTNAME);
+    }
     List<String> hostPrefixes = new ArrayList<>();
     String [] splitHostname = HOSTNAME.split(regex);
     StringBuilder currentPrefix = new StringBuilder();

@@ -120,7 +120,7 @@ public class Decider {
   public List<String> generateDisableDeciders(String logName) {
     List<String> disableDeciderList = new ArrayList<>();
     for (int i = SingerUtils.HOSTNAME_PREFIXES.size() - 1; i >= 0; i--) {
-      String convertedHostname = SingerUtils.HOSTNAME_PREFIXES.get(i).replace("-", "_");
+      String convertedHostname = SingerUtils.HOSTNAME_PREFIXES.get(i).replaceAll("[^a-zA-Z0-9]", "_");
       disableDeciderList.add("singer_disable_" + logName.replaceAll("[^a-zA-Z0-9]", "_") + "___" + convertedHostname + "___decider");
     }
     return disableDeciderList;
