@@ -68,7 +68,7 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
   // Decider for the log stream.
   private final String logDecider;
 
-  // Valid deciders tha can be used in conjunction with logDecider to disable the logstream at a fleet level
+  // Valid deciders that can be used in conjunction with logDecider to disable the logstream at a fleet level
   private final List<String> disableDeciders;
 
   // LogStream to be processed.
@@ -247,8 +247,8 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
 
   /**
    * If the decider is not set, this method will return true.
-   * If a decider is set, return false when the decider's value is 0 or when the
-   * decider's value is != 0 and disable decider's (if exists) value is 100.
+   * If a decider is set, return false when the decider's value is 0
+   * and disable decider's (if exists) value is 100.
    *
    * @return true or false.
    */
