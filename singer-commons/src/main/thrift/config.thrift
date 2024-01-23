@@ -422,4 +422,9 @@ struct SingerConfig {
     */
   27: optional string fsEventQueueImplementation;
 
+  /**
+   * Hostname Prefix regex pattern
+   */
+  28: optional string hostnamePrefixRegex = "-";
+
 }

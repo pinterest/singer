@@ -78,7 +78,7 @@ public class SingerUtils {
 
   public static final FileSystem defaultFileSystem = FileSystems.getDefault();
   public static String HOSTNAME = getHostname();
-  public static List<String> HOSTNAME_PREFIXES = getHostnamePrefixes();
+  public static List<String> HOSTNAME_PREFIXES = getHostnamePrefixes("-");
 
   public static String getHostname() {
     String hostName;
@@ -96,15 +96,15 @@ public class SingerUtils {
   }
 
   /***
-   * Gradually builds substrings from hostname separated by dashes
-   * will return hostname if hostname does not contain dashes
+   * Gradually builds substrings from hostname separated by a given regex,
+   * will return hostname if hostname can't be split by regex
    *
    * @param
    * @return a list of hostname prefixes
    */
-  public static List<String> getHostnamePrefixes() {
+  public static List<String> getHostnamePrefixes(String regex) {
     List<String> hostPrefixes = new ArrayList<>();
-    String [] splitHostname = HOSTNAME.split("-");
+    String [] splitHostname = HOSTNAME.split(regex);
     StringBuilder currentPrefix = new StringBuilder();
     for (String prefix : splitHostname) {
       currentPrefix.append(prefix);
@@ -253,6 +253,7 @@ public class SingerUtils {
     }
 
     LOG.info("Singer config loaded : " + singerConfig);
+    HOSTNAME_PREFIXES = getHostnamePrefixes(singerConfig.getHostnamePrefixRegex());
     return singerConfig;
   }
   
@@ -367,9 +368,9 @@ public class SingerUtils {
     }
   }
   @VisibleForTesting
-  public static void setHostname(String hostname) {
+  public static void setHostname(String hostname, String regex) {
     HOSTNAME = hostname;
-    HOSTNAME_PREFIXES = getHostnamePrefixes();
+    HOSTNAME_PREFIXES = getHostnamePrefixes(regex);
   }
 
 }
