@@ -68,6 +68,9 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
   // Decider for the log stream.
   private final String logDecider;
 
+  // Valid deciders that can be used in conjunction with logDecider to disable the logstream at a fleet level
+  private final List<String> disableDeciders;
+
   // LogStream to be processed.
   protected final LogStream logStream;
 
@@ -165,6 +168,9 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
     this.exceedTimeSliceLimit = false;
     this.lastModificationTimeProcessed = new AtomicLong(-1);
     this.lastCompletedCycleTime = new AtomicLong(-1);
+    this.disableDeciders =
+        Decider.getInstance().generateDisableDeciders(
+            this.logStream.getSingerLog().getSingerLogConfig().getName());
   }
 
   @Override
@@ -241,7 +247,8 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
 
   /**
    * If the decider is not set, this method will return true.
-   * If a decider is set, only return false when the decider's value is 0.
+   * If a decider is set, return false when the decider's value is 0
+   * or disable decider's (if exists) value is 100.
    *
    * @return true or false.
    */
@@ -251,6 +258,18 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
       Map<String, Integer> map = Decider.getInstance().getDeciderMap();
       if (map.containsKey(logDecider)) {
         result = map.get(logDecider) != 0;
+      }
+      if (result && disableDeciders != null) {
+        for (String disableDecider : disableDeciders) {
+          if (map.containsKey(disableDecider) && map.get(disableDecider) == 100) {
+            LOG.info("Disabling log stream {} because fleet disable decider {} is set to 100",
+                logStream.getLogStreamName(), disableDecider);
+            OpenTsdbMetricConverter.gauge(
+                SingerMetrics.DISABLE_DECIDER_ACTIVE, 1, "log=" + logStream.getSingerLog().getLogName());
+            result = false;
+            break;
+          }
+        }
       }
     }
     return result;
