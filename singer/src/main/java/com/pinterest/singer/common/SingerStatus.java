@@ -247,7 +247,7 @@ public class SingerStatus {
         LOG.error("Invalid field for number of watermark files", e);
       }
     }
-    this.numWatermarkFiles = tmpStuckStreams;
+    this.numWatermarkFiles = tmpWatermarkFileCount;
 
     if (kvs.containsKey(KAFKA_WRITES_KEY)) {
       this.kafkaWrites.putAll(getMapFromJson(kvs.get(KAFKA_WRITES_KEY)));
