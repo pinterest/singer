@@ -66,6 +66,7 @@ public class SingerMetrics {
   public static final String WATERMARK_CREATION_FAILURE = "singer.watermark.creation.failure";
 
   public static final String WATERMARK_RENAME_FAILURE = "singer.watermark.rename.failure";
+  public static final String WATERMARK_FILE_COUNT = "singer.watermark.file.count";
 
   public static final String NUM_KAFKA_MESSAGES = SINGER_WRITER + "num_kafka_messages_delivery_success";
   public static final String OVERSIZED_MESSAGES = SINGER_WRITER + "num_oversized_messages";

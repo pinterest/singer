@@ -21,18 +21,22 @@ import com.pinterest.singer.thrift.LogPosition;
 import com.twitter.ostrich.stats.Stats;
 import java.io.BufferedInputStream;
 import java.io.File;
+
+import org.apache.commons.io.filefilter.RegexFileFilter;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TJSONProtocol;
 import org.apache.thrift.transport.TIOStreamTransport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.FileFilter;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.channels.FileChannel;
+import java.nio.file.Path;
 
 /**
  * Utilities for watermark.
@@ -128,5 +132,20 @@ public final class WatermarkUtils {
         LOG.error("Debug watermark error: Error when close the debug file channels", ex);
       }
     }
+  }
+
+  /**
+   * Get the number of watermark files in the given directory.
+   * @param dirPath
+   * @return the number of watermark files in dirPath.
+   */
+  public static int getNumberOfWatermarkFilesInDir(String dirPath) {
+    File logDirectory = new File(dirPath);
+    if (!logDirectory.exists() || !logDirectory.isDirectory()) {
+      return 0;
+    }
+    FileFilter dotFileFilter = new RegexFileFilter("^\\..*");
+    File[] watermarkFiles = logDirectory.listFiles(dotFileFilter);
+    return watermarkFiles == null ? 0 : watermarkFiles.length;
   }
 }

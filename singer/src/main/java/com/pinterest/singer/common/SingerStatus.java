@@ -51,6 +51,7 @@ import java.util.TreeMap;
  *   "numLogStreams": "1",
  *   "numStuckLogStreams": "0",
  *   "processorExceptions": "0",
+ *   "numWatermarkFiles": "0",
  *   "timestamp": "1472626620005",
  *   "version": "0.6.0"
  * }
@@ -74,6 +75,7 @@ public class SingerStatus {
   private static final String PROCESSOR_EXCEPTIONS_KEY = "processorExceptions";
   private static final String NUM_LOG_STREAMS_KEY = "numLogStreams";
   private static final String NUM_STUCK_LOG_STREAMS_KEY = "numStuckLogStreams";
+  private static final String NUM_WATERMARK_FILES_KEY = "numWatermarkFiles";
   private static final String KAFKA_WRITES_KEY = "kafkaWrites";
   private static final String LATENCY_KEY = "latency";
   private static final String CURRENT_LATENCY_KEY = "currentLatency";
@@ -87,6 +89,7 @@ public class SingerStatus {
   private final long numExceptions;
   private final long numLogStreams;
   private final long numStuckLogStreams;
+  private final long numWatermarkFiles;
   private final TreeMap<String, String> kafkaWrites = new TreeMap<>();
   private final TreeMap<String, String> latency = new TreeMap<>();
   private final TreeMap<String, String> skippedBytes = new TreeMap<>();
@@ -120,6 +123,8 @@ public class SingerStatus {
     Double numStuckLogStreams = getGaugeValue(gauges, SingerMetrics.NUM_STUCK_LOGSTREAMS);
     this.numStuckLogStreams = numStuckLogStreams.longValue();
     this.currentLatency = getGaugeValue(gauges, SingerMetrics.CURRENT_PROCESSOR_LATENCY);
+    Double numWatermarkFiles = getGaugeValue(gauges, SingerMetrics.WATERMARK_FILE_COUNT);
+    this.numWatermarkFiles = numWatermarkFiles.longValue();
 
     Iterator<Tuple2<String, Object>> countersIterator = counters.iterator();
     while (countersIterator.hasNext()) {
@@ -158,6 +163,7 @@ public class SingerStatus {
    *         * "processorExceptions": The number of processor exceptions on that host
    *         * "numLogStreams": The number of log streams on that host
    *         * "numStuckLogStreams": The number of log streams stuck on that host
+   *         * "numWatermarkFiles" : The number of watermark files on that host
    *         * "kafkaWrites": A map of {topic -> number of messages successfully written to Kafka}
    *         * "latency": A map of {topic -> latency in uploading for that topic}
    *         * "skippedBytes": A map of {topic -> skipped bytes in uploading for that topic}
@@ -231,6 +237,18 @@ public class SingerStatus {
     }
     this.numStuckLogStreams = tmpStuckStreams;
 
+    long tmpWatermarkFileCount = 0L;
+    try {
+      tmpWatermarkFileCount = Long.parseLong(kvs.get(NUM_WATERMARK_FILES_KEY));
+    } catch (NumberFormatException e) {
+      // Only log the error if it is an invalid value, as it is expected that old messages may be
+      // missing these fields.
+      if (kvs.containsKey(NUM_WATERMARK_FILES_KEY)) {
+        LOG.error("Invalid field for number of watermark files", e);
+      }
+    }
+    this.numWatermarkFiles = tmpStuckStreams;
+
     if (kvs.containsKey(KAFKA_WRITES_KEY)) {
       this.kafkaWrites.putAll(getMapFromJson(kvs.get(KAFKA_WRITES_KEY)));
     }
@@ -297,6 +315,7 @@ public class SingerStatus {
     kvs.put(PROCESSOR_EXCEPTIONS_KEY, Long.toString(this.numExceptions));
     kvs.put(NUM_LOG_STREAMS_KEY, Long.toString(this.numLogStreams));
     kvs.put(NUM_STUCK_LOG_STREAMS_KEY, Long.toString(this.numStuckLogStreams));
+    kvs.put(NUM_WATERMARK_FILES_KEY, Long.toString(this.numWatermarkFiles));
 
     Gson gson = new Gson();
     kvs.put(KAFKA_WRITES_KEY, gson.toJson(this.kafkaWrites));
@@ -319,6 +338,7 @@ public class SingerStatus {
                   (this.numExceptions == that.numExceptions) &&
                   (this.numLogStreams == that.numLogStreams) &&
                   (this.numStuckLogStreams == that.numStuckLogStreams) &&
+                  (this.numWatermarkFiles == that.numWatermarkFiles) &&
                   (this.kafkaWrites == null ? that.kafkaWrites == null
                                             : this.kafkaWrites.equals(that.kafkaWrites)) &&
                   (this.latency == null ? that.latency == null
@@ -356,6 +376,10 @@ public class SingerStatus {
 
   public long getNumStuckLogStreams() {
     return numStuckLogStreams;
+  }
+
+  public long getNumWatermarkFiles() {
+    return numWatermarkFiles;
   }
 
   public TreeMap<String, String> getKafkaWrites() {
