@@ -60,7 +60,6 @@ import com.twitter.ostrich.stats.Stats;
 import org.apache.commons.configuration.ConfigurationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.Int;
 
 import java.io.IOException;
 import java.text.ParseException;
@@ -554,7 +553,7 @@ public class DefaultLogMonitor implements LogMonitor, Runnable {
 
     Map<String, List<Long>> perLogLatency = Maps.newHashMap();
     Map<String, Integer> perLogStuck = Maps.newHashMap();
-    Set<String> perDirWatermarkCount = new HashSet<>();
+    Set<String> logDirectoriesChecked = new HashSet<>();
 
     DefaultLogStreamProcessor processor;
 
@@ -562,8 +561,8 @@ public class DefaultLogMonitor implements LogMonitor, Runnable {
       String logName = logStream.getSingerLog().getSingerLogConfig().getName();
       String logDir = logStream.getLogDir();
       // we only count watermark files once per directory
-      if (!perDirWatermarkCount.contains(logDir)) {
-        perDirWatermarkCount.add(logDir);
+      if (!logDirectoriesChecked.contains(logDir)) {
+        logDirectoriesChecked.add(logDir);
         numWatermarkFiles += WatermarkUtils.getNumberOfWatermarkFilesInDir(logDir);
       }
       if (!perLogLatency.containsKey(logName)) {
