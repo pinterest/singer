@@ -15,7 +15,9 @@
  */
 package com.pinterest.singer.config;
 
+import com.pinterest.singer.common.SingerSettings;
 import com.pinterest.singer.utils.HashUtils;
+import com.pinterest.singer.utils.SingerUtils;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
@@ -29,9 +31,14 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Basic Decider Framework.
@@ -101,6 +108,22 @@ public class Decider {
   @VisibleForTesting
   public Map<String, Integer> getDeciderMap() {
     return mDeciderMap;
+  }
+
+  /***
+   * Given a log name, return a list of possible decider names used to disable the log. The disable decider
+   * name is required to be in the format of "singer_disable_logName___HOSTNAMEPREFIX___decider".
+   *
+   * @param logName
+   * @return a list of disable deciders
+   */
+  public List<String> generateDisableDeciders(String logName) {
+    List<String> disableDeciderList = new ArrayList<>();
+    for (int i = SingerUtils.HOSTNAME_PREFIXES.size() - 1; i >= 0; i--) {
+      String convertedHostname = SingerUtils.HOSTNAME_PREFIXES.get(i).replaceAll("[^a-zA-Z0-9]", "_");
+      disableDeciderList.add("singer_disable_" + logName.replaceAll("[^a-zA-Z0-9]", "_") + "___" + convertedHostname + "___decider");
+    }
+    return disableDeciderList;
   }
 
   /**
