@@ -49,6 +49,7 @@ public class SingerMetrics {
   public static final String LOGSTREAM_FILE_DELETION = "singer.logstream.file_deletion";
 
   public static final String NUM_LOGSTREAMS = "singer.monitor.num_logstreams_processed";
+  public static final String NUM_ACTIVE_DIRECTORIES = "singer.monitor.num_active_log_directories";
 
   public static final String NUM_STUCK_LOGSTREAMS = "singer.processor.stuck_processors";
 

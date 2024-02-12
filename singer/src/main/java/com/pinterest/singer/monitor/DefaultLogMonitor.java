@@ -601,6 +601,7 @@ public class DefaultLogMonitor implements LogMonitor, Runnable {
 
     Stats.setGauge("singer.processor.stuck_processors", numStuckStreams);
     Stats.setGauge(SingerMetrics.WATERMARK_FILE_COUNT, numWatermarkFiles);
+    Stats.setGauge(SingerMetrics.NUM_ACTIVE_DIRECTORIES, logDirectoriesChecked.size());
     long overallMaxLatency = 0;
     for (String log : perLogLatency.keySet()) {
       List<Long> latencyList = perLogLatency.get(log);
