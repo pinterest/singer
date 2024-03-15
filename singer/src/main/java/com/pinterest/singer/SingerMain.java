@@ -162,8 +162,8 @@ public final class SingerMain {
         if (singerConfig.isHeartbeatEnabled()) {
           SingerSettings.heartbeatGenerator = new HeartbeatGenerator(singerConfig);
         }
-        SingerSettings.initialize(singerConfig);
         startOstrichService(singerConfig);
+        SingerSettings.initialize(singerConfig);
       }
     } catch (Throwable t) {
       LOG.error("Singer failed.", t);
