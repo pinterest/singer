@@ -1,0 +1,32 @@
+name: release and push to central
+on:
+  push:
+    tags:
+      - '*'
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: publish
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Java for publishing to Maven Central Repository
+        uses: actions/setup-java@v1
+        with:
+          java-version: 11
+          server-id: ossrh
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_PASSWORD
+          gpg-private-key: ${{ secrets.OSSRH_GPG_SECRET_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+      - name: build artifact
+        run: mvn clean package -DskipTests
+      - name: Publish to the Maven Central Repository
+        run: |
+          mvn \
+            --no-transfer-progress \
+            --batch-mode \
+            deploy -DskipTests
+        env:
+          MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.OSSRH_GPG_SECRET_KEY_PASSWORD }}
