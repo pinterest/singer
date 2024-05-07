@@ -82,7 +82,6 @@ public class MemoryEfficientLogStreamProcessor extends DefaultLogStreamProcessor
           break;
         } else {
           logMessageAndPosition = tmp;
-          logMessagesRead++;
         }
       } catch (Exception e) {
         String errorString = "Caught exception when reading the current batch of messages from "
@@ -110,6 +109,7 @@ public class MemoryEfficientLogStreamProcessor extends DefaultLogStreamProcessor
           && deciderValue <= ThreadLocalRandom.current().nextInt(FULL_THROUGHPUT)) {
         continue;
       }
+      logMessagesRead++;
       writer.writeLogMessageToCommit(logMessageAndPosition, isDraining);
     }
 
