@@ -70,6 +70,8 @@ public class MemoryEfficientLogStreamProcessor extends DefaultLogStreamProcessor
 
     int deciderValue = getDeciderValue();
     int logMessagesRead = 0;
+    int logMessagesSkipped = 0;
+    int logMessagesToWrite = 0;
     // Read a batch of LogMessages.
     LogMessageAndPosition logMessageAndPosition = null;
     boolean isDraining = LogStreamManager.getInstance().isDraining();
@@ -108,14 +110,19 @@ public class MemoryEfficientLogStreamProcessor extends DefaultLogStreamProcessor
       
       if (enableDeciderBasedSampling && deciderValue != FULL_THROUGHPUT 
           && deciderValue <= ThreadLocalRandom.current().nextInt(FULL_THROUGHPUT)) {
+        logMessagesSkipped++;
         continue;
       }
       writer.writeLogMessageToCommit(logMessageAndPosition, isDraining);
     }
 
     if (logMessagesRead > 0) {
-      // Write the batch of LogMessages.
-      writer.endCommit(logMessagesRead, isDraining);
+      // Subtract the number of skipped messages from the total number of messages read
+      if (logMessagesRead >= logMessagesSkipped) {
+        logMessagesToWrite = logMessagesRead - logMessagesSkipped;
+      }
+      // Write the batch of LogMessages
+      writer.endCommit(logMessagesToWrite, isDraining);
 
       LogMessage lastMessage = logMessageAndPosition.getLogMessage();
       if (lastMessage.isSetTimestampInNanos()) {
