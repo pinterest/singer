@@ -119,8 +119,13 @@ public class KubeService implements Runnable {
 
     @Override
     public void run() {
-        // fetch existing pod directories
-        updatePodNamesFromFileSystem();
+        try {
+          // fetch existing pod directories
+          updatePodNamesFromFileSystem();
+        } catch (Exception e) {
+          LOG.error("Error while updating pod names from file system", e);
+          Stats.incr(SingerMetrics.KUBE_SERVICE_ERROR);
+        }
 
         // we should wait for some time
         try {
@@ -181,6 +186,7 @@ public class KubeService implements Runnable {
         }
 
         if (directories != null) {
+            LOG.info("Found " + directories.length + " directories in POD log directory " + podLogDirectory);
             for (File directory : directories) {
                 String podName = directory.getName();
                 if (temp.contains("." + podName) || checkIgnoreDirectory(podName)) {
