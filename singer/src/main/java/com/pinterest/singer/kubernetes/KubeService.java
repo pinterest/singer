@@ -122,16 +122,13 @@ public class KubeService implements Runnable {
         try {
           // fetch existing pod directories
           updatePodNamesFromFileSystem();
+          // we should wait for some time
+          Thread.sleep(kubePollDelay);
+        } catch (InterruptedException e1) {
+          LOG.error("Kube Service interrupted while waiting for poll delay to finish");
         } catch (Exception e) {
           LOG.error("Error while updating pod names from file system", e);
           Stats.incr(SingerMetrics.KUBE_SERVICE_ERROR);
-        }
-
-        // we should wait for some time
-        try {
-            Thread.sleep(kubePollDelay);
-        } catch (InterruptedException e1) {
-            LOG.error("Kube Service interrupted while waiting for poll delay to finish");
         }
 
         while (true) {
