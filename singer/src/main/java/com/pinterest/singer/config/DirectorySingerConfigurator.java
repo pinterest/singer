@@ -16,7 +16,6 @@
 package com.pinterest.singer.config;
 
 import com.pinterest.singer.common.SingerMetrics;
-import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
 import com.pinterest.singer.thrift.configuration.SingerConfig;
 import com.pinterest.singer.thrift.configuration.SingerLogConfig;
 import com.pinterest.singer.utils.LogConfigUtils;
