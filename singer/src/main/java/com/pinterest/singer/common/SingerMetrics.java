@@ -85,6 +85,7 @@ public class SingerMetrics {
 
   public static final String KUBE_PREFIX           = SINGER_PREIX + "kube.";
   public static final String KUBE_API_ERROR        = KUBE_PREFIX  + "api_error";
+  public static final String KUBE_SERVICE_ERROR = KUBE_PREFIX + "kubeservice_thread_error";
   public static final String ACTIVE_POD_DELETION_TASKS = KUBE_PREFIX + "pod_deletion_tasks_active";
   public static final String PODS_TOMBSTONE_MARKER = KUBE_PREFIX + "pod_tombstone_marker";
   public static final String PODS_DELETED = KUBE_PREFIX + "pod_deleted";
