@@ -1,12 +1,12 @@
 /**
  * Copyright 2019 Pinterest, Inc.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *    http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,6 +16,7 @@
 package com.pinterest.singer.config;
 
 import com.pinterest.singer.common.SingerMetrics;
+import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
 import com.pinterest.singer.thrift.configuration.SingerConfig;
 import com.pinterest.singer.thrift.configuration.SingerLogConfig;
 import com.pinterest.singer.utils.LogConfigUtils;
@@ -104,6 +105,7 @@ public class DirectorySingerConfigurator implements SingerConfigurator {
         LOG.info("No override configs to apply in " + configOverrideDir);
       }
     }
+    int badConfigs = 0;
     for (File newFile : files) {
       try {
     	LOG.info("Attempting to parse log config file:" + newFile.getAbsolutePath());
@@ -114,11 +116,16 @@ public class DirectorySingerConfigurator implements SingerConfigurator {
           singerLogConfig = LogConfigUtils.parseLogConfigFromFile(newFile);
         }
         singerConfig.addToLogConfigs(singerLogConfig);
-      } catch (ConfigurationException e) {
-        Stats.incr(SingerMetrics.SINGER_CONFIGURATOR_CONFIG_ERRORS);
-        LOG.error("Failed to parse Singer client config file {}, exception: {}. Skip and continue.",
+      } catch (Exception e) {
+        LOG.error("Failed to parse log config file {}, exception: {}, Skip and continue.",
             newFile.getPath(), ExceptionUtils.getFullStackTrace(e));
+        badConfigs++;
       }
+    }
+
+    if (badConfigs > 0) {
+      Stats.setGauge(SingerMetrics.SINGER_CONFIGURATOR_CONFIG_ERRORS, badConfigs);
+      LOG.error("Number of bad log config files is {}", badConfigs);
     }
 
     // add topic configs from datapipelines.properties
