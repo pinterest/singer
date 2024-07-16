@@ -107,15 +107,6 @@ public class DefaultLogStreamProcessorTest extends com.pinterest.singer.SingerTe
     }
   }
 
-  private SingerConfig initializeSingerConfig(int processorThreadPoolSize, int writerThreadPoolSize,
-      List<SingerLogConfig> singerLogConfigs) {
-    SingerConfig singerConfig = new SingerConfig();
-    singerConfig.setThreadPoolSize(1);
-    singerConfig.setWriterThreadPoolSize(1);
-    singerConfig.setLogConfigs(singerLogConfigs);
-    return singerConfig;
-  }
-
   private void initializeReaderAndProcessor(Map<String, String> overrides, LogStream logStream) {
     Map<String, String> propertyMap = new HashMap<>();
     propertyMap.put("processorBatchSize", "50");
@@ -141,6 +132,15 @@ public class DefaultLogStreamProcessorTest extends com.pinterest.singer.SingerTe
         Integer.valueOf(propertyMap.get("processingIntervalInMillisMax")),
         Integer.valueOf(propertyMap.get("processingTimeSliceInMilliseconds")),
         Integer.valueOf(propertyMap.get("logRetentionInSecs")));
+  }
+
+  private SingerConfig initializeSingerConfig(int processorThreadPoolSize, int writerThreadPoolSize,
+      List<SingerLogConfig> singerLogConfigs) {
+    SingerConfig singerConfig = new SingerConfig();
+    singerConfig.setThreadPoolSize(1);
+    singerConfig.setWriterThreadPoolSize(1);
+    singerConfig.setLogConfigs(singerLogConfigs);
+    return singerConfig;
   }
 
   @After
@@ -304,63 +304,6 @@ public class DefaultLogStreamProcessorTest extends com.pinterest.singer.SingerTe
   }
 
   @Test
-  public void testProcessLogStreamWithDecider() throws Exception {
-    try {
-      SingerConfig singerConfig = initializeSingerConfig(1, 1, Collections.emptyList());
-      SingerSettings.initialize(singerConfig);
-      SingerLog singerLog = new SingerLog(
-          new SingerLogConfig("test", getTempPath(), "thrift.log", null, null, null));
-      LogStream logStream = new LogStream(singerLog, "thrift.log");
-      writer = new NoOpLogStreamWriter();
-      initializeReaderAndProcessor(Collections.singletonMap("logDecider", "singer_test_decider"), logStream);
-      Decider.setInstance(ImmutableMap.of("singer_test_decider", 0));
-      // Write messages to be skipped.
-      boolean deciderEnabled = processor.isLoggingAllowedByDecider();
-      assertEquals(false, deciderEnabled);
-    } catch (Exception e) {
-      e.printStackTrace();
-      fail("Unexpected exception");
-    } finally {
-      if (processor != null) {
-        processor.close();
-      }
-    }
-  }
-
-  @Test
-  public void testDisableDecider() throws Exception {
-    SingerUtils.setHostname("localhost-prod.cluster-19970722", "[.-]");
-    try {
-      SingerConfig singerConfig = initializeSingerConfig(1, 1, Collections.emptyList());
-      SingerSettings.initialize(singerConfig);
-      SingerLog singerLog = new SingerLog(
-          new SingerLogConfig("test", getTempPath(), "thrift.log", null, null, null));
-      LogStream logStream = new LogStream(singerLog, "thrift.log");
-      writer = new NoOpLogStreamWriter();
-      initializeReaderAndProcessor(Collections.singletonMap("logDecider", "singer_test_decider"), logStream);
-      Decider.setInstance(new HashMap<>());
-      Decider.getInstance().getDeciderMap().put("singer_test_decider", 100);
-      assertEquals(true, processor.isLoggingAllowedByDecider());
-
-      Decider.getInstance().getDeciderMap().put("singer_disable_test___localhost___decider", 100);
-      assertEquals(false, processor.isLoggingAllowedByDecider());
-
-      Decider.getInstance().getDeciderMap().put("singer_disable_test___localhost___decider", 50);
-      Decider.getInstance().getDeciderMap().put("singer_disable_test___localhost_prod_cluster___decider", 100);
-      assertEquals(false, processor.isLoggingAllowedByDecider());
-
-    } catch (Exception e) {
-      e.printStackTrace();
-      fail("Unexpected exception");
-    } finally {
-      if (processor != null) {
-        processor.close();
-      }
-    }
-    SingerUtils.setHostname(SingerUtils.getHostname(), "-");
-  }
-
-  @Test
   public void testProcessSymlinkLogStream() throws Exception {
     String tempPath = getTempPath();
     String symlinkLogStreamHeadFile = "thrift-symlink.log";
@@ -427,6 +370,63 @@ public class DefaultLogStreamProcessorTest extends com.pinterest.singer.SingerTe
     LogPosition positionAfter = WatermarkUtils.loadCommittedPositionFromWatermark(
         DefaultLogStreamProcessor.getWatermarkFilename(logStream));
     assertEquals(positionBefore, positionAfter);
+  }
+
+  @Test
+  public void testProcessLogStreamWithDecider() throws Exception {
+    try {
+      SingerConfig singerConfig = initializeSingerConfig(1, 1, Collections.emptyList());
+      SingerSettings.initialize(singerConfig);
+      SingerLog singerLog = new SingerLog(
+          new SingerLogConfig("test", getTempPath(), "thrift.log", null, null, null));
+      LogStream logStream = new LogStream(singerLog, "thrift.log");
+      writer = new NoOpLogStreamWriter();
+      initializeReaderAndProcessor(Collections.singletonMap("logDecider", "singer_test_decider"), logStream);
+      Decider.setInstance(ImmutableMap.of("singer_test_decider", 0));
+      // Write messages to be skipped.
+      boolean deciderEnabled = processor.isLoggingAllowedByDecider();
+      assertEquals(false, deciderEnabled);
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail("Unexpected exception");
+    } finally {
+      if (processor != null) {
+        processor.close();
+      }
+    }
+  }
+
+  @Test
+  public void testDisableDecider() throws Exception {
+    SingerUtils.setHostname("localhost-prod.cluster-19970722", "[.-]");
+    try {
+      SingerConfig singerConfig = initializeSingerConfig(1, 1, Collections.emptyList());
+      SingerSettings.initialize(singerConfig);
+      SingerLog singerLog = new SingerLog(
+          new SingerLogConfig("test", getTempPath(), "thrift.log", null, null, null));
+      LogStream logStream = new LogStream(singerLog, "thrift.log");
+      writer = new NoOpLogStreamWriter();
+      initializeReaderAndProcessor(Collections.singletonMap("logDecider", "singer_test_decider"), logStream);
+      Decider.setInstance(new HashMap<>());
+      Decider.getInstance().getDeciderMap().put("singer_test_decider", 100);
+      assertEquals(true, processor.isLoggingAllowedByDecider());
+
+      Decider.getInstance().getDeciderMap().put("singer_disable_test___localhost___decider", 100);
+      assertEquals(false, processor.isLoggingAllowedByDecider());
+
+      Decider.getInstance().getDeciderMap().put("singer_disable_test___localhost___decider", 50);
+      Decider.getInstance().getDeciderMap().put("singer_disable_test___localhost_prod_cluster___decider", 100);
+      assertEquals(false, processor.isLoggingAllowedByDecider());
+
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail("Unexpected exception");
+    } finally {
+      if (processor != null) {
+        processor.close();
+      }
+    }
+    SingerUtils.setHostname(SingerUtils.getHostname(), "-");
   }
 
   private static List<LogMessage> getMessages(List<LogMessageAndPosition> messageAndPositions) {
