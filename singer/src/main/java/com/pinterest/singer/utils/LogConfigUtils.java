@@ -513,6 +513,12 @@ public class LogConfigUtils {
       throw new ConfigurationException("missing logStreamRegex/logfile_regex");
     }
 
+    try {
+      Pattern.compile(logfile_regex);
+    } catch (PatternSyntaxException e) {
+      throw new ConfigurationException("Invalid logStreamRegex: " + logfile_regex);
+    }
+
     LogStreamProcessorConfig processorConfig = parseLogStreamProcessorConfig(
         new SubsetConfiguration(logConfiguration, "processor."));
     LogStreamReaderConfig readerConfig = parseLogStreamReaderConfig(
