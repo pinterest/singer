@@ -26,6 +26,7 @@ import com.pinterest.singer.common.SingerMetrics;
 import com.pinterest.singer.common.SingerSettings;
 import com.pinterest.singer.config.Decider;
 import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
+import com.pinterest.singer.thrift.LogFile;
 import com.pinterest.singer.thrift.LogFileAndPath;
 import com.pinterest.singer.thrift.LogMessage;
 import com.pinterest.singer.thrift.LogMessageAndPosition;
@@ -41,6 +42,7 @@ import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.List;
@@ -203,6 +205,20 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
       // Load last committed position from watermark.
       committedPosition = loadCommittedPosition();
       LOG.info("Log stream: {}'s last committed position is: {}.", logStream, committedPosition);
+
+      // Check if file still exists
+      LogFile logFile = committedPosition.getLogFile();
+      String path = logStream.getLogFilePath(logFile);
+      if (logStream.hasLogFile(logFile) && !(new File(path)).exists()) {
+        // File does not exist, but it is still in logFile paths which means it was not properly
+        // removed from logStream or this was a symbolic link
+        LOG.warn(
+            "Log stream: {}'s current file {} not found, removing it from logFilePaths to reset "
+                + "watermark files",
+            logStream, path);
+        logStream.removeLogFilePathInfo(path);
+        return 0;
+      }
 
       // Seek to committed position.
       reader.seek(committedPosition);

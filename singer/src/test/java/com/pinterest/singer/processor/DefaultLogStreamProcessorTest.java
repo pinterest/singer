@@ -43,15 +43,23 @@ import com.pinterest.singer.utils.WatermarkUtils;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import org.apache.commons.io.FilenameUtils;
+import org.junit.After;
 import org.junit.Test;
 
 import java.io.IOException;
 import java.io.File;
+import java.nio.file.Files;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class DefaultLogStreamProcessorTest extends com.pinterest.singer.SingerTestBase {
+
+  LogStreamReader logStreamReader;
+  DefaultLogStreamProcessor processor;
+  NoOpLogStreamWriter writer;
 
   /**
    * No-op implementation of LogStreamWriter which collect all LogMessages in a list.
@@ -99,6 +107,33 @@ public class DefaultLogStreamProcessorTest extends com.pinterest.singer.SingerTe
     }
   }
 
+  private void initializeReaderAndProcessor(Map<String, String> overrides, LogStream logStream) {
+    Map<String, String> propertyMap = new HashMap<>();
+    propertyMap.put("processorBatchSize", "50");
+    propertyMap.put("processingIntervalInMillisMin", "1");
+    propertyMap.put("processingIntervalInMillisMax", "1");
+    propertyMap.put("processingTimeSliceInMilliseconds", "3600");
+    propertyMap.put("logRetentionInSecs", "15");
+    propertyMap.put("readerBufferSize", "16000");
+    propertyMap.put("maxMessageSize", "16000");
+    propertyMap.put("logDecider", null);
+
+    if (overrides != null) {
+      propertyMap.putAll(overrides);
+    }
+
+    logStreamReader = new DefaultLogStreamReader(
+        logStream, new ThriftLogFileReaderFactory(
+        new ThriftReaderConfig(Integer.valueOf(propertyMap.get("readerBufferSize")),
+            Integer.valueOf(propertyMap.get("maxMessageSize")))));
+    processor = new DefaultLogStreamProcessor(logStream, propertyMap.get("logDecider"),
+        logStreamReader, writer, Integer.valueOf(propertyMap.get("processorBatchSize")),
+        Integer.valueOf(propertyMap.get("processingIntervalInMillisMin")),
+        Integer.valueOf(propertyMap.get("processingIntervalInMillisMax")),
+        Integer.valueOf(propertyMap.get("processingTimeSliceInMilliseconds")),
+        Integer.valueOf(propertyMap.get("logRetentionInSecs")));
+  }
+
   private SingerConfig initializeSingerConfig(int processorThreadPoolSize, int writerThreadPoolSize,
       List<SingerLogConfig> singerLogConfigs) {
     SingerConfig singerConfig = new SingerConfig();
@@ -106,6 +141,16 @@ public class DefaultLogStreamProcessorTest extends com.pinterest.singer.SingerTe
     singerConfig.setWriterThreadPoolSize(1);
     singerConfig.setLogConfigs(singerLogConfigs);
     return singerConfig;
+  }
+
+  @After
+  public void cleanup() throws IOException {
+    if (processor != null) {
+      processor.close();
+    }
+    writer = null;
+    processor = null;
+    logStreamReader = null;
   }
 
   @Test
@@ -124,14 +169,7 @@ public class DefaultLogStreamProcessorTest extends com.pinterest.singer.SingerTe
     String path = FilenameUtils.concat(tempPath, logStreamHeadFileName);
 
     int oldestThriftLogIndex = 0;
-    int readerBufferSize = 16000;
-    int maxMessageSize = 16000;
     int processorBatchSize = 50;
-
-    long processingIntervalInMillisMin = 1;
-    long processingIntervalInMillisMax = 1;
-    long processingTimeSliceInMilliseconds = 3600;
-    int logRetentionInSecs = 15;
 
     // initialize a singer log config
     SingerLogConfig logConfig = new SingerLogConfig("test", tempPath, logStreamHeadFileName, null, null, null);
@@ -151,15 +189,10 @@ public class DefaultLogStreamProcessorTest extends com.pinterest.singer.SingerTe
     LogStream logStream = new LogStream(singerLog, logStreamHeadFileName);
     LogStreamManager.addLogStream(logStream);
     SimpleThriftLogger<LogMessage> logger = new SimpleThriftLogger<>(path);
-    NoOpLogStreamWriter writer = new NoOpLogStreamWriter();
+    writer = new NoOpLogStreamWriter();
 
-    // initialize a log stream reader with 16K as readerBufferSize and maxMessageSize
-    LogStreamReader logStreamReader = new DefaultLogStreamReader(
-            logStream, new ThriftLogFileReaderFactory(new ThriftReaderConfig(readerBufferSize, maxMessageSize)));
-    // initialize a log stream processor that
-    DefaultLogStreamProcessor processor = new DefaultLogStreamProcessor(logStream, null,
-            logStreamReader, writer, processorBatchSize, processingIntervalInMillisMin, processingIntervalInMillisMax,
-            processingTimeSliceInMilliseconds, logRetentionInSecs);
+    // initialize reader, writer & processor
+    initializeReaderAndProcessor(Collections.singletonMap("processorBatchSize", String.valueOf(processorBatchSize)), logStream);
 
     try {
       // Write messages to be skipped.
@@ -185,12 +218,7 @@ public class DefaultLogStreamProcessorTest extends com.pinterest.singer.SingerTe
         messagesWritten.addAll(logMessages);
       }
 
-      // added to enable running this test on OS X
-      System.err.println("Waiting for file system events to be noticed by FileSystemMonitor");
-      while (logStream.isEmpty()) {
-        Thread.sleep(1000);
-        System.out.print(".");
-      }
+      waitForFileSystemEvents(logStream);
 
       // Process all message written so far.
       long numOfMessageProcessed = processor.processLogStream();
@@ -276,25 +304,84 @@ public class DefaultLogStreamProcessorTest extends com.pinterest.singer.SingerTe
   }
 
   @Test
-  public void testProcessLogStreamWithDecider() throws Exception {
-    DefaultLogStreamProcessor processor = null;
+  public void testProcessSymlinkLogStream() throws Exception {
+    String tempPath = getTempPath();
+    String symlinkLogStreamHeadFile = "thrift-symlink.log";
+    String thriftLog = "thrift.log";
+    String logPath = FilenameUtils.concat(tempPath, thriftLog);
+    String symlinkPath = FilenameUtils.concat(tempPath, symlinkLogStreamHeadFile);
+
+    int processorBatchSize = 50;
+
+    // initialize a singer log config
+    SingerLogConfig logConfig = new SingerLogConfig("test", tempPath, symlinkLogStreamHeadFile, null, null, null);
+    SingerLog singerLog = new SingerLog(logConfig);
+    singerLog.getSingerLogConfig().setFilenameMatchMode(FileNameMatchMode.PREFIX);
+
+    // initialize global variables in SingerSettings
     try {
-      SingerConfig singerConfig = new SingerConfig();
-      singerConfig.setThreadPoolSize(1);
-      singerConfig.setWriterThreadPoolSize(1);
+      SingerConfig singerConfig = initializeSingerConfig(1, 1, Arrays.asList(logConfig));
+      SingerSettings.initialize(singerConfig);
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail("got exception in test: " + e);
+    }
+
+    SimpleThriftLogger<LogMessage> logger = new SimpleThriftLogger<>(logPath);
+    writer = new NoOpLogStreamWriter();
+
+    // Write some messages and wait
+    for (int i = 0; i < 2; ++i) {
+      writeThriftLogMessages(logger, processorBatchSize * 2, 50);
+      Thread.sleep(FILE_EVENT_WAIT_TIME_MS);
+    }
+
+    Files.createSymbolicLink(new File(symlinkPath).toPath(), new File(logPath).toPath());
+
+    // initialize log stream
+    LogStream logStream = new LogStream(singerLog, symlinkLogStreamHeadFile);
+    LogStreamManager.addLogStream(logStream);
+
+    initializeReaderAndProcessor(Collections.singletonMap("processorBatchSize", String.valueOf(processorBatchSize)), logStream);
+
+    waitForFileSystemEvents(logStream);
+
+    // Process everything in the stream so far
+    long numOfMessageProcessed = processor.processLogStream();
+    assertEquals(processorBatchSize * 4, numOfMessageProcessed);
+
+
+    // Delete the underlying thrift log, even if we wait after this the log stream
+    // paths will not be updated by the FSM since the underlying log file is not tracked in the log stream paths
+    Files.delete(new File(logPath).toPath());
+    numOfMessageProcessed = processor.processLogStream();
+    assertEquals(0, numOfMessageProcessed);
+
+    // Recreate logger and write some messages
+    logger = new SimpleThriftLogger<>(logPath);
+    writeThriftLogMessages(logger, processorBatchSize, 50);
+    Thread.sleep(FILE_EVENT_WAIT_TIME_MS);
+
+    // Watermark positions should be equal since symlink would need to be recreated
+    // to re-initialize the logstream
+    LogPosition positionBefore = WatermarkUtils.loadCommittedPositionFromWatermark(
+        DefaultLogStreamProcessor.getWatermarkFilename(logStream));
+    processor.processLogStream();
+    LogPosition positionAfter = WatermarkUtils.loadCommittedPositionFromWatermark(
+        DefaultLogStreamProcessor.getWatermarkFilename(logStream));
+    assertEquals(positionBefore, positionAfter);
+  }
+
+  @Test
+  public void testProcessLogStreamWithDecider() throws Exception {
+    try {
+      SingerConfig singerConfig = initializeSingerConfig(1, 1, Collections.emptyList());
       SingerSettings.initialize(singerConfig);
       SingerLog singerLog = new SingerLog(
           new SingerLogConfig("test", getTempPath(), "thrift.log", null, null, null));
       LogStream logStream = new LogStream(singerLog, "thrift.log");
-      NoOpLogStreamWriter writer = new NoOpLogStreamWriter();
-      processor = new DefaultLogStreamProcessor(
-          logStream,
-          "singer_test_decider",
-          new DefaultLogStreamReader(
-              logStream,
-              new ThriftLogFileReaderFactory(new ThriftReaderConfig(16000, 16000))),
-          writer,
-          50, 1, 1, 3600, 1800);
+      writer = new NoOpLogStreamWriter();
+      initializeReaderAndProcessor(Collections.singletonMap("logDecider", "singer_test_decider"), logStream);
       Decider.setInstance(ImmutableMap.of("singer_test_decider", 0));
       // Write messages to be skipped.
       boolean deciderEnabled = processor.isLoggingAllowedByDecider();
@@ -311,25 +398,15 @@ public class DefaultLogStreamProcessorTest extends com.pinterest.singer.SingerTe
 
   @Test
   public void testDisableDecider() throws Exception {
-    DefaultLogStreamProcessor processor = null;
     SingerUtils.setHostname("localhost-prod.cluster-19970722", "[.-]");
     try {
-      SingerConfig singerConfig = new SingerConfig();
-      singerConfig.setThreadPoolSize(1);
-      singerConfig.setWriterThreadPoolSize(1);
+      SingerConfig singerConfig = initializeSingerConfig(1, 1, Collections.emptyList());
       SingerSettings.initialize(singerConfig);
       SingerLog singerLog = new SingerLog(
           new SingerLogConfig("test", getTempPath(), "thrift.log", null, null, null));
       LogStream logStream = new LogStream(singerLog, "thrift.log");
-      NoOpLogStreamWriter writer = new NoOpLogStreamWriter();
-      processor = new DefaultLogStreamProcessor(
-          logStream,
-          "singer_test_decider",
-          new DefaultLogStreamReader(
-              logStream,
-              new ThriftLogFileReaderFactory(new ThriftReaderConfig(16000, 16000))),
-          writer,
-          50, 1, 1, 3600, 1800);
+      writer = new NoOpLogStreamWriter();
+      initializeReaderAndProcessor(Collections.singletonMap("logDecider", "singer_test_decider"), logStream);
       Decider.setInstance(new HashMap<>());
       Decider.getInstance().getDeciderMap().put("singer_test_decider", 100);
       assertEquals(true, processor.isLoggingAllowedByDecider());
@@ -351,11 +428,22 @@ public class DefaultLogStreamProcessorTest extends com.pinterest.singer.SingerTe
     }
     SingerUtils.setHostname(SingerUtils.getHostname(), "-");
   }
+
   private static List<LogMessage> getMessages(List<LogMessageAndPosition> messageAndPositions) {
     List<LogMessage> messages = Lists.newArrayListWithExpectedSize(messageAndPositions.size());
     for (LogMessageAndPosition messageAndPosition : messageAndPositions) {
       messages.add(messageAndPosition.getLogMessage());
     }
     return messages;
+  }
+
+  /*
+   * Added to enable running this test on OS X
+   */
+  private static void waitForFileSystemEvents(LogStream logStream) throws InterruptedException {
+    while (logStream.isEmpty()) {
+      Thread.sleep(1000);
+      System.out.print(".");
+    }
   }
 }
