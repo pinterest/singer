@@ -1,0 +1,24 @@
+From ba5d22c2b5395b05aac1615ff44fe3d3aec256d2 Mon Sep 17 00:00:00 2001
+From: Jesus Zuniga <jesuszuniga@pinterest.com>
+Date: Thu, 20 Jun 2024 18:47:53 -0700
+Subject: [PATCH 2/3] remove unused import
+
+---
+ .../com/pinterest/singer/config/DirectorySingerConfigurator.java | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/singer/src/main/java/com/pinterest/singer/config/DirectorySingerConfigurator.java b/singer/src/main/java/com/pinterest/singer/config/DirectorySingerConfigurator.java
+index 822feeb..5245e00 100644
+--- a/singer/src/main/java/com/pinterest/singer/config/DirectorySingerConfigurator.java
++++ b/singer/src/main/java/com/pinterest/singer/config/DirectorySingerConfigurator.java
+@@ -16,7 +16,6 @@
+ package com.pinterest.singer.config;
+ 
+ import com.pinterest.singer.common.SingerMetrics;
+-import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
+ import com.pinterest.singer.thrift.configuration.SingerConfig;
+ import com.pinterest.singer.thrift.configuration.SingerLogConfig;
+ import com.pinterest.singer.utils.LogConfigUtils;
+-- 
+2.36.1
+

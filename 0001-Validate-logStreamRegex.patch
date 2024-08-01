@@ -1,0 +1,124 @@
+From dbd747d3c484d4cf889a66ded4c52ac4cec03186 Mon Sep 17 00:00:00 2001
+From: Jesus Zuniga <jesuszuniga@pinterest.com>
+Date: Thu, 20 Jun 2024 18:38:03 -0700
+Subject: [PATCH 1/3] Validate logStreamRegex
+
+---
+ .../config/DirectorySingerConfigurator.java   | 19 ++++++++++-----
+ .../singer/utils/LogConfigUtils.java          |  6 +++++
+ .../DirectorySingerConfiguratorTest.java      | 24 +++++++++++++++++++
+ 3 files changed, 43 insertions(+), 6 deletions(-)
+
+diff --git a/singer/src/main/java/com/pinterest/singer/config/DirectorySingerConfigurator.java b/singer/src/main/java/com/pinterest/singer/config/DirectorySingerConfigurator.java
+index 6a362e1..822feeb 100644
+--- a/singer/src/main/java/com/pinterest/singer/config/DirectorySingerConfigurator.java
++++ b/singer/src/main/java/com/pinterest/singer/config/DirectorySingerConfigurator.java
+@@ -1,12 +1,12 @@
+ /**
+  * Copyright 2019 Pinterest, Inc.
+- * 
++ *
+  * Licensed under the Apache License, Version 2.0 (the "License");
+  * you may not use this file except in compliance with the License.
+  * You may obtain a copy of the License at
+- * 
++ *
+  *    http://www.apache.org/licenses/LICENSE-2.0
+- * 
++ *
+  * Unless required by applicable law or agreed to in writing, software
+  * distributed under the License is distributed on an "AS IS" BASIS,
+  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+@@ -16,6 +16,7 @@
+ package com.pinterest.singer.config;
+ 
+ import com.pinterest.singer.common.SingerMetrics;
++import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
+ import com.pinterest.singer.thrift.configuration.SingerConfig;
+ import com.pinterest.singer.thrift.configuration.SingerLogConfig;
+ import com.pinterest.singer.utils.LogConfigUtils;
+@@ -104,6 +105,7 @@ public class DirectorySingerConfigurator implements SingerConfigurator {
+         LOG.info("No override configs to apply in " + configOverrideDir);
+       }
+     }
++    int badConfigs = 0;
+     for (File newFile : files) {
+       try {
+     	LOG.info("Attempting to parse log config file:" + newFile.getAbsolutePath());
+@@ -114,13 +116,18 @@ public class DirectorySingerConfigurator implements SingerConfigurator {
+           singerLogConfig = LogConfigUtils.parseLogConfigFromFile(newFile);
+         }
+         singerConfig.addToLogConfigs(singerLogConfig);
+-      } catch (ConfigurationException e) {
+-        Stats.incr(SingerMetrics.SINGER_CONFIGURATOR_CONFIG_ERRORS);
+-        LOG.error("Failed to parse Singer client config file {}, exception: {}. Skip and continue.",
++      } catch (Exception e) {
++        LOG.error("Failed to parse log config file {}, exception: {}, Skip and continue.",
+             newFile.getPath(), ExceptionUtils.getFullStackTrace(e));
++        badConfigs++;
+       }
+     }
+ 
++    if (badConfigs > 0) {
++      Stats.setGauge(SingerMetrics.SINGER_CONFIGURATOR_CONFIG_ERRORS, badConfigs);
++      LOG.error("Number of bad log config files is {}", badConfigs);
++    }
++
+     // add topic configs from datapipelines.properties
+     boolean useNewConfig = (System.getProperty("useNewConfig") != null);
+     if(useNewConfig){
+diff --git a/singer/src/main/java/com/pinterest/singer/utils/LogConfigUtils.java b/singer/src/main/java/com/pinterest/singer/utils/LogConfigUtils.java
+index 4324dca..9b1794e 100644
+--- a/singer/src/main/java/com/pinterest/singer/utils/LogConfigUtils.java
++++ b/singer/src/main/java/com/pinterest/singer/utils/LogConfigUtils.java
+@@ -513,6 +513,12 @@ public class LogConfigUtils {
+       throw new ConfigurationException("missing logStreamRegex/logfile_regex");
+     }
+ 
++    try {
++      Pattern.compile(logfile_regex);
++    } catch (PatternSyntaxException e) {
++      throw new ConfigurationException("Invalid logStreamRegex: " + logfile_regex);
++    }
++
+     LogStreamProcessorConfig processorConfig = parseLogStreamProcessorConfig(
+         new SubsetConfiguration(logConfiguration, "processor."));
+     LogStreamReaderConfig readerConfig = parseLogStreamReaderConfig(
+diff --git a/singer/src/test/java/com/pinterest/singer/config/DirectorySingerConfiguratorTest.java b/singer/src/test/java/com/pinterest/singer/config/DirectorySingerConfiguratorTest.java
+index f24fe63..a01ee15 100644
+--- a/singer/src/test/java/com/pinterest/singer/config/DirectorySingerConfiguratorTest.java
++++ b/singer/src/test/java/com/pinterest/singer/config/DirectorySingerConfiguratorTest.java
+@@ -197,6 +197,30 @@ public class DirectorySingerConfiguratorTest extends SingerTestBase {
+     assertEquals(1, logConfig1.getLogStreamWriterConfig().getKafkaWriterConfig().getProducerConfig().getBufferMemory());
+   }
+ 
++  @Test
++  public void testSkipBadLogConfigs() throws Exception {
++    dumpServerSetFiles();
++    // create serverset dir + file
++    File singerConfigFile = createSingerConfigFile(makeDirectorySingerConfigProperties());
++    // Bad log configs
++    // (conversion error in max.request.size [non-int])
++    createLogConfigPropertiesFile("project.logstream1.properties",
++        ImmutableMap.of("writer.kafka.producerConfig.bootstrap.servers", "127.0.0.1:9092", "writer.kafka.producerConfig.max.request.size", "1111E2"));
++    // (bad logStreamRegex provided)
++    createLogConfigPropertiesFile("project.logstream2.properties",
++        ImmutableMap.of("writer.kafka.producerConfig.bootstrap.servers", "127.0.0.1:9092", "logStreamRegex", ".*\\{abc|def)$"));
++    // Good log config
++    createLogConfigPropertiesFile("project.logstream3.properties",
++        ImmutableMap.of("writer.kafka.producerConfig.bootstrap.servers", "127.0.0.1:9092"));
++
++    // Check the configurator can load two log configs.
++    DirectorySingerConfigurator configurator = new DirectorySingerConfigurator(singerConfigFile
++        .getParent());
++    SingerConfig singerConfig = configurator.parseSingerConfig();
++    // There should only be one config
++    assertEquals(1, singerConfig.getLogConfigsSize());
++  }
++
+   Map<String, String> makeWrongSingerConfigProperties(int propertyNum) {
+ 
+     if (propertyNum == 4) {
+-- 
+2.36.1
+

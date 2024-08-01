@@ -43,6 +43,7 @@ import com.pinterest.singer.thrift.configuration.PulsarWriterConfig;
 import com.pinterest.singer.thrift.configuration.ReaderType;
 import com.pinterest.singer.thrift.configuration.RealpinObjectType;
 import com.pinterest.singer.thrift.configuration.RealpinWriterConfig;
+import com.pinterest.singer.thrift.configuration.S3WriterConfig;
 import com.pinterest.singer.thrift.configuration.SamplingType;
 import com.pinterest.singer.thrift.configuration.SingerConfig;
 import com.pinterest.singer.thrift.configuration.SingerLogConfig;
@@ -526,6 +527,11 @@ public class LogConfigUtils {
     LogStreamWriterConfig writerConfig = parseLogStreamWriterConfig(
         new SubsetConfiguration(logConfiguration, "writer."));
 
+    // ThriftReader and S3Writer configs not allowed.
+    if (readerConfig.isSetThriftReaderConfig() && writerConfig.isSetS3WriterConfig()) {
+      throw new ConfigurationException("ThriftReader and S3Writer cannot be used together");
+    }
+
     // initialize the optional fields
     logConfiguration.setThrowExceptionOnMissing(false);
     String logDecider = logConfiguration.getString("logDecider");
@@ -715,30 +721,72 @@ public class LogConfigUtils {
     WriterType type = WriterType.valueOf(writerTypeString.toUpperCase());
     LogStreamWriterConfig writerConfig = new LogStreamWriterConfig(type);
     switch (type) {
-    case KAFKA08:
-    case KAFKA:
-      writerConfig.setKafkaWriterConfig(parseKafkaWriterConfig(
-          new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
-      return writerConfig;
-    case REALPIN:
-      writerConfig.setRealpinWriterConfig(parseRealpinWriterConfig(
-          new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
-      return writerConfig;
-    case NO_OP:
-      writerConfig.setNoOpWriteConfig(parseNoOpWriterConfig(
-          new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
-      return writerConfig;
-    case PULSAR:
-      writerConfig.setPulsarWriterConfig(parsePulsarWriterConfig(
-          new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
-      return writerConfig;
-    case MEMQ:
-      writerConfig.setMemqWriterConfig(parseMemqWriterConfig(
-          new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
-      return writerConfig;
-    default:
-      throw new ConfigurationException("Unsupported log writer type.");
+      case S3:
+        writerConfig.setS3WriterConfig(parseS3WriterConfig(
+                new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
+        return writerConfig;
+      case KAFKA08:
+      case KAFKA:
+        writerConfig.setKafkaWriterConfig(parseKafkaWriterConfig(
+            new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
+        return writerConfig;
+      case REALPIN:
+        writerConfig.setRealpinWriterConfig(parseRealpinWriterConfig(
+            new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
+        return writerConfig;
+      case NO_OP:
+        writerConfig.setNoOpWriteConfig(parseNoOpWriterConfig(
+            new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
+        return writerConfig;
+      case PULSAR:
+        writerConfig.setPulsarWriterConfig(parsePulsarWriterConfig(
+            new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
+        return writerConfig;
+      case MEMQ:
+        writerConfig.setMemqWriterConfig(parseMemqWriterConfig(
+            new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
+        return writerConfig;
+      default:
+        throw new ConfigurationException("Unsupported log writer type.");
+      }
+  }
+
+  private static S3WriterConfig parseS3WriterConfig(AbstractConfiguration writerConfiguration) throws ConfigurationException {
+    writerConfiguration.setThrowExceptionOnMissing(true);
+    S3WriterConfig config = new S3WriterConfig();
+    // Required configs
+    try {
+      config.setBucket(writerConfiguration.getString(SingerConfigDef.BUCKET));
+    } catch (Exception x) {
+      throw new ConfigurationException("S3Writer bucket is required in Writer Configuration");
     }
+
+    try {
+      config.setKeyPrefix(writerConfiguration.getString(SingerConfigDef.KEY_PREFIX));
+    } catch (Exception x) {
+      throw new ConfigurationException("S3Writer keyPrefix is required in Writer Configuration");
+    }
+
+    try {
+      config.setFileNameFormat(writerConfiguration.getString(SingerConfigDef.FILE_NAME_FORMAT));
+    } catch (Exception x) {
+      throw new ConfigurationException("S3Writer fileNameFormat is required in Writer Configuration");
+    }
+
+    // Optional configs
+    if (writerConfiguration.containsKey(SingerConfigDef.MAX_FILE_SIZE_IN_BYTES)) {
+      config.setMaxFileSizeMB(writerConfiguration.getInt(SingerConfigDef.MAX_FILE_SIZE_MB));
+    }
+
+    if (writerConfiguration.containsKey(SingerConfigDef.MIN_UPLOAD_TIME_IN_SECONDS)) {
+      config.setMinUploadTimeInSeconds(writerConfiguration.getInt(SingerConfigDef.MIN_UPLOAD_TIME_IN_SECONDS));
+    }
+
+    if (writerConfiguration.containsKey(SingerConfigDef.MAX_RETRIES)) {
+      config.setMaxRetries(writerConfiguration.getInt(SingerConfigDef.MAX_RETRIES));
+    }
+
+    return config;
   }
 
   private static PulsarWriterConfig parsePulsarWriterConfig(SubsetConfiguration writerConfiguration) throws ConfigurationException {

@@ -32,6 +32,7 @@ import com.pinterest.singer.reader.DefaultLogStreamReader;
 import com.pinterest.singer.reader.TextLogFileReaderFactory;
 import com.pinterest.singer.reader.ThriftLogFileReaderFactory;
 import com.pinterest.singer.thrift.configuration.NoOpWriteConfig;
+import com.pinterest.singer.thrift.configuration.S3WriterConfig;
 import com.pinterest.singer.thrift.configuration.KafkaProducerConfig;
 import com.pinterest.singer.thrift.configuration.KafkaWriterConfig;
 import com.pinterest.singer.thrift.configuration.LogStreamProcessorConfig;
@@ -48,6 +49,7 @@ import com.pinterest.singer.writer.NoOpLogStreamWriter;
 import com.pinterest.singer.writer.KafkaWriter;
 import com.pinterest.singer.writer.kafka.CommittableKafkaWriter;
 import com.pinterest.singer.writer.pulsar.PulsarWriter;
+import com.pinterest.singer.writer.s3.S3Writer;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -357,6 +359,8 @@ public class DefaultLogMonitor implements LogMonitor, Runnable {
         return createKafkaWriter(logStream, writerConfig.getKafkaWriterConfig());
       case NO_OP:
         return createNoOpWriter(logStream, writerConfig.getNoOpWriteConfig());
+      case S3:
+        return createS3Writer(logStream, writerConfig.getS3WriterConfig());
       case PULSAR:
         return new PulsarWriter().init(logStream, writerConfig.getPulsarWriterConfig());
       default:
@@ -419,6 +423,10 @@ public class DefaultLogMonitor implements LogMonitor, Runnable {
         logStream.getSingerLog().getSingerLogConfig().getLogStreamRegex(),
         noOpWriteConfig.getTopic());
     return new NoOpLogStreamWriter(logStream, topic);
+  }
+
+  protected LogStreamWriter createS3Writer(LogStream logStream, S3WriterConfig s3WriterConfig) {
+    return new S3Writer(logStream, s3WriterConfig);
   }
 
   /**

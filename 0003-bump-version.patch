@@ -1,0 +1,67 @@
+From cdfba75f5c54b3b76dfe1c460e67061e203c0842 Mon Sep 17 00:00:00 2001
+From: Jesus Zuniga <jesuszuniga@pinterest.com>
+Date: Thu, 20 Jun 2024 18:48:25 -0700
+Subject: [PATCH 3/3] bump version
+
+---
+ pom.xml                | 2 +-
+ singer-commons/pom.xml | 2 +-
+ singer/pom.xml         | 2 +-
+ thrift-logger/pom.xml  | 2 +-
+ 4 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/pom.xml b/pom.xml
+index 5680bf3..abb211a 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -6,7 +6,7 @@
+     <modelVersion>4.0.0</modelVersion>
+     <groupId>com.pinterest.singer</groupId>
+     <artifactId>singer-package</artifactId>
+-    <version>0.8.0.83</version>
++    <version>0.8.0.84</version>
+     <packaging>pom</packaging>
+     <description>Singer Logging Agent modules</description>
+     <inceptionYear>2013</inceptionYear>
+diff --git a/singer-commons/pom.xml b/singer-commons/pom.xml
+index 0e6ae6b..2b4ab1d 100644
+--- a/singer-commons/pom.xml
++++ b/singer-commons/pom.xml
+@@ -19,7 +19,7 @@
+   <parent>
+     <groupId>com.pinterest.singer</groupId>
+     <artifactId>singer-package</artifactId>
+-    <version>0.8.0.83</version>
++    <version>0.8.0.84</version>
+     <relativePath>../pom.xml</relativePath>
+   </parent>
+   <developers>
+diff --git a/singer/pom.xml b/singer/pom.xml
+index 9fbfd93..dbe6c95 100644
+--- a/singer/pom.xml
++++ b/singer/pom.xml
+@@ -7,7 +7,7 @@
+     <parent>
+         <groupId>com.pinterest.singer</groupId>
+         <artifactId>singer-package</artifactId>
+-        <version>0.8.0.83</version>
++        <version>0.8.0.84</version>
+         <relativePath>../pom.xml</relativePath>
+     </parent>
+     <licenses>
+diff --git a/thrift-logger/pom.xml b/thrift-logger/pom.xml
+index b66b07a..247c3f9 100644
+--- a/thrift-logger/pom.xml
++++ b/thrift-logger/pom.xml
+@@ -4,7 +4,7 @@
+   <parent>
+     <groupId>com.pinterest.singer</groupId>
+     <artifactId>singer-package</artifactId>
+-    <version>0.8.0.83</version>
++    <version>0.8.0.84</version>
+     <relativePath>../pom.xml</relativePath>
+   </parent>
+   <artifactId>thrift-logger</artifactId>
+-- 
+2.36.1
+
