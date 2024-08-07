@@ -777,7 +777,7 @@ public class LogConfigUtils {
     }
 
     // Optional configs
-    // maxFileSizeMB = max(inputted value, MAX_FILE_SIZE_IN_MB)
+    // maxFileSizeMB = max(input value, MAX_FILE_SIZE_IN_MB)
     if (writerConfiguration.containsKey(SingerConfigDef.MAX_FILE_SIZE_MB)) {
       config.setMaxFileSizeMB(writerConfiguration.getInt(SingerConfigDef.MAX_FILE_SIZE_MB));
     }
@@ -786,7 +786,7 @@ public class LogConfigUtils {
       config.setMaxFileSizeMB(MAX_FILE_SIZE_IN_MB);
     }
 
-    // minUploadTimeInSeconds = max(inputted value, MIN_UPLOAD_TIME_IN_SECONDS)
+    // minUploadTimeInSeconds = max(input value, MIN_UPLOAD_TIME_IN_SECONDS)
     if (writerConfiguration.containsKey(SingerConfigDef.MIN_UPLOAD_TIME_IN_SECONDS)) {
       config.setMinUploadTimeInSeconds(writerConfiguration.getInt(SingerConfigDef.MIN_UPLOAD_TIME_IN_SECONDS));
     }
@@ -795,7 +795,7 @@ public class LogConfigUtils {
       config.setMinUploadTimeInSeconds(MIN_UPLOAD_TIME_IN_SECONDS);
     }
 
-    // maxRetries = 5 if inputted value is less than 0, else inputted value
+    // maxRetries = 5 if input value is less than 0, else input value
     if (writerConfiguration.containsKey(SingerConfigDef.MAX_RETRIES)) {
       config.setMaxRetries(writerConfiguration.getInt(SingerConfigDef.MAX_RETRIES));
     }

@@ -6,7 +6,7 @@ Singer employs a buffer directory to store log messages in buffer files before u
 The current design employs two thresholds, a timer-based (in seconds) and file-sized threshold (in megabytes). The writer will upload the log file to S3 when either of the thresholds is met first.
 For example, if 50MB of log messages is reached before 5 seconds, the writer will upload the log file to S3 because the file size threshold has been exceeded. If 5 seconds is reached before 50MB, the writer will upload the log file to S3 because the timer threshold has expired.
 
-## Example writer configuration in Singer Log Configuration
+## Example writer configuration in Singer Log Stream Configuration
 ```
 ...
 writer.type=s3
