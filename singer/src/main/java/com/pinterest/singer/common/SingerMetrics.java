@@ -25,6 +25,7 @@ public class SingerMetrics {
   private static final String SINGER_PREIX = "singer.";
   private static final String SINGER_FSM_PREFIX = SINGER_PREIX + "file_system_monitor.";
   public static final String SINGER_WRITER = SINGER_PREIX + "writer.";
+  public static final String S3_WRITER = SINGER_WRITER + "s3.";
 
   public static final String IO_EXCEPTION_INVALID_DIR = SINGER_FSM_PREFIX + "invalid_dir";
   public static final String IO_EXCEPTION_METRIC_NAME = SINGER_FSM_PREFIX + "ioexception";

@@ -96,7 +96,8 @@ enum WriterType {
   KAFKA = 2,
   REALPIN = 3,
   PULSAR = 4,
-  MEMQ = 5
+  MEMQ = 5,
+  S3 = 6
 }
 
 enum FileNameMatchMode {
@@ -115,6 +116,16 @@ struct KafkaWriterConfig {
 
 struct NoOpWriteConfig {
   1: required string topic;
+}
+
+struct S3WriterConfig {
+  1: required string bucket;
+  2: required string keyPrefix;
+  3: optional i32 minUploadTimeInSeconds = 30;
+  4: optional i32 maxFileSizeMB = 50;
+  5: required string fileNameFormat;
+  6: optional i32 maxRetries = 5;
+  7: optional string bufferDir = "/tmp/singer/s3";
 }
 
 enum RealpinObjectType {
@@ -180,6 +191,7 @@ struct LogStreamWriterConfig {
   4: optional RealpinWriterConfig realpinWriterConfig;
   5: optional PulsarWriterConfig pulsarWriterConfig;
   6: optional MemqWriterConfig memqWriterConfig;
+  7: optional S3WriterConfig s3WriterConfig;
 }
 
 struct HeartbeatWriterConfig {

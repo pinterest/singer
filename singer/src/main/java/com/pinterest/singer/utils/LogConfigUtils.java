@@ -43,6 +43,7 @@ import com.pinterest.singer.thrift.configuration.PulsarWriterConfig;
 import com.pinterest.singer.thrift.configuration.ReaderType;
 import com.pinterest.singer.thrift.configuration.RealpinObjectType;
 import com.pinterest.singer.thrift.configuration.RealpinWriterConfig;
+import com.pinterest.singer.thrift.configuration.S3WriterConfig;
 import com.pinterest.singer.thrift.configuration.SamplingType;
 import com.pinterest.singer.thrift.configuration.SingerConfig;
 import com.pinterest.singer.thrift.configuration.SingerLogConfig;
@@ -146,6 +147,9 @@ public class LogConfigUtils {
       .newConcurrentMap();
   private static final Set<String> MEMQ_SERVER_SETS = ConcurrentHashMap.newKeySet();
   public static final Properties SHADOW_SERVERSET_MAPPING = new Properties();
+  private static final int MIN_UPLOAD_TIME_IN_SECONDS = 30;
+  private static final int MAX_FILE_SIZE_IN_MB = 50;
+  private static final int MAX_RETRIES = 5;
   public static boolean SHADOW_MODE_ENABLED;
 
   private LogConfigUtils() {
@@ -526,6 +530,11 @@ public class LogConfigUtils {
     LogStreamWriterConfig writerConfig = parseLogStreamWriterConfig(
         new SubsetConfiguration(logConfiguration, "writer."));
 
+    // ThriftReader and S3Writer configs not allowed.
+    if (readerConfig.isSetThriftReaderConfig() && writerConfig.isSetS3WriterConfig()) {
+      throw new ConfigurationException("ThriftReader and S3Writer cannot be used together");
+    }
+
     // initialize the optional fields
     logConfiguration.setThrowExceptionOnMissing(false);
     String logDecider = logConfiguration.getString("logDecider");
@@ -715,30 +724,106 @@ public class LogConfigUtils {
     WriterType type = WriterType.valueOf(writerTypeString.toUpperCase());
     LogStreamWriterConfig writerConfig = new LogStreamWriterConfig(type);
     switch (type) {
-    case KAFKA08:
-    case KAFKA:
-      writerConfig.setKafkaWriterConfig(parseKafkaWriterConfig(
-          new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
-      return writerConfig;
-    case REALPIN:
-      writerConfig.setRealpinWriterConfig(parseRealpinWriterConfig(
-          new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
-      return writerConfig;
-    case NO_OP:
-      writerConfig.setNoOpWriteConfig(parseNoOpWriterConfig(
-          new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
-      return writerConfig;
-    case PULSAR:
-      writerConfig.setPulsarWriterConfig(parsePulsarWriterConfig(
-          new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
-      return writerConfig;
-    case MEMQ:
-      writerConfig.setMemqWriterConfig(parseMemqWriterConfig(
-          new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
-      return writerConfig;
-    default:
-      throw new ConfigurationException("Unsupported log writer type.");
+      case S3:
+        writerConfig.setS3WriterConfig(parseS3WriterConfig(
+                new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
+        return writerConfig;
+      case KAFKA08:
+      case KAFKA:
+        writerConfig.setKafkaWriterConfig(parseKafkaWriterConfig(
+            new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
+        return writerConfig;
+      case REALPIN:
+        writerConfig.setRealpinWriterConfig(parseRealpinWriterConfig(
+            new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
+        return writerConfig;
+      case NO_OP:
+        writerConfig.setNoOpWriteConfig(parseNoOpWriterConfig(
+            new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
+        return writerConfig;
+      case PULSAR:
+        writerConfig.setPulsarWriterConfig(parsePulsarWriterConfig(
+            new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
+        return writerConfig;
+      case MEMQ:
+        writerConfig.setMemqWriterConfig(parseMemqWriterConfig(
+            new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
+        return writerConfig;
+      default:
+        throw new ConfigurationException("Unsupported log writer type.");
+      }
+  }
+
+  private static S3WriterConfig parseS3WriterConfig(AbstractConfiguration writerConfiguration) throws ConfigurationException {
+    writerConfiguration.setThrowExceptionOnMissing(true);
+    S3WriterConfig config = new S3WriterConfig();
+    // Required configs
+    try {
+      config.setBucket(writerConfiguration.getString(SingerConfigDef.BUCKET));
+    } catch (NoSuchElementException e) {
+      throw new ConfigurationException("S3Writer bucket is required in Writer Configuration", e);
     }
+
+    try {
+      config.setKeyPrefix(writerConfiguration.getString(SingerConfigDef.KEY_PREFIX));
+    } catch (NoSuchElementException e) {
+      throw new ConfigurationException("S3Writer keyPrefix is required in Writer Configuration", e);
+    }
+
+    try {
+      config.setFileNameFormat(writerConfiguration.getString(SingerConfigDef.FILE_NAME_FORMAT));
+    } catch (NoSuchElementException e) {
+      throw new ConfigurationException("S3Writer fileNameFormat is required in Writer Configuration", e);
+    }
+
+    // Optional configs
+    // maxFileSizeMB = max(input value, MAX_FILE_SIZE_IN_MB)
+    if (writerConfiguration.containsKey(SingerConfigDef.MAX_FILE_SIZE_MB)) {
+      config.setMaxFileSizeMB(writerConfiguration.getInt(SingerConfigDef.MAX_FILE_SIZE_MB));
+    }
+
+    if (config.getMaxFileSizeMB() <= MAX_FILE_SIZE_IN_MB) {
+      config.setMaxFileSizeMB(MAX_FILE_SIZE_IN_MB);
+    }
+
+    // minUploadTimeInSeconds = max(input value, MIN_UPLOAD_TIME_IN_SECONDS)
+    if (writerConfiguration.containsKey(SingerConfigDef.MIN_UPLOAD_TIME_IN_SECONDS)) {
+      config.setMinUploadTimeInSeconds(writerConfiguration.getInt(SingerConfigDef.MIN_UPLOAD_TIME_IN_SECONDS));
+    }
+
+    if (config.getMinUploadTimeInSeconds() <= MIN_UPLOAD_TIME_IN_SECONDS) {
+      config.setMinUploadTimeInSeconds(MIN_UPLOAD_TIME_IN_SECONDS);
+    }
+
+    // maxRetries = 5 if input value is less than 0, else input value
+    if (writerConfiguration.containsKey(SingerConfigDef.MAX_RETRIES)) {
+      config.setMaxRetries(writerConfiguration.getInt(SingerConfigDef.MAX_RETRIES));
+    }
+
+    if (config.getMaxRetries() <= 0) {
+      config.setMaxRetries(MAX_RETRIES);
+    }
+
+    if (writerConfiguration.containsKey(SingerConfigDef.BUFFER_DIR)) {
+      config.setBufferDir(writerConfiguration.getString(SingerConfigDef.BUFFER_DIR));
+    }
+
+    // Configure Key Prefix
+    String s3WriterConfigKeyPrefix = config.getKeyPrefix();
+
+    // error handling for key prefix
+    if (s3WriterConfigKeyPrefix == null || s3WriterConfigKeyPrefix.isEmpty()) {
+      throw new RuntimeException("Key prefix is not configured");
+    }
+    if (s3WriterConfigKeyPrefix.startsWith("/")) {
+      s3WriterConfigKeyPrefix = s3WriterConfigKeyPrefix.substring(1);
+    }
+    if (!s3WriterConfigKeyPrefix.endsWith("/")) {
+      s3WriterConfigKeyPrefix = s3WriterConfigKeyPrefix + "/";
+    }
+    config.setKeyPrefix(s3WriterConfigKeyPrefix);
+
+    return config;
   }
 
   private static PulsarWriterConfig parsePulsarWriterConfig(SubsetConfiguration writerConfiguration) throws ConfigurationException {
