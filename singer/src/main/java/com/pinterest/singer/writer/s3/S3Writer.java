@@ -19,13 +19,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.attribute.PosixFilePermission;
-import java.nio.file.attribute.PosixFilePermissions;
-
-import java.util.Set;
 import java.util.List;
 import java.util.Date;
 import java.util.concurrent.Future;
@@ -44,12 +37,12 @@ import static com.pinterest.singer.utils.SingerUtils.getHostnamePrefixes;
 public class S3Writer implements LogStreamWriter {
     public static final String HOSTNAME = SingerUtils.HOSTNAME;
     private static final Logger LOG = LoggerFactory.getLogger(S3Writer.class);
-    private static final SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmssSSS");
+    private static final SimpleDateFormat FORMATTER = new SimpleDateFormat("yyyyMMddHHmmssSSS");
     protected final LogStream logStream;
     private final String BUFFER_DIR;
-    private final int mB = 1024 * 1024;
-    private final int MIN_UPLOAD_TIME_IN_SECONDS = 30;
-    private final int MAX_FILE_SIZE_IN_MB = 50;
+    private static final int BYTES_IN_MB = 1024 * 1024;
+    private static final int MIN_UPLOAD_TIME_IN_SECONDS = 30;
+    private static final int MAX_FILE_SIZE_IN_MB = 50;
 
     private ObjectUploaderTask putObjectUploader;
     private S3Client s3Client;
@@ -90,7 +83,7 @@ public class S3Writer implements LogStreamWriter {
     public S3Writer(LogStream logStream, S3WriterConfig s3WriterConfig) {
         this.logStream = logStream;
         this.s3WriterConfig = s3WriterConfig;
-        this.BUFFER_DIR = "/tmp/singer/s3";
+        this.BUFFER_DIR = s3WriterConfig.getBufferDir();
         initialize();
     }
 
@@ -107,23 +100,9 @@ public class S3Writer implements LogStreamWriter {
     }
 
     private void initialize() {
-        if (s3WriterConfig.getMaxFileSizeMB() <= MAX_FILE_SIZE_IN_MB) {
-            this.maxFileSizeMB = MAX_FILE_SIZE_IN_MB;
-        } else {
-            this.maxFileSizeMB = s3WriterConfig.getMaxFileSizeMB();
-        }
-
-        if (s3WriterConfig.getMinUploadTimeInSeconds() <= MIN_UPLOAD_TIME_IN_SECONDS) {
-            this.minUploadTime = MIN_UPLOAD_TIME_IN_SECONDS;
-        } else {
-            this.minUploadTime = s3WriterConfig.getMinUploadTimeInSeconds();
-        }
-
-        if (s3WriterConfig.getMaxRetries() > 0) {
-            this.maxRetries = s3WriterConfig.getMaxRetries();
-        } else {
-            this.maxRetries = ObjectUploaderTask.MAX_RETRIES;
-        }
+        this.maxFileSizeMB = s3WriterConfig.getMaxFileSizeMB();
+        this.minUploadTime = s3WriterConfig.getMinUploadTimeInSeconds();
+        this.maxRetries = s3WriterConfig.getMaxRetries();
 
         // Create directory if it does not exist
         new File(BUFFER_DIR).mkdirs();
@@ -135,30 +114,13 @@ public class S3Writer implements LogStreamWriter {
             throw new RuntimeException(e);
         }
 
-        // Configure Key Prefix
-        String s3WriterConfigKeyPrefix = s3WriterConfig.getKeyPrefix();
-
-        // error handling for key prefix
-        if (s3WriterConfigKeyPrefix == null) {
-            throw new RuntimeException("Key prefix is not configured");
-        }
-        if (s3WriterConfigKeyPrefix.isEmpty()) {
-            throw new RuntimeException("Key prefix is not configured");
-        }
-        if (s3WriterConfigKeyPrefix.startsWith("/")) {
-            s3WriterConfigKeyPrefix = s3WriterConfigKeyPrefix.substring(1);
-        }
-        if (!s3WriterConfigKeyPrefix.endsWith("/")) {
-            s3WriterConfigKeyPrefix = s3WriterConfigKeyPrefix + "/";
-        }
+        this.keyPrefix = s3WriterConfig.getKeyPrefix();
 
         // Configure bucket name
         this.bucketName = s3WriterConfig.getBucket();
         if (this.bucketName == null) {
             throw new RuntimeException("Bucket name is not configured");
         }
-
-        this.keyPrefix = s3WriterConfigKeyPrefix;
 
         try {
             if (s3Client == null) {
@@ -273,10 +235,10 @@ public class S3Writer implements LogStreamWriter {
      * */
     private void uploadAndRecordMetrics(File newFile, String fileFormat) {
         if (this.putObjectUploader.upload(newFile, fileFormat)) {
-            OpenTsdbMetricConverter.incr(SingerMetrics.SINGER_WRITER+ "num_uploads_to_s3", 1,
+            OpenTsdbMetricConverter.incr(SingerMetrics.S3_WRITER + "num_uploads", 1,
                     "bucket=" + bucketName, "keyPrefix=" + keyPrefix, "host=" + HOSTNAME, "logName=" + logStream.getLogStreamName());
         } else  {
-            OpenTsdbMetricConverter.incr(SingerMetrics.SINGER_WRITER+ "num_fail_uploads_to_s3", 1,
+            OpenTsdbMetricConverter.incr(SingerMetrics.S3_WRITER + "num_failed_uploads", 1,
                     "bucket=" + bucketName, "keyPrefix=" + keyPrefix, "host=" + HOSTNAME, "logName=" + logStream.getLogStreamName());
         }
     }
@@ -305,6 +267,14 @@ public class S3Writer implements LogStreamWriter {
         }
     }
 
+    /**
+     * This method writes the bytes of the log message to the buffered output stream
+     * and adds a newline character after each log message. It then flushes the output stream
+     * to ensure that the data is written to the buffer file.
+     *
+     * @param logMessageAndPosition the log message and its position to be written to the buffer
+     * @throws IOException if an error occurs while writing to the buffer file
+     */
     private void writeMessageToBuffer(LogMessageAndPosition logMessageAndPosition) throws IOException {
         byte[] logMessageBytes = logMessageAndPosition.logMessage.getMessage();
         bufferedOutputStream.write(logMessageBytes);
@@ -332,26 +302,28 @@ public class S3Writer implements LogStreamWriter {
 
     /**
      * Gets the actual file name format for the S3 file.
+     *
+     * FORMAT: <log_name>/<service_fleet>/<host>/<log_dir>/<custom_filename>.<timestamp>
      * */
     public String getS3FileFormat() {
-        // FORMAT: <log_name>/<service_fleet>/<host>/<log_dir>/<custom_filename>.<timestamp>
+
         String logName = logStream.getSingerLog().getSingerLogConfig().getName();
         List<String> hostPrefixes = getHostnamePrefixes("-");
         String serviceFleet = hostPrefixes.get(hostPrefixes.size() - 2);
         String host = extractHostSuffix(HOSTNAME);
         String logDir = logStream.getFullPathPrefix().substring(1);
         String customFilename = s3WriterConfig.getFileNameFormat();
-        String timestamp = formatter.format(new Date());
-        LOG.info("Uploading the file: " + logName + "/" + serviceFleet + "/" + host + "/" + logDir + "/" + customFilename +
-                "." + timestamp + " to the bucket " + bucketName + " with key prefix " + keyPrefix);
-        return logName + "/" + serviceFleet + "/" + host + "/" + logDir + "/" + customFilename + "." + timestamp;
+        String timestamp = FORMATTER.format(new Date());
+        String returnedS3FileFormat = logName + "/" + serviceFleet + "/" + host + "/" + logDir + "/" + customFilename + "." + timestamp;
+        LOG.info("Uploading the file: " + returnedS3FileFormat + " to the bucket " + bucketName + " with key prefix " + keyPrefix);
+        return returnedS3FileFormat;
     }
 
     /**
      * Helper function to create a new file to upload to S3.
      * */
     private File createNewS3File() {
-        String newFileName = s3WriterConfig.getFileNameFormat() + "." + formatter.format(new Date());
+        String newFileName = s3WriterConfig.getFileNameFormat() + "." + FORMATTER.format(new Date());
         return new File(BUFFER_DIR, newFileName);
     }
 
@@ -365,7 +337,7 @@ public class S3Writer implements LogStreamWriter {
     public synchronized void endCommit(int numLogMessagesRead, boolean isDraining) throws LogStreamWriterException {
         try {
             synchronized (objLock) {
-                if (bufferFile.length() >= maxFileSizeMB * mB) {
+                if (bufferFile.length() >= maxFileSizeMB * BYTES_IN_MB) {
                     if (uploadFuture != null) {
                         uploadFuture.cancel(true);
                     }
@@ -393,13 +365,23 @@ public class S3Writer implements LogStreamWriter {
 
 
     /**
-     * This method is called per LogStreamConfig, not for all of Singer.
+     * Closes the S3Writer, ensuring that remaining buffered log messages are safely uploaded to S3.
+     *
+     * This method synchronizes on {@code objLock} to ensure thread safety while performing the following steps:
+     * Increments the close counter metric in OpenTsdb.
+     * If the buffer file has remaining data, it renames the file for upload, closes the buffer stream,
+     * and uploads the file to S3, recording relevant metrics.
+     * Cancels the upload future task if it is not already done.
+     * Attempts to close the buffered output stream if it is still open.
+     * Closes the S3 client connection.
+     * Any errors during these operations are logged accordingly.
+     *
      * @throws IOException
      */
     @Override
     public void close() throws IOException {
         synchronized (objLock) {
-            OpenTsdbMetricConverter.incr(SingerMetrics.SINGER_WRITER+ "num_singer_close_s3_writer", 1,
+            OpenTsdbMetricConverter.incr(SingerMetrics.S3_WRITER + "num_singer_close", 1,
                     "bucket=" + bucketName, "keyPrefix=" + keyPrefix, "host=" + HOSTNAME, "logName=" + logStream.getLogStreamName());
 
             if (bufferFile.length() > 0) {

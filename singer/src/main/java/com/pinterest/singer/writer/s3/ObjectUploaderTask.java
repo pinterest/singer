@@ -10,7 +10,6 @@ import software.amazon.awssdk.services.s3.model.PutObjectResponse;
 import java.io.File;
 
 public class ObjectUploaderTask {
-    public static final int MAX_RETRIES = 5;
     private static final Logger LOG = LoggerFactory.getLogger(S3Writer.class);
     private final S3Client s3Client;
     private final String bucket;
@@ -41,7 +40,7 @@ public class ObjectUploaderTask {
 
                 PutObjectResponse putObjectResponse = s3Client.putObject(putObjectRequest, file.toPath());
 
-                if (putObjectResponse != null) {
+                if (putObjectResponse.sdkHttpResponse().isSuccessful()) {
                     LOG.info("Successfully uploaded file: {} on attempt {}", fileFormat, attempts);
                     success = true;
                 } else {
@@ -53,7 +52,7 @@ public class ObjectUploaderTask {
 
             if (!success && attempts < maxRetries) {
                 try {
-                    LOG.info("Retrying in {} ms...", backoff);
+                    LOG.info("Failed to upload file: {} on attempt {}. Retrying in {} ms...", fileFormat, attempts, backoff);
                     Thread.sleep(backoff);
                     backoff = Math.min(backoff * 2, MAX_BACKOFF); // Exponential backoff with a cap
                 } catch (InterruptedException ie) {
@@ -63,6 +62,7 @@ public class ObjectUploaderTask {
         }
 
         if (!success) {
+            // TODO: this means data loss as Singer gives up uploading the file, which is not ideal. We need a fallback mechanism.
             LOG.error("Exhausted all attempts ({}) to upload file: {}", maxRetries, fileFormat);
             return false;
         }

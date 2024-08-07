@@ -109,4 +109,5 @@ public class SingerConfigDef {
   public static final String MIN_UPLOAD_TIME_IN_SECONDS = "minUploadTimeInSeconds";
   public static final String FILE_NAME_FORMAT = "fileNameFormat";
   public static final String MAX_RETRIES = "maxRetries";
+  public static final String BUFFER_DIR = "bufferDir";
 }

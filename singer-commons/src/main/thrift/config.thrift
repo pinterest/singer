@@ -125,6 +125,7 @@ struct S3WriterConfig {
   4: optional i32 maxFileSizeMB = 50;
   5: required string fileNameFormat;
   6: optional i32 maxRetries = 5;
+  7: optional string bufferDir = "/tmp/singer/s3";
 }
 
 enum RealpinObjectType {

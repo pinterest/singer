@@ -147,6 +147,9 @@ public class LogConfigUtils {
       .newConcurrentMap();
   private static final Set<String> MEMQ_SERVER_SETS = ConcurrentHashMap.newKeySet();
   public static final Properties SHADOW_SERVERSET_MAPPING = new Properties();
+  private static final int MIN_UPLOAD_TIME_IN_SECONDS = 30;
+  private static final int MAX_FILE_SIZE_IN_MB = 50;
+  private static final int MAX_RETRIES = 5;
   public static boolean SHADOW_MODE_ENABLED;
 
   private LogConfigUtils() {
@@ -757,34 +760,68 @@ public class LogConfigUtils {
     // Required configs
     try {
       config.setBucket(writerConfiguration.getString(SingerConfigDef.BUCKET));
-    } catch (Exception x) {
-      throw new ConfigurationException("S3Writer bucket is required in Writer Configuration");
+    } catch (NoSuchElementException e) {
+      throw new ConfigurationException("S3Writer bucket is required in Writer Configuration", e);
     }
 
     try {
       config.setKeyPrefix(writerConfiguration.getString(SingerConfigDef.KEY_PREFIX));
-    } catch (Exception x) {
-      throw new ConfigurationException("S3Writer keyPrefix is required in Writer Configuration");
+    } catch (NoSuchElementException e) {
+      throw new ConfigurationException("S3Writer keyPrefix is required in Writer Configuration", e);
     }
 
     try {
       config.setFileNameFormat(writerConfiguration.getString(SingerConfigDef.FILE_NAME_FORMAT));
-    } catch (Exception x) {
-      throw new ConfigurationException("S3Writer fileNameFormat is required in Writer Configuration");
+    } catch (NoSuchElementException e) {
+      throw new ConfigurationException("S3Writer fileNameFormat is required in Writer Configuration", e);
     }
 
     // Optional configs
-    if (writerConfiguration.containsKey(SingerConfigDef.MAX_FILE_SIZE_IN_BYTES)) {
+    // maxFileSizeMB = max(inputted value, MAX_FILE_SIZE_IN_MB)
+    if (writerConfiguration.containsKey(SingerConfigDef.MAX_FILE_SIZE_MB)) {
       config.setMaxFileSizeMB(writerConfiguration.getInt(SingerConfigDef.MAX_FILE_SIZE_MB));
     }
 
+    if (config.getMaxFileSizeMB() <= MAX_FILE_SIZE_IN_MB) {
+      config.setMaxFileSizeMB(MAX_FILE_SIZE_IN_MB);
+    }
+
+    // minUploadTimeInSeconds = max(inputted value, MIN_UPLOAD_TIME_IN_SECONDS)
     if (writerConfiguration.containsKey(SingerConfigDef.MIN_UPLOAD_TIME_IN_SECONDS)) {
       config.setMinUploadTimeInSeconds(writerConfiguration.getInt(SingerConfigDef.MIN_UPLOAD_TIME_IN_SECONDS));
     }
 
+    if (config.getMinUploadTimeInSeconds() <= MIN_UPLOAD_TIME_IN_SECONDS) {
+      config.setMinUploadTimeInSeconds(MIN_UPLOAD_TIME_IN_SECONDS);
+    }
+
+    // maxRetries = 5 if inputted value is less than 0, else inputted value
     if (writerConfiguration.containsKey(SingerConfigDef.MAX_RETRIES)) {
       config.setMaxRetries(writerConfiguration.getInt(SingerConfigDef.MAX_RETRIES));
     }
+
+    if (config.getMaxRetries() <= 0) {
+      config.setMaxRetries(MAX_RETRIES);
+    }
+
+    if (writerConfiguration.containsKey(SingerConfigDef.BUFFER_DIR)) {
+      config.setBufferDir(writerConfiguration.getString(SingerConfigDef.BUFFER_DIR));
+    }
+
+    // Configure Key Prefix
+    String s3WriterConfigKeyPrefix = config.getKeyPrefix();
+
+    // error handling for key prefix
+    if (s3WriterConfigKeyPrefix == null || s3WriterConfigKeyPrefix.isEmpty()) {
+      throw new RuntimeException("Key prefix is not configured");
+    }
+    if (s3WriterConfigKeyPrefix.startsWith("/")) {
+      s3WriterConfigKeyPrefix = s3WriterConfigKeyPrefix.substring(1);
+    }
+    if (!s3WriterConfigKeyPrefix.endsWith("/")) {
+      s3WriterConfigKeyPrefix = s3WriterConfigKeyPrefix + "/";
+    }
+    config.setKeyPrefix(s3WriterConfigKeyPrefix);
 
     return config;
   }
