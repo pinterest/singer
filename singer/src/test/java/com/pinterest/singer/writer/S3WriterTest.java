@@ -2,14 +2,14 @@ package com.pinterest.singer.writer;
 
 import com.pinterest.singer.SingerTestBase;
 import com.pinterest.singer.common.LogStream;
-import com.pinterest.singer.writer.s3.ObjectUploaderTask;
-import com.pinterest.singer.writer.s3.S3Writer;
-import com.pinterest.singer.thrift.configuration.SingerLogConfig;
+import com.pinterest.singer.common.SingerLog;
 import com.pinterest.singer.thrift.LogMessage;
 import com.pinterest.singer.thrift.LogMessageAndPosition;
 import com.pinterest.singer.thrift.configuration.S3WriterConfig;
-import com.pinterest.singer.common.SingerLog;
-
+import com.pinterest.singer.thrift.configuration.SingerLogConfig;
+import com.pinterest.singer.utils.SingerUtils;
+import com.pinterest.singer.writer.s3.ObjectUploaderTask;
+import com.pinterest.singer.writer.s3.S3Writer;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.junit.After;
@@ -25,11 +25,11 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 
-import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 
 @RunWith(MockitoJUnitRunner.class)
@@ -48,6 +48,9 @@ public class S3WriterTest extends SingerTestBase {
 
     @Before
     public void setUp() {
+        // set hostname
+        SingerUtils.setHostname("localhost-dev", "-");
+
         // Initialize basics
         tempPath = getTempPath();
         String logStreamHeadFileName = "thrift.log";

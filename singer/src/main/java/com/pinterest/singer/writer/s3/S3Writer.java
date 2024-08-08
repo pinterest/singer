@@ -309,7 +309,7 @@ public class S3Writer implements LogStreamWriter {
 
         String logName = logStream.getSingerLog().getSingerLogConfig().getName();
         List<String> hostPrefixes = getHostnamePrefixes("-");
-        String serviceFleet = hostPrefixes.get(hostPrefixes.size() - 2);
+        String serviceFleet = hostPrefixes.size() == 1 ? hostPrefixes.get(0) : hostPrefixes.get(hostPrefixes.size() - 2);
         String host = extractHostSuffix(HOSTNAME);
         String logDir = logStream.getFullPathPrefix().substring(1);
         String customFilename = s3WriterConfig.getFileNameFormat();
