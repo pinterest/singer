@@ -15,8 +15,12 @@
  */
 package com.pinterest.singer.reader;
 
+import com.pinterest.singer.common.SingerSettings;
+import com.pinterest.singer.reader.pooled.PooledByteBufInputStream;
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import io.netty.buffer.PooledByteBufAllocator;
 import org.apache.thrift.TBase;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TProtocol;
@@ -26,6 +30,7 @@ import org.apache.thrift.transport.TTransport;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.RandomAccessFile;
 
 /**
@@ -58,7 +63,7 @@ public class ThriftReader<T extends TBase> implements Closeable {
   private final TBaseFactory<T> baseFactory;
 
   // The ByteOffsetInputStream to read from.
-  private final ByteOffsetInputStream byteOffsetInputStream;
+  private final OffsetInputStream byteOffsetInputStream;
 
   // The framed framedTransport.
   private final TFramedTransport framedTransport;
@@ -75,9 +80,14 @@ public class ThriftReader<T extends TBase> implements Closeable {
     Preconditions.checkArgument(!Strings.isNullOrEmpty(path));
     Preconditions.checkNotNull(protocolFactory);
 
-    this.byteOffsetInputStream = new ByteOffsetInputStream(
-        new RandomAccessFile(path, "r"), readBufferSize);
-    this.framedTransport = new TFramedTransport(new TIOStreamTransport(this
+    if (SingerSettings.getSingerConfig() != null && SingerSettings.getSingerConfig().isEnablePooledReaderBuffers()) {
+      byteOffsetInputStream = new PooledByteBufInputStream(new RandomAccessFile(path, "r"),
+          PooledByteBufAllocator.DEFAULT.directBuffer(readBufferSize, readBufferSize));
+    } else {
+      byteOffsetInputStream =
+          new ByteOffsetInputStream(new RandomAccessFile(path, "r"), readBufferSize);
+    }
+    this.framedTransport = new TFramedTransport(new TIOStreamTransport((InputStream) this
         .byteOffsetInputStream), maxMessageSize);
     this.baseFactory = Preconditions.checkNotNull(baseFactory);
     this.protocol = protocolFactory.get(this.framedTransport);

@@ -58,6 +58,8 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.twitter.ostrich.stats.Stats;
+import io.netty.buffer.PoolArenaMetric;
+import io.netty.buffer.PooledByteBufAllocator;
 import org.apache.commons.configuration.ConfigurationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -558,6 +560,15 @@ public class DefaultLogMonitor implements LogMonitor, Runnable {
     Map<String, List<Long>> perLogLatency = Maps.newHashMap();
     Map<String, Integer> perLogStuck = Maps.newHashMap();
     DefaultLogStreamProcessor processor;
+
+    OpenTsdbMetricConverter.gauge("singer.netty_heap_buffer.memory.used",
+        PooledByteBufAllocator.DEFAULT.metric().usedHeapMemory());
+    OpenTsdbMetricConverter.gauge("singer.netty_heap_buffer.active.allocation.bytes", PooledByteBufAllocator.DEFAULT.metric().heapArenas().stream()
+        .mapToLong(PoolArenaMetric::numActiveBytes).sum());
+    OpenTsdbMetricConverter.gauge("singer.netty_direct_buffer.memory.used",
+        PooledByteBufAllocator.DEFAULT.metric().usedDirectMemory());
+    OpenTsdbMetricConverter.gauge("singer.netty_direct_buffer.active.allocation.bytes", PooledByteBufAllocator.DEFAULT.metric().directArenas().stream()
+        .mapToLong(PoolArenaMetric::numActiveBytes).sum());
 
     for (LogStream logStream : processedLogStreams.keySet()) {
       String logName = logStream.getSingerLog().getSingerLogConfig().getName();

@@ -439,4 +439,9 @@ struct SingerConfig {
    */
   28: optional string hostnamePrefixRegex = "-";
 
+  /**
+  * Initialize LogStreamReaders with pooled buffers
+  */
+  29: optional bool enablePooledReaderBuffers = false;
+
 }
