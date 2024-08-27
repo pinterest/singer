@@ -21,8 +21,10 @@ import static org.junit.Assert.assertThat;
 import com.pinterest.singer.SingerTestBase;
 import com.pinterest.singer.common.LogStream;
 import com.pinterest.singer.common.SingerLog;
+import com.pinterest.singer.common.SingerSettings;
 import com.pinterest.singer.thrift.LogMessage;
 import com.pinterest.singer.thrift.LogMessageAndPosition;
+import com.pinterest.singer.thrift.configuration.SingerConfig;
 import com.pinterest.singer.thrift.configuration.SingerLogConfig;
 import com.pinterest.singer.utils.SimpleThriftLogger;
 
@@ -42,6 +44,9 @@ public class ThriftLogFileReaderTest extends SingerTestBase {
 
   @Test
   public void testReadBadMessage() throws Exception {
+    SingerConfig singerConfig = new SingerConfig();
+    singerConfig.setEnablePooledReaderBuffers(true);
+    SingerSettings.setSingerConfig(singerConfig);
     String path = FilenameUtils.concat(getTempPath(), "thrift.log");
 
     SimpleThriftLogger<LogMessage> logger = new SimpleThriftLogger<>(path);
@@ -75,6 +80,9 @@ public class ThriftLogFileReaderTest extends SingerTestBase {
 
   @Test
   public void testReadLogMessageAndPosition() throws Exception {
+    SingerConfig singerConfig = new SingerConfig();
+    singerConfig.setEnablePooledReaderBuffers(true);
+    SingerSettings.setSingerConfig(singerConfig);
     String path = FilenameUtils.concat(getTempPath(), "thrift.log");
 
     SimpleThriftLogger<LogMessage> logger = new SimpleThriftLogger<>(path);
@@ -127,10 +135,21 @@ public class ThriftLogFileReaderTest extends SingerTestBase {
     }
 
     // Return null when no more message in the log file.
+    for (int i = 0; i < messagesWritten.size(); i++) {
+      LogMessageAndPosition written = messagesWritten.get(i);
+      LogMessageAndPosition read = messagesRead.get(i);
+      assertThat(written.getLogMessage(), is(read.getLogMessage()));
+      assertThat(written.getNextPosition().getByteOffset(), is(read.getNextPosition().getByteOffset()));
+    }
+
+    // Return null when no more message in the log file.
     assertThat(messagesRead, is(messagesWritten));
   }
 
   public void testEnvironmentVariableInjection() throws Exception {
+    SingerConfig singerConfig = new SingerConfig();
+    singerConfig.setEnablePooledReaderBuffers(true);
+    SingerSettings.setSingerConfig(singerConfig);
     String path = FilenameUtils.concat(getTempPath(), "thrift.log");
     SimpleThriftLogger<LogMessage> logger = new SimpleThriftLogger<>(path);
     List<LogMessageAndPosition> messagesWritten;

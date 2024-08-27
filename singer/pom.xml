@@ -4,6 +4,9 @@
     <packaging>jar</packaging>
     <description>Logging Agent</description>
     <inceptionYear>2013</inceptionYear>
+    <properties>
+        <netty.version>4.1.75.Final</netty.version>
+    </properties>
     <parent>
         <groupId>com.pinterest.singer</groupId>
         <artifactId>singer-package</artifactId>
@@ -86,6 +89,11 @@
                     <artifactId>slf4j-jdk14</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-all</artifactId>
+            <version>${netty.version}</version>
         </dependency>
         <dependency>
             <groupId>commons-cli</groupId>

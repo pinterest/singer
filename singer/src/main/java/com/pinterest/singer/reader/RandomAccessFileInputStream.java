@@ -28,7 +28,7 @@ import java.io.RandomAccessFile;
  * This class will allow us to set the file pointer when we need to go back in the stream. It
  * also allow us to track the byte offset of the next thrift message by reading the file pointer.
  */
-final class RandomAccessFileInputStream extends InputStream {
+public final class RandomAccessFileInputStream extends InputStream {
 
   private final RandomAccessFile file;
 

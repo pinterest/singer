@@ -715,6 +715,9 @@ public class LogConfigUtils {
     if (singerConfiguration.containsKey("fsEventQueueImplementation")) {
       singerConfig.setFsEventQueueImplementation(singerConfiguration.getString("fsEventQueueImplementation"));
     }
+    if (singerConfiguration.containsKey("enablePooledReaderBuffers")) {
+      singerConfig.setEnablePooledReaderBuffers(singerConfiguration.getBoolean("enablePooledReaderBuffers"));
+    }
     return singerConfig;
   }
 
