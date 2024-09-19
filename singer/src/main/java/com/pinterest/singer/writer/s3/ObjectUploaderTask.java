@@ -25,6 +25,14 @@ public class ObjectUploaderTask {
         this.maxRetries = maxRetries;
     }
 
+    /**
+     * Uploads a file to S3 using the PutObject API.
+     * Uses exponential backoff with a cap for retries.
+     *
+     * @param file is the actual file in disk to be uploaded
+     * @param fileFormat is the key suffix
+     * @return true if the file was successfully uploaded, false otherwise
+     */
     public boolean upload(File file, String fileFormat) {
         int attempts = 0;
         boolean success = false;

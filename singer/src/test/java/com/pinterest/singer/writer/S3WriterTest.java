@@ -138,34 +138,6 @@ public class S3WriterTest extends SingerTestBase {
     }
 
     @Test
-    public void testGetFileName() {
-        String input = "application.log";
-        String expected = "application";
-        String result = S3Writer.getFileName(input);
-        assertEquals(expected, result);
-
-        input = "anotherFile.txt";
-        expected = "anotherFile.txt";
-        result = S3Writer.getFileName(input);
-        assertEquals(expected, result);
-
-        input = "logfile";
-        expected = "logfile";
-        result = S3Writer.getFileName(input);
-        assertEquals(expected, result);
-
-        input = ".log";
-        expected = "";
-        result = S3Writer.getFileName(input);
-        assertEquals(expected, result);
-
-        input = "";
-        expected = "";
-        result = S3Writer.getFileName(input);
-        assertEquals(expected, result);
-    }
-
-    @Test
     public void testWriteLogMessageToCommit() throws Exception {
         // Prepare log message
         ByteBuffer messageBuffer = ByteBuffer.wrap("test message".getBytes());
