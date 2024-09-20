@@ -119,13 +119,29 @@ struct NoOpWriteConfig {
 }
 
 struct S3WriterConfig {
+  // The S3 bucket to upload the log files to.
   1: required string bucket;
-  2: required string keyPrefix;
-  3: optional i32 minUploadTimeInSeconds = 30;
-  4: optional i32 maxFileSizeMB = 50;
-  5: required string fileNameFormat;
-  6: optional i32 maxRetries = 5;
-  7: optional string bufferDir = "/tmp/singer/s3";
+  // The format of the key to be used for the S3 object. The key can contain tokens that will be replaced
+  // with the values extracted from the log filename based on the regex pattern provided in filenamePattern.
+  // e.g. "%{namespace}/%{service}/my_log.%UUID".
+  2: required string keyFormat;
+  // Max file size in MB. If the file size exceeds this value, it will be uploaded to S3.
+  3: optional i32 maxFileSizeMB = 50;
+  // Min upload time in seconds. If the file size exceeds this value, it will be uploaded to S3.
+  4: optional i32 minUploadTimeInSeconds = 30;
+  // The maximum number of retries for uploading a file to S3 before giving up.
+  // Retry mechanism uses exponential backoff.
+  5: optional i32 maxRetries = 5;
+  // The directory where the log messages will be buffered before triggering
+  // the upload to S3. The directory will be created if it does not exist.
+  6: optional string bufferDir = "/tmp/singer/s3";
+  // The regex pattern used to extract specific fields from the filename.
+  // e.g. "^(?<service>[a-zA-Z0-9]+)_.*_(?<index>\\d+)\\.log$" will extract the "service" and "1000"
+  // tokens from the filename "service_env_1000.log".
+  7: optional string filenamePattern;
+  // A comma separated list of named capturing groups that will be extracted from the filename based on the regex pattern provided in filenamePattern.
+  // The extracted fields will be used to replace the tokens in keyFormat, e.g "namespace,service".
+  8: optional list<string> filenameTokens;
 }
 
 enum RealpinObjectType {

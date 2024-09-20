@@ -10,6 +10,7 @@ import com.pinterest.singer.thrift.configuration.SingerLogConfig;
 import com.pinterest.singer.utils.SingerUtils;
 import com.pinterest.singer.writer.s3.ObjectUploaderTask;
 import com.pinterest.singer.writer.s3.S3Writer;
+import com.pinterest.singer.writer.s3.S3Writer.DefaultTokens;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.junit.After;
@@ -24,7 +25,9 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
+import java.util.Arrays;
 
+import static org.junit.Assert.assertNotEquals;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.atLeastOnce;
@@ -42,6 +45,7 @@ public class S3WriterTest extends SingerTestBase {
     private ObjectUploaderTask mockObjectUploaderTask;
 
     private S3Writer s3Writer;
+    private SingerLog singerLog;
     private LogStream logStream;
     private S3WriterConfig s3WriterConfig;
     private String tempPath;
@@ -57,15 +61,14 @@ public class S3WriterTest extends SingerTestBase {
         String path = FilenameUtils.concat(tempPath, logStreamHeadFileName);
         SingerLogConfig singerLogConfig = createSingerLogConfig("testLog", tempPath);
         SingerLog singerLog = new SingerLog(singerLogConfig);
-        logStream = new LogStream(singerLog, "test.log");
+        logStream = new LogStream(singerLog, "test_log");
 
         // Initialize S3WriterConfig
         s3WriterConfig = new S3WriterConfig();
         s3WriterConfig.setBucket("bucket-name");
-        s3WriterConfig.setKeyPrefix("key-prefix");
+        s3WriterConfig.setKeyFormat("key-prefix");
         s3WriterConfig.setMaxFileSizeMB(1);
-        s3WriterConfig.setMinUploadTimeInSeconds(30);
-        s3WriterConfig.setFileNameFormat("log-format");
+        s3WriterConfig.setMinUploadTimeInSeconds(5);
         s3WriterConfig.setMaxRetries(3);
 
         // Initialize the S3Writer with mock dependencies
@@ -192,12 +195,48 @@ public class S3WriterTest extends SingerTestBase {
         s3Writer.writeLogMessageToCommit(logMessageAndPosition, false);
 
         // Simulate passage of time and scheduled upload
-        Thread.sleep(s3WriterConfig.getMinUploadTimeInSeconds() * 1000 + 5);
+        Thread.sleep((s3WriterConfig.getMinUploadTimeInSeconds() + 2) * 1000);
 
         s3Writer.endCommit(1, false);
 
         // Verify upload was called
         verify(mockObjectUploaderTask, atLeastOnce()).upload(any(File.class), anyString());
+    }
+
+    @Test
+    public void testS3ObjectKeyGeneration() {
+      // Custom and default tokens used
+      String
+          keyFormat =
+          "my-path/%{namespace}/" + DefaultTokens.LOGNAME.getValue() + "/%{filename}-%{index}."
+              + DefaultTokens.TIMESTAMP.getValue();
+      logStream = new LogStream(singerLog, "my_namespace-test_log.0");
+      s3WriterConfig = new S3WriterConfig();
+      s3WriterConfig.setKeyFormat(keyFormat);
+      s3WriterConfig.setBucket("bucket-name");
+      s3WriterConfig.setFilenamePattern("(?<namespace>[^-]+)-(?<filename>[^.]+)\\.(?<index>\\d+)");
+      s3WriterConfig.setFilenameTokens(Arrays.asList("namespace", "filename", "index"));
+      s3Writer =
+          new S3Writer(logStream, s3WriterConfig, mockS3Client, mockObjectUploaderTask, tempPath);
+      // Check key prefix
+      String[] objectKeyParts = s3Writer.generateS3ObjectKey().split("/");
+      assertEquals(4, objectKeyParts.length);
+      assertEquals("my-path", objectKeyParts[0]);
+      assertEquals("my_namespace", objectKeyParts[1]);
+      assertEquals(logStream.getSingerLog().getSingerLogConfig().getName(), objectKeyParts[2]);
+      // Check last part of object key
+      String[] keySuffixParts = objectKeyParts[3].split("\\.");
+      assertEquals(3, keySuffixParts.length);
+      assertEquals("test_log-0", keySuffixParts[0]);
+      assertNotEquals(DefaultTokens.LOGNAME.getValue(), keySuffixParts[1]);
+      // Custom tokens provided but filename pattern does not match
+      s3WriterConfig.setFilenamePattern("(?<filename>[^.]+)\\.(?<index>\\d+).0");
+      s3Writer =
+          new S3Writer(logStream, s3WriterConfig, mockS3Client, mockObjectUploaderTask, tempPath);
+      objectKeyParts = s3Writer.generateS3ObjectKey().split("/");
+      assertEquals("%{namespace}", objectKeyParts[1]);
+      keySuffixParts = objectKeyParts[3].split("\\.");
+      assertEquals("%{filename}-%{index}", keySuffixParts[0]);
     }
 
     @Test

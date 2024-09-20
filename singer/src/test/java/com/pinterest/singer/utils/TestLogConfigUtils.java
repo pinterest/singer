@@ -51,6 +51,7 @@ import com.pinterest.singer.thrift.configuration.KafkaProducerConfig;
 import com.pinterest.singer.thrift.configuration.LogStreamProcessorConfig;
 import com.pinterest.singer.thrift.configuration.MemqWriterConfig;
 import com.pinterest.singer.thrift.configuration.RealpinWriterConfig;
+import com.pinterest.singer.thrift.configuration.S3WriterConfig;
 import com.pinterest.singer.thrift.configuration.SamplingType;
 import com.pinterest.singer.thrift.configuration.TextReaderConfig;
 
@@ -442,5 +443,27 @@ public class TestLogConfigUtils {
     conf.clearProperty(SingerConfigDef.PROCESS_DECIDER_BASED_SAMPLING);
     lspc = LogConfigUtils.parseLogStreamProcessorConfig(conf);
     assertEquals(SamplingType.MESSAGE, lspc.getDeciderBasedSampling());
+  }
+
+  @Test
+  public void testS3WriterConfigurations() throws Exception {
+    String
+        config =
+        "type=s3\n" + "s3.bucket=my-fav-bucket\n" + "s3.keyFormat=%{service}/%{index}/my_log\n"
+            + "s3.maxFileSizeMB=100\n" + "s3.minUploadTimeInSeconds=1\n" + "s3.maxRetries=10\n"
+            + "s3.filenamePattern=^(?<service>[a-zA-Z0-9]+)_.*_(?<index>\\\\d+)\\\\.log$";
+    PropertiesConfiguration conf = new PropertiesConfiguration();
+    conf.load(new ByteArrayInputStream(config.getBytes()));
+    List<String> tokens = new ArrayList<>();
+    tokens.add("service");
+    tokens.add("index");
+    S3WriterConfig
+        s3WriterConfig =
+        LogConfigUtils.parseLogStreamWriterConfig(conf).getS3WriterConfig();
+    assertNotNull(s3WriterConfig);
+    assertEquals(tokens.toString(), s3WriterConfig.getFilenameTokens().toString());
+    assertEquals(100, s3WriterConfig.getMaxFileSizeMB());
+    assertEquals(30, s3WriterConfig.getMinUploadTimeInSeconds());
+    assertEquals(10, s3WriterConfig.getMaxRetries());
   }
 }

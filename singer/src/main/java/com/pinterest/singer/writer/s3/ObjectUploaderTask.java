@@ -13,15 +13,13 @@ public class ObjectUploaderTask {
     private static final Logger LOG = LoggerFactory.getLogger(S3Writer.class);
     private final S3Client s3Client;
     private final String bucket;
-    private final String keyPrefix;
     private final int maxRetries;
     private static final long INITIAL_BACKOFF = 1000; // Initial backoff in milliseconds
     private static final long MAX_BACKOFF = 32000; // Maximum backoff in milliseconds
 
-    public ObjectUploaderTask(S3Client s3Client, String bucket, String keyPrefix, int maxRetries) {
+    public ObjectUploaderTask(S3Client s3Client, String bucket, int maxRetries) {
         this.s3Client = s3Client;
         this.bucket = bucket;
-        this.keyPrefix = keyPrefix;
         this.maxRetries = maxRetries;
     }
 
@@ -43,7 +41,7 @@ public class ObjectUploaderTask {
             try {
                 PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                         .bucket(bucket)
-                        .key(keyPrefix + fileFormat)
+                        .key(fileFormat)
                         .build();
 
                 PutObjectResponse putObjectResponse = s3Client.putObject(putObjectRequest, file.toPath());
