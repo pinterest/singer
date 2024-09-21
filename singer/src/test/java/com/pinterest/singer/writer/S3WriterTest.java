@@ -58,10 +58,8 @@ public class S3WriterTest extends SingerTestBase {
 
     // Initialize basics
     tempPath = getTempPath();
-    String logStreamHeadFileName = "thrift.log";
-    String path = FilenameUtils.concat(tempPath, logStreamHeadFileName);
     SingerLogConfig singerLogConfig = createSingerLogConfig("testLog", tempPath);
-    SingerLog singerLog = new SingerLog(singerLogConfig);
+    singerLog = new SingerLog(singerLogConfig);
     logStream = new LogStream(singerLog, "test_log");
 
     // Initialize S3WriterConfig
