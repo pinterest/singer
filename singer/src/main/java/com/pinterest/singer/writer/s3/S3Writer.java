@@ -23,17 +23,19 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Date;
+import java.util.UUID;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.text.SimpleDateFormat;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import software.amazon.awssdk.services.s3.S3Client;
-
-import static com.pinterest.singer.utils.SingerUtils.getHostnamePrefixes;
 
 /**
  * A LogStreamWriter for Singer that writes to S3 (writer.type=s3).
@@ -53,7 +55,7 @@ public class S3Writer implements LogStreamWriter {
 
   // S3 information
   private String bucketName;
-  private String keyPrefix;
+  private String keyFormat;
 
   // Disk-buffered file that will eventually be uploaded to S3 if size or time thresholds are met
   private BufferedOutputStream bufferedOutputStream;
@@ -63,6 +65,9 @@ public class S3Writer implements LogStreamWriter {
   private int maxFileSizeMB;
   private int minUploadTime;
   private int maxRetries;
+  private Pattern filenamePattern;
+  private List<String> fileNameTokens = new ArrayList<>();
+  private boolean filenameParsingEnabled = false;
 
   // Timer for scheduling uploads
   private static ScheduledExecutorService fileUploadTimer;
@@ -73,6 +78,20 @@ public class S3Writer implements LogStreamWriter {
     ScheduledThreadPoolExecutor tmpTimer = new ScheduledThreadPoolExecutor(1);
     tmpTimer.setRemoveOnCancelPolicy(true);
     fileUploadTimer = tmpTimer;
+  }
+
+  public enum DefaultTokens {
+    UUID("%UUID"),
+    TIMESTAMP("%TIMESTAMP"),
+    HOST("%HOST"),
+    LOGNAME("%LOGNAME");
+    private final String token;
+    DefaultTokens(String token) {
+      this.token = token;
+    }
+    public String getValue() {
+      return token;
+    }
   }
 
   /**
@@ -117,6 +136,12 @@ public class S3Writer implements LogStreamWriter {
     this.minUploadTime = s3WriterConfig.getMinUploadTimeInSeconds();
     this.maxRetries = s3WriterConfig.getMaxRetries();
 
+    if (s3WriterConfig.isSetFilenamePattern() && s3WriterConfig.isSetFilenameTokens()) {
+      this.filenameParsingEnabled = true;
+      this.filenamePattern = Pattern.compile(s3WriterConfig.getFilenamePattern());
+      this.fileNameTokens = s3WriterConfig.getFilenameTokens();
+    }
+
     // Create directory if it does not exist
     new File(BUFFER_DIR).mkdirs();
     try {
@@ -125,7 +150,7 @@ public class S3Writer implements LogStreamWriter {
       throw new RuntimeException("Failed to create buffer file", e);
     }
 
-    this.keyPrefix = s3WriterConfig.getKeyPrefix();
+    this.keyFormat = s3WriterConfig.getKeyFormat();
 
     // Configure bucket name
     this.bucketName = s3WriterConfig.getBucket();
@@ -138,7 +163,7 @@ public class S3Writer implements LogStreamWriter {
         s3Client = S3Client.builder().build();
       }
       if (putObjectUploader == null) {
-        putObjectUploader = new ObjectUploaderTask(s3Client, bucketName, keyPrefix, maxRetries);
+        putObjectUploader = new ObjectUploaderTask(s3Client, bucketName, maxRetries);
       }
     } catch (Exception e) {
       throw new RuntimeException(e);
@@ -236,11 +261,11 @@ public class S3Writer implements LogStreamWriter {
       resetBufferFile();
       if (this.putObjectUploader.upload(fileToUpload, fileFormat)) {
         OpenTsdbMetricConverter.incr(SingerMetrics.S3_WRITER + "num_uploads", 1,
-            "bucket=" + bucketName, "keyPrefix=" + keyPrefix, "host=" + HOSTNAME,
+            "bucket=" + bucketName, "keyPrefix=" + keyFormat, "host=" + HOSTNAME,
             "logName=" + logName);
       } else {
         OpenTsdbMetricConverter.incr(SingerMetrics.S3_WRITER + "num_failed_uploads", 1,
-            "bucket=" + bucketName, "keyPrefix=" + keyPrefix, "host=" + HOSTNAME,
+            "bucket=" + bucketName, "keyPrefix=" + keyFormat, "host=" + HOSTNAME,
             "logName=" + logName);
       }
       fileToUpload.delete();
@@ -313,27 +338,69 @@ public class S3Writer implements LogStreamWriter {
     return parts[parts.length - 1];
   }
 
+  private Matcher extractTokensFromFilename(String logFileName) {
+    Matcher matcher = filenamePattern.matcher(logFileName);
+    if (!matcher.matches()) {
+      LOG.info("log file name: " + logFileName
+          + " does not match the pattern: " + filenamePattern.toString());
+      return null;
+    }
+    return matcher;
+  }
+
   /**
-   * Gets the actual file name format for the S3 file.
+   * Generates an S3 object key based on the configured key format. The key can contain tokens in the
+   * format %{token} that will be replaced with the values extracted from the log filename based on
+   * the regex pattern provided in filenamePattern using named regex groups.
    *
-   * FORMAT: <log_name>/<service_fleet>/<host>/<log_dir>/<custom_filename>.<timestamp>
-   * */
+   * @return the generated S3 object key
+   */
   public String generateS3ObjectKey() {
-    List<String> hostPrefixes = getHostnamePrefixes("-");
-    String
-        serviceFleet =
-        hostPrefixes.size() == 1 ? hostPrefixes.get(0) : hostPrefixes.get(hostPrefixes.size() - 2);
-    String host = extractHostSuffix(HOSTNAME);
-    String logDir = logStream.getFullPathPrefix().substring(1);
-    String customFilename = s3WriterConfig.getFileNameFormat();
-    String timestamp = FORMATTER.format(new Date());
-    String
-        returnedS3FileFormat =
-        logName + "/" + serviceFleet + "/" + host + "/" + logDir + "/" + customFilename + "."
-            + timestamp;
-    LOG.info("Uploading the file: " + returnedS3FileFormat + " to the bucket " + bucketName
-        + " with key prefix " + keyPrefix);
-    return returnedS3FileFormat;
+    String s3Key = keyFormat;
+    Matcher matcher;
+    // Replace default tokens
+    // TODO: Implement a one pass replacement loop for all tokens if performance becomes an
+    //  issue, for now this reads better.
+    for (DefaultTokens token : DefaultTokens.values()) {
+      switch (token) {
+        case UUID:
+          s3Key = s3Key.replace(token.getValue(), UUID.randomUUID().toString().substring(0, 8));
+          break;
+        case TIMESTAMP:
+          s3Key = s3Key.replace(token.getValue(), FORMATTER.format(new Date()));
+          break;
+        case HOST:
+          s3Key = s3Key.replace(token.getValue(), HOSTNAME);
+          break;
+        case LOGNAME:
+          s3Key = s3Key.replace(token.getValue(), logName);
+          break;
+      }
+    }
+    // Replace named groups from filenamePattern
+    if (filenameParsingEnabled) {
+      if ((matcher = extractTokensFromFilename(logStream.getFileNamePrefix())) != null) {
+        for (String token : fileNameTokens) {
+          // Attempt to replace the token in filenamePattern with the matched value
+          String matchedValue = matcher.group(token);
+          if (matchedValue != null) {
+            s3Key = s3Key.replace("%{" + token + "}", matchedValue);
+          }
+        }
+      } else {
+        // If there is no match we simply return the key without replacing any custom tokens
+        LOG.warn("Filename parsing is enabled but filenamePattern provided: " + filenamePattern
+            + " does not match the log file: " + logStream.getFileNamePrefix());
+        OpenTsdbMetricConverter.incr(SingerMetrics.S3_WRITER + "no_filename_pattern_match", 1,
+            "bucket=" + bucketName, "host=" + HOSTNAME, "logName=" + logName);
+      }
+    }
+
+    // We append a random UUID to the key to avoid collisions
+    // TODO: Provide configuration to disable this behavior if use case comes up
+    s3Key += "." + UUID.randomUUID().toString().substring(0, 8);
+    LOG.info("Generated S3 object key: " + s3Key);
+    return s3Key;
   }
 
   /**
@@ -395,7 +462,7 @@ public class S3Writer implements LogStreamWriter {
   public void close() throws IOException {
     synchronized (objLock) {
       OpenTsdbMetricConverter.incr(SingerMetrics.S3_WRITER + "num_singer_close", 1,
-          "bucket=" + bucketName, "keyPrefix=" + keyPrefix, "host=" + HOSTNAME,
+          "bucket=" + bucketName, "keyPrefix=" + keyFormat, "host=" + HOSTNAME,
           "logName=" + logName);
 
       if (bufferFile.length() > 0) {

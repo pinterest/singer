@@ -96,6 +96,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import java.util.Iterator;
@@ -147,9 +148,12 @@ public class LogConfigUtils {
       .newConcurrentMap();
   private static final Set<String> MEMQ_SERVER_SETS = ConcurrentHashMap.newKeySet();
   public static final Properties SHADOW_SERVERSET_MAPPING = new Properties();
+  // Minimum value that can be set for S3WriterConfig.minUploadTimeInSeconds
   private static final int MIN_UPLOAD_TIME_IN_SECONDS = 30;
-  private static final int MAX_FILE_SIZE_IN_MB = 50;
-  private static final int MAX_RETRIES = 5;
+  // Minimum value that can be set for S3WriterConfig.maxFileSizeInMB
+  private static final int MIN_MAX_FILE_SIZE_IN_MB = 50;
+  // Minimum value that can be set for S3WriterConfig.maxRetries
+  private static final int MIN_MAX_RETRIES = 5;
   public static boolean SHADOW_MODE_ENABLED;
 
   private LogConfigUtils() {
@@ -768,64 +772,62 @@ public class LogConfigUtils {
     }
 
     try {
-      config.setKeyPrefix(writerConfiguration.getString(SingerConfigDef.KEY_PREFIX));
+      config.setKeyFormat(writerConfiguration.getString(SingerConfigDef.KEY_FORMAT));
     } catch (NoSuchElementException e) {
       throw new ConfigurationException("S3Writer keyPrefix is required in Writer Configuration", e);
     }
 
-    try {
-      config.setFileNameFormat(writerConfiguration.getString(SingerConfigDef.FILE_NAME_FORMAT));
-    } catch (NoSuchElementException e) {
-      throw new ConfigurationException("S3Writer fileNameFormat is required in Writer Configuration", e);
-    }
-
     // Optional configs
-    // maxFileSizeMB = max(input value, MAX_FILE_SIZE_IN_MB)
+    if (writerConfiguration.containsKey(SingerConfigDef.FILE_NAME_PATTERN)) {
+      String filenamePattern = writerConfiguration.getString(SingerConfigDef.FILE_NAME_PATTERN);
+      try {
+        // Check if filenamePattern is a valid regex first
+        Pattern.compile(filenamePattern);
+      } catch (PatternSyntaxException e) {
+        throw new ConfigurationException("Invalid filenamePattern regex: " + filenamePattern, e);
+      }
+      // Extract token list from filenamePattern
+      List<String>
+          tokenList = new ArrayList<>();
+      Pattern pattern = Pattern.compile(SingerConfigDef.NAMED_GROUP_PATTERN);
+      Matcher matcher = pattern.matcher(filenamePattern);
+      while (matcher.find()) {
+        tokenList.add(matcher.group(1));
+      }
+      for (String token : tokenList) {
+        if (!filenamePattern.contains(token)) {
+          throw new ConfigurationException(
+              "filenamePattern does not contain token: " + token + " provided in filenameTokens");
+        }
+      }
+      config.setFilenamePattern(filenamePattern);
+      config.setFilenameTokens(tokenList);
+    }
+
+    // Override maxFileSize if it is less than the default value
     if (writerConfiguration.containsKey(SingerConfigDef.MAX_FILE_SIZE_MB)) {
-      config.setMaxFileSizeMB(writerConfiguration.getInt(SingerConfigDef.MAX_FILE_SIZE_MB));
+      config.setMaxFileSizeMB(Math.max(writerConfiguration.getInt(SingerConfigDef.MAX_FILE_SIZE_MB),
+          MIN_MAX_FILE_SIZE_IN_MB));
     }
-
-    if (config.getMaxFileSizeMB() <= MAX_FILE_SIZE_IN_MB) {
-      config.setMaxFileSizeMB(MAX_FILE_SIZE_IN_MB);
-    }
-
-    // minUploadTimeInSeconds = max(input value, MIN_UPLOAD_TIME_IN_SECONDS)
+    // Override minUploadTime if it is less than the default value
     if (writerConfiguration.containsKey(SingerConfigDef.MIN_UPLOAD_TIME_IN_SECONDS)) {
-      config.setMinUploadTimeInSeconds(writerConfiguration.getInt(SingerConfigDef.MIN_UPLOAD_TIME_IN_SECONDS));
+      config.setMinUploadTimeInSeconds(Math.max(writerConfiguration.getInt(SingerConfigDef.MIN_UPLOAD_TIME_IN_SECONDS), MIN_UPLOAD_TIME_IN_SECONDS));
     }
 
-    if (config.getMinUploadTimeInSeconds() <= MIN_UPLOAD_TIME_IN_SECONDS) {
-      config.setMinUploadTimeInSeconds(MIN_UPLOAD_TIME_IN_SECONDS);
-    }
-
-    // maxRetries = 5 if input value is less than 0, else input value
+    // Override maxRetries if it is less than the default value
     if (writerConfiguration.containsKey(SingerConfigDef.MAX_RETRIES)) {
-      config.setMaxRetries(writerConfiguration.getInt(SingerConfigDef.MAX_RETRIES));
+      int retries = writerConfiguration.getInt(SingerConfigDef.MAX_RETRIES);
+      if (retries == 0) {
+        config.setMaxRetries(retries);
+      } else {
+        config.setMaxRetries(Math.max(retries, MIN_MAX_RETRIES));
+      }
     }
-
-    if (config.getMaxRetries() <= 0) {
-      config.setMaxRetries(MAX_RETRIES);
-    }
+    config.setMaxRetries(Math.max(config.getMaxRetries(), MIN_MAX_RETRIES));
 
     if (writerConfiguration.containsKey(SingerConfigDef.BUFFER_DIR)) {
       config.setBufferDir(writerConfiguration.getString(SingerConfigDef.BUFFER_DIR));
     }
-
-    // Configure Key Prefix
-    String s3WriterConfigKeyPrefix = config.getKeyPrefix();
-
-    // error handling for key prefix
-    if (s3WriterConfigKeyPrefix == null || s3WriterConfigKeyPrefix.isEmpty()) {
-      throw new RuntimeException("Key prefix is not configured");
-    }
-    if (s3WriterConfigKeyPrefix.startsWith("/")) {
-      s3WriterConfigKeyPrefix = s3WriterConfigKeyPrefix.substring(1);
-    }
-    if (!s3WriterConfigKeyPrefix.endsWith("/")) {
-      s3WriterConfigKeyPrefix = s3WriterConfigKeyPrefix + "/";
-    }
-    config.setKeyPrefix(s3WriterConfigKeyPrefix);
-
     return config;
   }
 

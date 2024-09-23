@@ -103,11 +103,11 @@ public class SingerConfigDef {
   public static final String SKIP_DRAINING = "skipDraining";
 
   public static final String BUCKET = "bucket";
-  public static final String KEY_PREFIX = "keyPrefix";
-  public static final String MAX_FILE_SIZE_IN_BYTES = "maxFileSizeInBytes";
+  public static final String KEY_FORMAT = "keyFormat";
   public static final String MAX_FILE_SIZE_MB = "maxFileSizeMB";
   public static final String MIN_UPLOAD_TIME_IN_SECONDS = "minUploadTimeInSeconds";
-  public static final String FILE_NAME_FORMAT = "fileNameFormat";
+  public static final String FILE_NAME_PATTERN = "filenamePattern";
   public static final String MAX_RETRIES = "maxRetries";
   public static final String BUFFER_DIR = "bufferDir";
+  public static final String NAMED_GROUP_PATTERN = "\\(\\?<([a-zA-Z][a-zA-Z0-9]*)>";
 }
