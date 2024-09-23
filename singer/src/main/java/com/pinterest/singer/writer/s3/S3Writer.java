@@ -36,6 +36,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 
 /**
  * A LogStreamWriter for Singer that writes to S3 (writer.type=s3).
@@ -163,7 +164,9 @@ public class S3Writer implements LogStreamWriter {
         s3Client = S3Client.builder().build();
       }
       if (putObjectUploader == null) {
-        putObjectUploader = new ObjectUploaderTask(s3Client, bucketName, maxRetries);
+        putObjectUploader =
+            new ObjectUploaderTask(s3Client, bucketName,
+                ObjectCannedACL.fromValue(s3WriterConfig.getCannedAcl()), maxRetries);
       }
     } catch (Exception e) {
       throw new RuntimeException(e);
