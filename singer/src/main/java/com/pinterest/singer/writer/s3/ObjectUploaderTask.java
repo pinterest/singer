@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectResponse;
 
@@ -13,13 +14,16 @@ public class ObjectUploaderTask {
     private static final Logger LOG = LoggerFactory.getLogger(S3Writer.class);
     private final S3Client s3Client;
     private final String bucket;
+    private final ObjectCannedACL cannedAcl;
     private final int maxRetries;
     private static final long INITIAL_BACKOFF = 1000; // Initial backoff in milliseconds
     private static final long MAX_BACKOFF = 32000; // Maximum backoff in milliseconds
 
-    public ObjectUploaderTask(S3Client s3Client, String bucket, int maxRetries) {
+    public ObjectUploaderTask(S3Client s3Client, String bucket, ObjectCannedACL cannedAcl,
+                              int maxRetries) {
         this.s3Client = s3Client;
         this.bucket = bucket;
+        this.cannedAcl = cannedAcl;
         this.maxRetries = maxRetries;
     }
 
@@ -43,6 +47,10 @@ public class ObjectUploaderTask {
                         .bucket(bucket)
                         .key(fileFormat)
                         .build();
+
+                if (cannedAcl != null) {
+                    putObjectRequest = putObjectRequest.toBuilder().acl(cannedAcl).build();
+                }
 
                 PutObjectResponse putObjectResponse = s3Client.putObject(putObjectRequest, file.toPath());
 

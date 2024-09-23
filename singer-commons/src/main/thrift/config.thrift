@@ -142,6 +142,9 @@ struct S3WriterConfig {
   // A comma separated list of named capturing groups that will be extracted from the filename based on the regex pattern provided in filenamePattern.
   // The extracted fields will be used to replace the tokens in keyFormat, e.g "namespace,service".
   8: optional list<string> filenameTokens;
+  // The S3 canned access control lists (ACLs) that can be applied to uploaded objects to determine their access permissions.
+  // We don't set a default since some buckets don't allow setting canned ACLs.
+  9: optional string cannedAcl;
 }
 
 enum RealpinObjectType {

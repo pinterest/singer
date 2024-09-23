@@ -82,6 +82,7 @@ import org.apache.kafka.common.config.SslConfigs;
 import org.apache.kafka.common.record.CompressionType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -802,6 +803,17 @@ public class LogConfigUtils {
       }
       config.setFilenamePattern(filenamePattern);
       config.setFilenameTokens(tokenList);
+    }
+
+    if (writerConfiguration.containsKey(SingerConfigDef.CANNED_ACL)) {
+      try {
+        // Check if the canned ACL is valid
+        String cannedAcl = writerConfiguration.getString(SingerConfigDef.CANNED_ACL);
+        ObjectCannedACL.fromValue(cannedAcl);
+        config.setCannedAcl(cannedAcl);
+      } catch (IllegalArgumentException e) {
+        throw new ConfigurationException("Unknown canned ACL provided: " + writerConfiguration.getString(SingerConfigDef.CANNED_ACL), e);
+      }
     }
 
     // Override maxFileSize if it is less than the default value
