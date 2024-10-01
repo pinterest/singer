@@ -264,11 +264,11 @@ public class S3Writer implements LogStreamWriter {
       resetBufferFile();
       if (this.putObjectUploader.upload(fileToUpload, fileFormat)) {
         OpenTsdbMetricConverter.incr(SingerMetrics.S3_WRITER + "num_uploads", 1,
-            "bucket=" + bucketName, "keyPrefix=" + keyFormat, "host=" + HOSTNAME,
+            "bucket=" + bucketName, "host=" + HOSTNAME,
             "logName=" + logName);
       } else {
         OpenTsdbMetricConverter.incr(SingerMetrics.S3_WRITER + "num_failed_uploads", 1,
-            "bucket=" + bucketName, "keyPrefix=" + keyFormat, "host=" + HOSTNAME,
+            "bucket=" + bucketName, "host=" + HOSTNAME,
             "logName=" + logName);
       }
       fileToUpload.delete();
@@ -316,7 +316,6 @@ public class S3Writer implements LogStreamWriter {
       throws IOException {
     byte[] logMessageBytes = logMessageAndPosition.logMessage.getMessage();
     bufferedOutputStream.write(logMessageBytes);
-    bufferedOutputStream.write('\n'); // Add a newline character after each log message
     bufferedOutputStream.flush();
   }
 
@@ -326,7 +325,10 @@ public class S3Writer implements LogStreamWriter {
    * @throws IOException
    */
   private void resetBufferFile() throws IOException {
-    String bufferFileName = sanitizeFileName(logStream.getFullPathPrefix()) + ".buffer.log";
+    String
+        bufferFileName =
+        sanitizeFileName(logStream.getFullPathPrefix()) + ".buffer." + UUID.randomUUID()
+            .toString().substring(0, 8);
     bufferFile = new File(BUFFER_DIR, bufferFileName);
     bufferFile.createNewFile();
     bufferedOutputStream = new BufferedOutputStream(new FileOutputStream(bufferFile, true));
@@ -465,7 +467,7 @@ public class S3Writer implements LogStreamWriter {
   public void close() throws IOException {
     synchronized (objLock) {
       OpenTsdbMetricConverter.incr(SingerMetrics.S3_WRITER + "num_singer_close", 1,
-          "bucket=" + bucketName, "keyPrefix=" + keyFormat, "host=" + HOSTNAME,
+          "bucket=" + bucketName, "host=" + HOSTNAME,
           "logName=" + logName);
 
       if (bufferFile.length() > 0) {
