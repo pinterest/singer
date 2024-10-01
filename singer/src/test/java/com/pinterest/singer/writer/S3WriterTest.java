@@ -154,10 +154,20 @@ public class S3WriterTest extends SingerTestBase {
 
     // Verify that the messages are written to the buffer file
     String
-        bufferFileName =
-        s3Writer.sanitizeFileName(logStream.getFullPathPrefix()) + ".buffer.log";
-    File bufferFile = new File(FilenameUtils.concat(tempPath, bufferFileName));
-    assertTrue(bufferFile.exists());
+        bufferFileNamePrefix =
+        s3Writer.sanitizeFileName(logStream.getFullPathPrefix()) + ".buffer.";
+    File tmpDir = new File(tempPath);
+    File bufferFile = null;
+    File [] tmpFiles = tmpDir.listFiles();
+    boolean bufferFileExists = false;
+    for (File file : tmpFiles) {
+      if (file.getName().startsWith(bufferFileNamePrefix)) {
+        bufferFileExists = true;
+        bufferFile = file;
+        break;
+      }
+    }
+    assertTrue(bufferFileExists);
     String content = new String(Files.readAllBytes(bufferFile.toPath()));
     assertTrue(content.contains("test message"));
   }
