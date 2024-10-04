@@ -45,6 +45,7 @@ import com.pinterest.singer.thrift.configuration.SingerRestartConfig;
 import com.pinterest.singer.thrift.configuration.TextReaderConfig;
 import com.pinterest.singer.thrift.configuration.ThriftReaderConfig;
 import com.pinterest.singer.utils.SingerUtils;
+import com.pinterest.singer.utils.WatermarkUtils;
 import com.pinterest.singer.writer.NoOpLogStreamWriter;
 import com.pinterest.singer.writer.KafkaWriter;
 import com.pinterest.singer.writer.kafka.CommittableKafkaWriter;
@@ -72,10 +73,12 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.GregorianCalendar;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -555,10 +558,13 @@ public class DefaultLogMonitor implements LogMonitor, Runnable {
     // Now, we check stats for those streams which survive the cleanup.
     long currentTimeMillis = System.currentTimeMillis();
     int numStuckStreams = 0;
+    int numWatermarkFiles = 0;
     long processingLatency;
 
     Map<String, List<Long>> perLogLatency = Maps.newHashMap();
     Map<String, Integer> perLogStuck = Maps.newHashMap();
+    Set<String> logDirectoriesChecked = new HashSet<>();
+
     DefaultLogStreamProcessor processor;
 
     OpenTsdbMetricConverter.gauge("singer.netty_heap_buffer.memory.used",
@@ -572,6 +578,12 @@ public class DefaultLogMonitor implements LogMonitor, Runnable {
 
     for (LogStream logStream : processedLogStreams.keySet()) {
       String logName = logStream.getSingerLog().getSingerLogConfig().getName();
+      String logDir = logStream.getLogDir();
+      // we only count watermark files once per directory
+      if (!logDirectoriesChecked.contains(logDir)) {
+        logDirectoriesChecked.add(logDir);
+        numWatermarkFiles += WatermarkUtils.getNumberOfWatermarkFilesInDir(logDir);
+      }
       if (!perLogLatency.containsKey(logName)) {
         perLogLatency.put(logName, new ArrayList<>());
       }
@@ -607,6 +619,8 @@ public class DefaultLogMonitor implements LogMonitor, Runnable {
     }
 
     Stats.setGauge("singer.processor.stuck_processors", numStuckStreams);
+    Stats.setGauge(SingerMetrics.WATERMARK_FILE_COUNT, numWatermarkFiles);
+    Stats.setGauge(SingerMetrics.NUM_ACTIVE_DIRECTORIES, logDirectoriesChecked.size());
     long overallMaxLatency = 0;
     for (String log : perLogLatency.keySet()) {
       List<Long> latencyList = perLogLatency.get(log);
