@@ -32,7 +32,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -374,12 +373,14 @@ public class FileSystemMonitorTest extends com.pinterest.singer.SingerTestBase {
 
     int NUM_FILES = 10;
     File[] created = createTestLogStreamFiles(testDir, LOG_FILE_PREFIX, NUM_FILES);
+    List<File> createdHiddenFiles = new ArrayList<>();
     String[] createdFiles = new String[NUM_FILES];
     for (int i = 0; i < NUM_FILES; i++) {
       createdFiles[i] = created[i].getName();
       // Create a dot file to simulate a watermark file for each log file
       File file = new File(testDir + "/." + createdFiles[i]);
       file.createNewFile();
+      createdHiddenFiles.add(file);
     }
 
     SingerConfig singerConfig = new SingerConfig();
@@ -394,10 +395,9 @@ public class FileSystemMonitorTest extends com.pinterest.singer.SingerTestBase {
     SingerSettings.getOrCreateFileSystemMonitor("");
     LogStreamManager.initializeLogStreams();
 
-    Collection<LogStream> logStreams = LogStreamManager.getLogStreams();
-    assertEquals(NUM_FILES, logStreams.size());
-    for (File f : created) {
-      f.delete();
+    for (File hiddenFile : createdHiddenFiles) {
+      assertFalse("Hidden file should not be discovered",
+          LogStreamManager.getLogStreamsFor(testDir.toPath(), hiddenFile.toPath()).size() > 0);
     }
   }
 }
