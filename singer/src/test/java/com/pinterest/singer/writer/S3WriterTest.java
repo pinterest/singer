@@ -81,6 +81,8 @@ public class S3WriterTest extends SingerTestBase {
     if (testBaseDir.exists()) {
       FileUtils.deleteDirectory(testBaseDir);
     }
+    // reset hostname
+    SingerUtils.setHostname(SingerUtils.getHostname(), "-");
   }
 
 

@@ -20,6 +20,7 @@ import com.pinterest.singer.common.SingerLog;
 import com.pinterest.singer.common.SingerSettings;
 import com.pinterest.singer.thrift.LogFile;
 import com.pinterest.singer.thrift.LogFileAndPath;
+import com.pinterest.singer.thrift.configuration.FileNameMatchMode;
 import com.pinterest.singer.thrift.configuration.SingerConfig;
 import com.pinterest.singer.thrift.configuration.SingerLogConfig;
 import com.pinterest.singer.utils.SingerUtils;
@@ -31,6 +32,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -361,5 +363,41 @@ public class FileSystemMonitorTest extends com.pinterest.singer.SingerTestBase {
     Thread.sleep(FILE_EVENT_WAIT_TIME_MS);
     toMonitor.logStatus();
     assertTrue(toMonitor.checkConsistency());
-  } 
+  }
+
+  @Test
+  public void testExcludeWatermarkFilesFromDiscovery() throws Exception {
+    final File testDir = this.tempDir.newFolder();
+    final String LOG_FILE_PREFIX = "test_001.tmp";
+    final String LOGSTREAM_REGEX = ".*test.*";
+
+    int NUM_FILES = 10;
+    File[] created = createTestLogStreamFiles(testDir, LOG_FILE_PREFIX, NUM_FILES);
+    List<File> createdHiddenFiles = new ArrayList<>();
+    String[] createdFiles = new String[NUM_FILES];
+    for (int i = 0; i < NUM_FILES; i++) {
+      createdFiles[i] = created[i].getName();
+      // Create a dot file to simulate a watermark file for each log file
+      File file = new File(testDir + "/." + createdFiles[i]);
+      file.createNewFile();
+      createdHiddenFiles.add(file);
+    }
+
+    SingerConfig singerConfig = new SingerConfig();
+    SingerLogConfig logStreamConfig = new SingerLogConfig();
+    logStreamConfig.setName("test_logstream");
+    logStreamConfig.setLogDir(testDir.getAbsolutePath());
+    logStreamConfig.setFilenameMatchMode(FileNameMatchMode.EXACT);
+    logStreamConfig.setLogStreamRegex(LOGSTREAM_REGEX);
+    singerConfig.setLogConfigs(Collections.singletonList(logStreamConfig));
+
+    SingerSettings.setSingerConfig(singerConfig);
+    SingerSettings.getOrCreateFileSystemMonitor("");
+    LogStreamManager.initializeLogStreams();
+
+    for (File hiddenFile : createdHiddenFiles) {
+      assertFalse("Hidden file should not be discovered",
+          LogStreamManager.getLogStreamsFor(testDir.toPath(), hiddenFile.toPath()).size() > 0);
+    }
+  }
 }
