@@ -126,8 +126,8 @@ public class TestTextLogFileReader extends SingerTestBase {
       LogMessageAndPosition log = reader.readLogMessageAndPosition();
       if (i % 2 == 0) {
         assertEquals(customInfoMessage, new String(log.getLogMessage().getMessage()));
-        assertTrue(log.getInjectedHeaders().containsKey("skipMessage"));
-        assertEquals(0, log.getInjectedHeaders().get("skipMessage").array().length);
+        assertTrue(log.getInjectedHeaders().containsKey(LogFileReader.SKIP_MESSAGE_HEADER_KEY));
+        assertEquals(0, log.getInjectedHeaders().get(LogFileReader.SKIP_MESSAGE_HEADER_KEY).array().length);
       } else {
         assertEquals(customErrorMessage, new String(log.getLogMessage().getMessage()));
         assertEquals(null, log.getInjectedHeaders());

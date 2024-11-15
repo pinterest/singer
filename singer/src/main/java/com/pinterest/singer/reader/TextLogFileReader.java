@@ -199,11 +199,11 @@ public class TextLogFileReader implements LogFileReader {
       // Get the next message's byte offset
       LogPosition position = new LogPosition(logFile, textMessageReader.getByteOffset());
       LogMessageAndPosition logMessageAndPosition = new LogMessageAndPosition(logMessage, position);
-      // Inject an immutable map with a single skipMessage header so that processors can skip this message
+      // Inject an immutable map with a single "skipMessage" header so that processors can skip this message
       // we initialize it here in case environmentVariableInjection is disabled
       if (skipLogMessage) {
         logMessageAndPosition.setInjectedHeaders(
-            ImmutableMap.of("skipMessage", ByteBuffer.wrap(new byte[0])));
+            ImmutableMap.of(LogFileReader.SKIP_MESSAGE_HEADER_KEY, ByteBuffer.wrap(new byte[0])));
         OpenTsdbMetricConverter.incr("singer.reader.text.filtered_messages",
             "logName=" + logStream.getSingerLog().getSingerLogConfig().getName());
       } else {

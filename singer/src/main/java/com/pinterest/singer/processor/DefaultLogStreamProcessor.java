@@ -26,6 +26,7 @@ import com.pinterest.singer.common.SingerMetrics;
 import com.pinterest.singer.common.SingerSettings;
 import com.pinterest.singer.config.Decider;
 import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
+import com.pinterest.singer.reader.LogFileReader;
 import com.pinterest.singer.thrift.LogFile;
 import com.pinterest.singer.thrift.LogFileAndPath;
 import com.pinterest.singer.thrift.LogMessage;
@@ -312,8 +313,8 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
    */
   protected boolean shouldSkipMessage(LogMessageAndPosition logMessageAndPosition) {
     return logMessageAndPosition != null && logMessageAndPosition.getInjectedHeaders() != null
-        && logMessageAndPosition.getInjectedHeaders().containsKey("skipMessage")
-        && logMessageAndPosition.getInjectedHeaders().get("skipMessage").array().length == 0;
+        && logMessageAndPosition.getInjectedHeaders().containsKey(LogFileReader.SKIP_MESSAGE_HEADER_KEY)
+        && logMessageAndPosition.getInjectedHeaders().get(LogFileReader.SKIP_MESSAGE_HEADER_KEY).array().length == 0;
   }
 
   @Override

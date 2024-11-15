@@ -1203,15 +1203,18 @@ public class LogConfigUtils {
       }
     }
 
-    if (textReaderConfiguration.containsKey("filterMessageRegex")) {
+    if (textReaderConfiguration.containsKey(SingerConfigDef.TEXT_READER_FILTER_MESSAGE_REGEX)) {
       try {
-        String filterMessageRegex = textReaderConfiguration.getString("filterMessageRegex");
+        String
+            filterMessageRegex =
+            textReaderConfiguration.getString(SingerConfigDef.TEXT_READER_FILTER_MESSAGE_REGEX);
         if (!filterMessageRegex.isEmpty()) {
           Pattern.compile(filterMessageRegex);
           config.setFilterMessageRegex(filterMessageRegex);
         }
       } catch (PatternSyntaxException ex) {
-        throw new ConfigurationException("Bad filterMessageRegex", ex);
+        throw new ConfigurationException(
+            "Failed to compile " + SingerConfigDef.TEXT_READER_FILTER_MESSAGE_REGEX, ex);
       }
     }
 
