@@ -1203,6 +1203,21 @@ public class LogConfigUtils {
       }
     }
 
+    if (textReaderConfiguration.containsKey(SingerConfigDef.TEXT_READER_FILTER_MESSAGE_REGEX)) {
+      try {
+        String
+            filterMessageRegex =
+            textReaderConfiguration.getString(SingerConfigDef.TEXT_READER_FILTER_MESSAGE_REGEX);
+        if (!filterMessageRegex.isEmpty()) {
+          Pattern.compile(filterMessageRegex);
+          config.setFilterMessageRegex(filterMessageRegex);
+        }
+      } catch (PatternSyntaxException ex) {
+        throw new ConfigurationException(
+            "Failed to compile " + SingerConfigDef.TEXT_READER_FILTER_MESSAGE_REGEX, ex);
+      }
+    }
+
     config.setPrependTimestamp(false);
     if (textReaderConfiguration.containsKey("prependTimestamp")) {
       String prependTimestampStr = textReaderConfiguration.getString("prependTimestamp");

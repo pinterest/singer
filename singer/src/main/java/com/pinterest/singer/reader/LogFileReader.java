@@ -26,6 +26,11 @@ import java.io.Closeable;
 public interface LogFileReader extends Closeable {
 
   /**
+   * Readers should inject this header to signal processor to skip a message
+   */
+  String SKIP_MESSAGE_HEADER_KEY = "skipMessage";
+
+  /**
    * Read a LogMessage with its position.
    *
    * @return LogMessage and its position in the LogStream. Return null if we reach the end of the

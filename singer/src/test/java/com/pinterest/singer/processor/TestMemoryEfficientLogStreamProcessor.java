@@ -28,15 +28,21 @@ import com.pinterest.singer.common.SingerSettings;
 import com.pinterest.singer.config.Decider;
 import com.pinterest.singer.monitor.LogStreamManager;
 import com.pinterest.singer.reader.DefaultLogStreamReader;
+import com.pinterest.singer.reader.TextLogFileReaderFactory;
 import com.pinterest.singer.reader.ThriftLogFileReaderFactory;
+import com.pinterest.singer.thrift.LogFile;
 import com.pinterest.singer.thrift.LogMessage;
 import com.pinterest.singer.thrift.LogMessageAndPosition;
 import com.pinterest.singer.thrift.LogPosition;
 import com.pinterest.singer.thrift.configuration.FileNameMatchMode;
 import com.pinterest.singer.thrift.configuration.SingerConfig;
 import com.pinterest.singer.thrift.configuration.SingerLogConfig;
+import com.pinterest.singer.thrift.configuration.TextLogMessageType;
+import com.pinterest.singer.thrift.configuration.TextReaderConfig;
 import com.pinterest.singer.thrift.configuration.ThriftReaderConfig;
 import com.pinterest.singer.utils.SimpleThriftLogger;
+import com.pinterest.singer.utils.SingerUtils;
+import com.pinterest.singer.utils.TextLogger;
 import com.pinterest.singer.utils.WatermarkUtils;
 import com.pinterest.singer.writer.kafka.CommittableKafkaWriter;
 import com.google.common.collect.ImmutableMap;
@@ -48,6 +54,7 @@ import java.io.IOException;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -432,6 +439,84 @@ public class TestMemoryEfficientLogStreamProcessor extends com.pinterest.singer.
       if (processor != null) {
         processor.close();
       }
+    }
+  }
+
+  @Test
+  public void testProcessLogStreamWithMessagesSkipped() throws Exception {
+    String tempPath = getTempPath();
+    String logStreamHeadFileName = "text.log";
+    String path = FilenameUtils.concat(tempPath, logStreamHeadFileName);
+    String infoMessage = "This is a sample INFO message\n";
+    String errorMessage = "This is a sample ERROR message\n";
+
+    int readerBufferSize = 16000;
+    int maxMessageSize = 16000;
+    int processorBatchSize = 200;
+
+    long processingIntervalInMillisMin = 1;
+    long processingIntervalInMillisMax = 1;
+    long processingTimeSliceInMilliseconds = 3600;
+    int logRetentionInSecs = 15;
+
+    // initialize a singer log config
+    SingerLogConfig
+        logConfig =
+        new SingerLogConfig("test", tempPath, logStreamHeadFileName, null, null, null);
+    SingerLog singerLog = new SingerLog(logConfig);
+    singerLog.getSingerLogConfig().setFilenameMatchMode(FileNameMatchMode.PREFIX);
+
+    // initialize global variables in SingerSettings
+    try {
+      SingerConfig
+          singerConfig =
+          initializeSingerConfig(1, 1, Collections.singletonList(logConfig));
+      SingerSettings.initialize(singerConfig);
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail("got exception in test: " + e);
+    }
+
+    // initialize log stream
+    LogStream logStream = new LogStream(singerLog, logStreamHeadFileName);
+    LogStreamManager.addLogStream(logStream);
+    TextLogger textLogger = new TextLogger(path);
+
+    // initialize reader, writer & processor
+    NoOpLogStreamWriter writer = new NoOpLogStreamWriter();
+    TextReaderConfig
+        textReaderConfig =
+        new TextReaderConfig(readerBufferSize, maxMessageSize, 1, "^.*$");
+    // Regex to filter messages out
+    textReaderConfig.setFilterMessageRegex(".*\\bERROR\\b.*");
+    textReaderConfig.setTextLogMessageType(TextLogMessageType.PLAIN_TEXT);
+    LogStreamReader logStreamReader = new DefaultLogStreamReader(
+        logStream,
+        new TextLogFileReaderFactory(textReaderConfig));
+    MemoryEfficientLogStreamProcessor processor = new MemoryEfficientLogStreamProcessor(logStream,
+        null, logStreamReader, writer, processorBatchSize, processingIntervalInMillisMin,
+        processingIntervalInMillisMax, processingTimeSliceInMilliseconds, logRetentionInSecs, false);
+
+    for (int i = 0; i < 100; ++i) {
+      textLogger.logText(infoMessage);
+      textLogger.logText(errorMessage);
+    }
+
+    // Save start position to watermark file.
+    LogPosition
+        startPosition =
+        new LogPosition(new LogFile(SingerUtils.getFileInode(path)), 0);
+    WatermarkUtils.saveCommittedPositionToWatermark(DefaultLogStreamProcessor
+        .getWatermarkFilename(logStream), startPosition);
+
+    // Process all message written so far.
+    Thread.sleep(FILE_EVENT_WAIT_TIME_MS);
+    long numOfMessageProcessed = processor.processLogStream();
+    assertEquals("Should process all messages written ", processorBatchSize, numOfMessageProcessed);
+
+    assertEquals("Should have processed only half of the messages written", 100, writer.getLogMessages().size());
+    for (int i = 0; i < 100; i++) {
+      assertEquals(errorMessage, new String(writer.getLogMessages().get(i).getMessage()));
     }
   }
 

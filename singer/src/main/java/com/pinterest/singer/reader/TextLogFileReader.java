@@ -16,6 +16,7 @@
 package com.pinterest.singer.reader;
 
 import com.pinterest.singer.common.LogStream;
+import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
 import com.pinterest.singer.thrift.LogFile;
 import com.pinterest.singer.thrift.LogMessage;
 import com.pinterest.singer.thrift.LogMessageAndPosition;
@@ -26,6 +27,7 @@ import com.pinterest.singer.utils.SingerUtils;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
 import org.apache.thrift.TSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,6 +56,7 @@ public class TextLogFileReader implements LogFileReader {
   private final String prependFieldDelimiter;
   private final TSerializer serializer;
   private final TextMessageReader textMessageReader;
+  private final Pattern filterMessageRegex;
   private ByteBuffer maxBuffer;
 
   // The text log message format, can be TextMessage, or String;
@@ -74,6 +77,7 @@ public class TextLogFileReader implements LogFileReader {
                            int maxMessageSize,
                            int numMessagesPerLogMessage,
                            Pattern messageStartPattern,
+                           Pattern filterMessageRegex,
                            TextLogMessageType messageType,
                            boolean prependTimestamp,
                            boolean prependHostName,
@@ -109,6 +113,7 @@ public class TextLogFileReader implements LogFileReader {
     int capacity = (maxMessageSize * numMessagesPerLogMessage) + MAX_BUFFER_HEADROOM;
     this.maxBuffer = ByteBuffer.allocate(capacity);
     this.trimTailingNewlineCharacter = trimTailingNewlineCharacter;
+    this.filterMessageRegex = filterMessageRegex;
 
     // Make sure the path is still associated with the LogFile.
     // This can happen when the path is reused for another LogFile during log
@@ -135,12 +140,17 @@ public class TextLogFileReader implements LogFileReader {
 
     try {
       TextMessageReader.resetByteBuffer(maxBuffer);
-
+      boolean skipLogMessage = false;
       for (int i = 0; i < numMessagesPerLogMessage; ++i) {
         ByteBuffer message = textMessageReader.readMessage(true);
         // If no message in the file, break.
         if (message == null) {
           break;
+        }
+        // If the message does not match the filter regex, mark it to be skipped.
+        if (filterMessageRegex != null && !filterMessageRegex.matcher(
+            TextMessageReader.bufToString(message)).matches()) {
+          skipLogMessage = true;
         }
         String prependStr = "";
         if (prependTimestamp) {
@@ -189,7 +199,16 @@ public class TextLogFileReader implements LogFileReader {
       // Get the next message's byte offset
       LogPosition position = new LogPosition(logFile, textMessageReader.getByteOffset());
       LogMessageAndPosition logMessageAndPosition = new LogMessageAndPosition(logMessage, position);
-      logMessageAndPosition.setInjectedHeaders(headers);
+      // Inject an immutable map with a single "skipMessage" header so that processors can skip this message
+      // we initialize it here in case environmentVariableInjection is disabled
+      if (skipLogMessage) {
+        logMessageAndPosition.setInjectedHeaders(
+            ImmutableMap.of(LogFileReader.SKIP_MESSAGE_HEADER_KEY, ByteBuffer.wrap(new byte[0])));
+        OpenTsdbMetricConverter.incr("singer.reader.text.filtered_messages",
+            "logName=" + logStream.getSingerLog().getSingerLogConfig().getName());
+      } else {
+        logMessageAndPosition.setInjectedHeaders(headers);
+      }
       return logMessageAndPosition;
     } catch (Exception e) {
       LOG.error("Caught exception when read a log message from log file: " + logFile, e);

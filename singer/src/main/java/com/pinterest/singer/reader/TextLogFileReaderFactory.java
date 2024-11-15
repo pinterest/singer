@@ -59,6 +59,8 @@ public class TextLogFileReaderFactory implements LogFileReaderFactory {
           readerConfig.getMaxMessageSize(),
           readerConfig.getNumMessagesPerLogMessage(),
           Pattern.compile(readerConfig.getMessageStartRegex(), Pattern.UNIX_LINES),
+          readerConfig.getFilterMessageRegex() != null ? Pattern.compile(
+              readerConfig.getFilterMessageRegex(), Pattern.DOTALL) : null,
           readerConfig.getTextLogMessageType(),
           readerConfig.isPrependTimestamp(),
           readerConfig.isPrependHostname(),

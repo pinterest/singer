@@ -26,6 +26,7 @@ import com.pinterest.singer.common.SingerMetrics;
 import com.pinterest.singer.common.SingerSettings;
 import com.pinterest.singer.config.Decider;
 import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
+import com.pinterest.singer.reader.LogFileReader;
 import com.pinterest.singer.thrift.LogFile;
 import com.pinterest.singer.thrift.LogFileAndPath;
 import com.pinterest.singer.thrift.LogMessage;
@@ -300,6 +301,20 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
       }
     }
     return result;
+  }
+
+  /**
+   * Check if message should be skipped based on injected headers. If the message contains
+   * the header "skipMessage", the message should be skipped. Note that the value is irrelevant
+   * since the readers should only inject the header if the message should be skipped.
+   *
+   * @param logMessageAndPosition
+   * @return true if logMessageAndPosition contains skipMessageHeader, else otherwise.
+   */
+  protected boolean shouldSkipMessage(LogMessageAndPosition logMessageAndPosition) {
+    return logMessageAndPosition != null && logMessageAndPosition.getInjectedHeaders() != null
+        && logMessageAndPosition.getInjectedHeaders().containsKey(LogFileReader.SKIP_MESSAGE_HEADER_KEY)
+        && logMessageAndPosition.getInjectedHeaders().get(LogFileReader.SKIP_MESSAGE_HEADER_KEY).array().length == 0;
   }
 
   @Override

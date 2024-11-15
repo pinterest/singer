@@ -107,9 +107,11 @@ public class MemoryEfficientLogStreamProcessor extends DefaultLogStreamProcessor
         writer.startCommit(isDraining);
       }
       emitMessageSizeMetrics(logStream, logMessageAndPosition.getLogMessage());
-      
-      if (enableDeciderBasedSampling && deciderValue != FULL_THROUGHPUT 
-          && deciderValue <= ThreadLocalRandom.current().nextInt(FULL_THROUGHPUT)) {
+
+      // We skip the message if sampling is enabled or if the message is marked as skip by the reader
+      if ((enableDeciderBasedSampling && deciderValue != FULL_THROUGHPUT
+               && deciderValue <= ThreadLocalRandom.current().nextInt(FULL_THROUGHPUT))
+          || shouldSkipMessage(logMessageAndPosition)) {
         logMessagesSkipped++;
         continue;
       }
@@ -117,6 +119,8 @@ public class MemoryEfficientLogStreamProcessor extends DefaultLogStreamProcessor
     }
 
     if (logMessagesRead > 0) {
+      LOG.debug("Number of log messages skipped: {} in logStream: {}",
+          logMessagesSkipped, logStream);
       // Subtract the number of skipped messages from the total number of messages read
       if (logMessagesRead >= logMessagesSkipped) {
         logMessagesToWrite = logMessagesRead - logMessagesSkipped;

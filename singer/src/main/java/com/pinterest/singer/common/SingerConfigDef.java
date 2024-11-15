@@ -102,6 +102,8 @@ public class SingerConfigDef {
   public static final String PROCESS_BATCH_SIZE = "batchSize";
   public static final String SKIP_DRAINING = "skipDraining";
 
+  public static final String TEXT_READER_FILTER_MESSAGE_REGEX = "filterMessageRegex";
+
   public static final String BUCKET = "bucket";
   public static final String KEY_FORMAT = "keyFormat";
   public static final String MAX_FILE_SIZE_MB = "maxFileSizeMB";
