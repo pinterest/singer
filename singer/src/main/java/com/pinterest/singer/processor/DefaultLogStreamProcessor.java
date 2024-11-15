@@ -302,6 +302,20 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
     return result;
   }
 
+  /**
+   * Check if message should be skipped based on injected headers. If the message contains
+   * the header "skipMessage", the message should be skipped. Note that the value is irrelevant
+   * since the readers should only inject the header if the message should be skipped.
+   *
+   * @param logMessageAndPosition
+   * @return true if logMessageAndPosition contains skipMessageHeader, else otherwise.
+   */
+  protected boolean shouldSkipMessage(LogMessageAndPosition logMessageAndPosition) {
+    return logMessageAndPosition != null && logMessageAndPosition.getInjectedHeaders() != null
+        && logMessageAndPosition.getInjectedHeaders().containsKey("skipMessage")
+        && logMessageAndPosition.getInjectedHeaders().get("skipMessage").array().length == 0;
+  }
+
   @Override
   public void run() {
     long logMessagesProcessed = -1;
