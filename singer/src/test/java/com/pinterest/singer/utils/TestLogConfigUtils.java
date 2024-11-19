@@ -51,6 +51,7 @@ import com.pinterest.singer.thrift.configuration.KafkaProducerConfig;
 import com.pinterest.singer.thrift.configuration.LogStreamProcessorConfig;
 import com.pinterest.singer.thrift.configuration.MemqWriterConfig;
 import com.pinterest.singer.thrift.configuration.RealpinWriterConfig;
+import com.pinterest.singer.thrift.configuration.RegexBasedModifierConfig;
 import com.pinterest.singer.thrift.configuration.S3WriterConfig;
 import com.pinterest.singer.thrift.configuration.SamplingType;
 import com.pinterest.singer.thrift.configuration.TextReaderConfig;
@@ -466,5 +467,23 @@ public class TestLogConfigUtils {
     assertEquals(100, s3WriterConfig.getMaxFileSizeMB());
     assertEquals(30, s3WriterConfig.getMinUploadTimeInSeconds());
     assertEquals(10, s3WriterConfig.getMaxRetries());
+  }
+
+  @Test
+  public void testRegexTransformerConfigurations() throws Exception {
+    String
+        config =
+        "type=regex_based_modifier\n"
+            + "modifiedMessageFormat={log_level: $2\\, message: $4\\, timestamp: $1}\n"
+            + "regex_based_modifier.encoding=UTF-8\n"
+            + "regex=some_regex\n";
+    PropertiesConfiguration conf = new PropertiesConfiguration();
+    conf.load(new ByteArrayInputStream(config.getBytes()));
+
+    RegexBasedModifierConfig
+        regexBasedModifierConfig =
+        LogConfigUtils.parseRegexBasedModifierConfig(conf);
+
+    assertNotNull(regexBasedModifierConfig);
   }
 }

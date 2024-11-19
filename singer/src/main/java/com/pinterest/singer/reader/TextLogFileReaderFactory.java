@@ -18,6 +18,7 @@ package com.pinterest.singer.reader;
 import com.pinterest.singer.common.LogStream;
 import com.pinterest.singer.common.SingerSettings;
 import com.pinterest.singer.thrift.LogFile;
+import com.pinterest.singer.thrift.configuration.MessageTransformerConfig;
 import com.pinterest.singer.thrift.configuration.TextReaderConfig;
 import com.pinterest.singer.utils.LogFileUtils;
 import com.pinterest.singer.utils.SingerUtils;
@@ -37,9 +38,11 @@ public class TextLogFileReaderFactory implements LogFileReaderFactory {
 
   private static final Logger LOG = LoggerFactory.getLogger(TextLogFileReaderFactory.class);
   private final TextReaderConfig readerConfig;
+  private final MessageTransformerConfig messageTransformerConfig;
 
-  public TextLogFileReaderFactory(TextReaderConfig readerConfig) {
+  public TextLogFileReaderFactory(TextReaderConfig readerConfig, MessageTransformerConfig messageTransformerConfig) {
     this.readerConfig = Preconditions.checkNotNull(readerConfig);
+    this.messageTransformerConfig = messageTransformerConfig;
   }
 
   @SuppressWarnings("resource")
@@ -70,7 +73,8 @@ public class TextLogFileReaderFactory implements LogFileReaderFactory {
           readerConfig.getPrependFieldDelimiter(),
           readerConfig.getEnvironmentVariables() != null
           ? new HashMap<>(readerConfig.getEnvironmentVariables())
-          : null);
+          : null,
+          messageTransformerConfig);
     } catch (LogFileReaderException e) {
       LOG.warn("Exception in getLogFileReader", e);
       long inode = logFile.getInode();

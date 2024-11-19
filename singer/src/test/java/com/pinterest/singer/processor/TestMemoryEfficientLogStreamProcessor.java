@@ -492,7 +492,7 @@ public class TestMemoryEfficientLogStreamProcessor extends com.pinterest.singer.
     textReaderConfig.setTextLogMessageType(TextLogMessageType.PLAIN_TEXT);
     LogStreamReader logStreamReader = new DefaultLogStreamReader(
         logStream,
-        new TextLogFileReaderFactory(textReaderConfig));
+        new TextLogFileReaderFactory(textReaderConfig, null));
     MemoryEfficientLogStreamProcessor processor = new MemoryEfficientLogStreamProcessor(logStream,
         null, logStreamReader, writer, processorBatchSize, processingIntervalInMillisMin,
         processingIntervalInMillisMax, processingTimeSliceInMilliseconds, logRetentionInSecs, false);

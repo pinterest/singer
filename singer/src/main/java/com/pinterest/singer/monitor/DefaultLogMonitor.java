@@ -31,6 +31,7 @@ import com.pinterest.singer.processor.MemoryEfficientLogStreamProcessor;
 import com.pinterest.singer.reader.DefaultLogStreamReader;
 import com.pinterest.singer.reader.TextLogFileReaderFactory;
 import com.pinterest.singer.reader.ThriftLogFileReaderFactory;
+import com.pinterest.singer.thrift.configuration.MessageTransformerConfig;
 import com.pinterest.singer.thrift.configuration.NoOpWriteConfig;
 import com.pinterest.singer.thrift.configuration.S3WriterConfig;
 import com.pinterest.singer.thrift.configuration.KafkaProducerConfig;
@@ -280,7 +281,8 @@ public class DefaultLogMonitor implements LogMonitor, Runnable {
                                                       LogStream logStream)
       throws ConfigurationException, LogStreamReaderException, LogStreamWriterException {
     LogStreamReader reader =
-        createLogStreamReader(logStream, singerLogConfig.getLogStreamReaderConfig());
+        createLogStreamReader(logStream, singerLogConfig.getLogStreamReaderConfig(),
+            singerLogConfig.getMessageTransformerConfig());
     LogStreamWriter writer =
         createLogStreamWriter(logStream, singerLogConfig.getLogStreamWriterConfig());
 
@@ -326,9 +328,11 @@ public class DefaultLogMonitor implements LogMonitor, Runnable {
    * @throws Exception when fail to create the reader for the LogStream.
    */
   protected LogStreamReader createLogStreamReader(LogStream logStream,
-                                                LogStreamReaderConfig readerConfig)
+                                                  LogStreamReaderConfig readerConfig,
+                                                  MessageTransformerConfig messageTransformerConfig)
       throws LogStreamReaderException {
     switch (readerConfig.getType()) {
+      // No transforms available for thrift logs yet
       case THRIFT:
         ThriftReaderConfig thriftReaderConfig = readerConfig.getThriftReaderConfig();
         return new DefaultLogStreamReader(logStream,
@@ -337,7 +341,7 @@ public class DefaultLogMonitor implements LogMonitor, Runnable {
       case TEXT:
         TextReaderConfig textReaderConfig = readerConfig.getTextReaderConfig();
         return new DefaultLogStreamReader(logStream,
-            new TextLogFileReaderFactory(textReaderConfig));
+            new TextLogFileReaderFactory(textReaderConfig, messageTransformerConfig));
 
       default:
         throw new LogStreamReaderException("Unsupported log reader type");

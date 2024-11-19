@@ -22,7 +22,10 @@ import com.pinterest.singer.thrift.LogMessage;
 import com.pinterest.singer.thrift.LogMessageAndPosition;
 import com.pinterest.singer.thrift.LogPosition;
 import com.pinterest.singer.thrift.TextMessage;
+import com.pinterest.singer.thrift.configuration.MessageTransformerConfig;
 import com.pinterest.singer.thrift.configuration.TextLogMessageType;
+import com.pinterest.singer.transforms.MessageTransformer;
+import com.pinterest.singer.transforms.MessageTransformerFactory;
 import com.pinterest.singer.utils.SingerUtils;
 
 import com.google.common.base.Preconditions;
@@ -57,6 +60,7 @@ public class TextLogFileReader implements LogFileReader {
   private final TSerializer serializer;
   private final TextMessageReader textMessageReader;
   private final Pattern filterMessageRegex;
+  private final MessageTransformer messageTransformer;
   private ByteBuffer maxBuffer;
 
   // The text log message format, can be TextMessage, or String;
@@ -85,7 +89,8 @@ public class TextLogFileReader implements LogFileReader {
                            String hostname,
                            String availabilityZone,
                            String prependFieldDelimiter,
-                           Map<String, ByteBuffer> headers) throws Exception {
+                           Map<String, ByteBuffer> headers,
+                           MessageTransformerConfig messageTransformerConfig) throws Exception {
     Preconditions.checkArgument(!Strings.isNullOrEmpty(path));
     Preconditions.checkArgument(byteOffset >= 0);
 
@@ -114,6 +119,9 @@ public class TextLogFileReader implements LogFileReader {
     this.maxBuffer = ByteBuffer.allocate(capacity);
     this.trimTailingNewlineCharacter = trimTailingNewlineCharacter;
     this.filterMessageRegex = filterMessageRegex;
+    this.messageTransformer =
+        messageTransformerConfig != null ? MessageTransformerFactory.getTransformer(
+            messageTransformerConfig, logStream) : null;
 
     // Make sure the path is still associated with the LogFile.
     // This can happen when the path is reused for another LogFile during log
@@ -152,6 +160,12 @@ public class TextLogFileReader implements LogFileReader {
             TextMessageReader.bufToString(message)).matches()) {
           skipLogMessage = true;
         }
+
+        // Transform message if messageTransformer is set.
+        if (messageTransformer != null) {
+          message = (ByteBuffer) messageTransformer.transform(message);
+        }
+
         String prependStr = "";
         if (prependTimestamp) {
           prependStr += System.currentTimeMillis() + prependFieldDelimiter;

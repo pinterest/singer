@@ -84,6 +84,32 @@ struct LogStreamReaderConfig {
 }
 
 /**
+  * Transforms related configurations
+  *
+  * REGEX_BASED_MODIFIER:  A regex based modifier that modifies the log message based on the regex
+  *                        and the modified message format.
+ **/
+enum TransformType {
+  REGEX_BASED_MODIFIER = 0
+}
+
+struct RegexBasedModifierConfig {
+  // The regex to match the log message.
+  1: required string regex;
+  // The modified message format. The regex captured groups can be referenced by $1, $2, etc.
+  2: required string modifiedMessageFormat;
+  // The encoding of the log message.
+  3: optional string encoding = "UTF-8";
+  // Append a newline to the end of the modified message.
+  4: optional bool appendNewLine = true;
+}
+
+struct MessageTransformerConfig {
+  1: required TransformType type;
+  2: optional RegexBasedModifierConfig regexBasedModifierConfig;
+}
+
+/**
  * KAFKA:  kafka writer that distributes messages to topic partitions based on
  *         partititioner. The default partitioner does random distribution among
  *         all partitions of a topic. Using a writer threadpool underneath, we can
@@ -250,6 +276,10 @@ struct SingerLogConfig {
    *  this log will be skipped directly when draining is enabled
    */
   14: optional bool skipDraining = false;
+  /**
+   *  Configuration to transform log message
+   */
+  15: optional MessageTransformerConfig messageTransformerConfig;
 }
 
 /**
