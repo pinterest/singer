@@ -104,6 +104,11 @@ public class SingerConfigDef {
 
   public static final String TEXT_READER_FILTER_MESSAGE_REGEX = "filterMessageRegex";
 
+  public static final String RBM_REGEX = "regex";
+  public static final String RBM_MODIFIED_MESSAGE_FORMAT = "modifiedMessageFormat";
+  public static final String RBM_ENCODING = "encoding";
+  public static final String RBM_APPEND_NEW_LINE = "appendNewLine";
+
   public static final String BUCKET = "bucket";
   public static final String KEY_FORMAT = "keyFormat";
   public static final String MAX_FILE_SIZE_MB = "maxFileSizeMB";

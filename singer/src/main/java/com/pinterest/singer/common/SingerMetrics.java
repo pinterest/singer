@@ -84,6 +84,9 @@ public class SingerMetrics {
   public static final String NUM_ABORTED_TRANSACTIONS = SINGER_WRITER + "num_aborted_transactions";
   public static final String NUM_KAFKA_PRODUCERS = SINGER_WRITER + "num_kafka_producers";
 
+  public static final String SINGER_TRANSFORMER = SINGER_PREIX + "transformer.";
+  public static final String REGEX_BASED_MODIFIER = SINGER_TRANSFORMER + "regex_based_modifier.";
+
   public static final String KUBE_PREFIX           = SINGER_PREIX + "kube.";
   public static final String KUBE_API_ERROR        = KUBE_PREFIX  + "api_error";
   public static final String KUBE_SERVICE_ERROR = KUBE_PREFIX + "kubeservice_thread_error";

@@ -26,6 +26,7 @@ import com.pinterest.singer.loggingaudit.thrift.configuration.LoggingAuditClient
 import com.pinterest.singer.loggingaudit.thrift.configuration.AuditConfig;
 import com.pinterest.singer.metrics.StatsPusher;
 import com.pinterest.singer.thrift.configuration.AdminConfig;
+import com.pinterest.singer.thrift.configuration.MessageTransformerConfig;
 import com.pinterest.singer.thrift.configuration.NoOpWriteConfig;
 import com.pinterest.singer.thrift.configuration.FileNameMatchMode;
 import com.pinterest.singer.thrift.configuration.HeartbeatWriterConfig;
@@ -43,6 +44,7 @@ import com.pinterest.singer.thrift.configuration.PulsarWriterConfig;
 import com.pinterest.singer.thrift.configuration.ReaderType;
 import com.pinterest.singer.thrift.configuration.RealpinObjectType;
 import com.pinterest.singer.thrift.configuration.RealpinWriterConfig;
+import com.pinterest.singer.thrift.configuration.RegexBasedModifierConfig;
 import com.pinterest.singer.thrift.configuration.S3WriterConfig;
 import com.pinterest.singer.thrift.configuration.SamplingType;
 import com.pinterest.singer.thrift.configuration.SingerConfig;
@@ -51,6 +53,7 @@ import com.pinterest.singer.thrift.configuration.SingerRestartConfig;
 import com.pinterest.singer.thrift.configuration.TextLogMessageType;
 import com.pinterest.singer.thrift.configuration.TextReaderConfig;
 import com.pinterest.singer.thrift.configuration.ThriftReaderConfig;
+import com.pinterest.singer.thrift.configuration.TransformType;
 import com.pinterest.singer.thrift.configuration.WriterType;
 
 import com.google.common.base.Joiner;
@@ -552,6 +555,12 @@ public class LogConfigUtils {
       if (enableHeadersInjector && logConfiguration.containsKey("headersInjectorClass")){
         config.setHeadersInjectorClass(logConfiguration.getString("headersInjectorClass"));
       }
+    }
+
+    // initialize and set transformer config
+    if (logConfiguration.containsKey("transformer.type")) {
+      config.setMessageTransformerConfig(
+          parseMessageTransformerConfig(new SubsetConfiguration(logConfiguration, "transformer.")));
     }
 
     FileNameMatchMode matchMode = FileNameMatchMode.PREFIX;
@@ -1271,6 +1280,41 @@ public class LogConfigUtils {
       boolean trimTailingNewlineCharacter = textReaderConfiguration
           .getBoolean("trimTailingNewlineCharacter");
       config.setTrimTailingNewlineCharacter(trimTailingNewlineCharacter);
+    }
+    return config;
+  }
+
+  protected static MessageTransformerConfig parseMessageTransformerConfig(AbstractConfiguration transformerConfiguration)
+      throws ConfigurationException {
+    String messageTransformerType = transformerConfiguration.getString("type");
+    TransformType type = TransformType.valueOf(messageTransformerType.toUpperCase());
+    MessageTransformerConfig
+        messageTransformerConfig =
+        new MessageTransformerConfig(type);
+
+    if (type.equals(TransformType.REGEX_BASED_MODIFIER)) {
+      RegexBasedModifierConfig regexBasedModifierConfig = parseRegexBasedModifierConfig(
+          new SubsetConfiguration(transformerConfiguration, messageTransformerType + "."));
+      messageTransformerConfig.setRegexBasedModifierConfig(regexBasedModifierConfig);
+    }
+    return messageTransformerConfig;
+  }
+
+  protected static RegexBasedModifierConfig parseRegexBasedModifierConfig(AbstractConfiguration regexBasedModifierConfig) {
+    regexBasedModifierConfig.setThrowExceptionOnMissing(true);
+    String regex = regexBasedModifierConfig.getString(SingerConfigDef.RBM_REGEX);
+    String modifiedMessageFormat = regexBasedModifierConfig.getString(SingerConfigDef.RBM_MODIFIED_MESSAGE_FORMAT);
+    regexBasedModifierConfig.setThrowExceptionOnMissing(false);
+
+    RegexBasedModifierConfig config = new RegexBasedModifierConfig();
+    config.setRegex(regex);
+    config.setModifiedMessageFormat(modifiedMessageFormat);
+
+    if (regexBasedModifierConfig.containsKey(SingerConfigDef.RBM_ENCODING)) {
+      config.setEncoding(regexBasedModifierConfig.getString(SingerConfigDef.RBM_ENCODING));
+    }
+    if (regexBasedModifierConfig.containsKey(SingerConfigDef.RBM_APPEND_NEW_LINE)) {
+      config.setAppendNewLine(regexBasedModifierConfig.getBoolean(SingerConfigDef.RBM_APPEND_NEW_LINE));
     }
     return config;
   }
