@@ -53,7 +53,7 @@ public class S3WriterTest extends SingerTestBase {
 
   @Before
   public void setUp() {
-    // set hostname
+    // Set hostname
     SingerUtils.setHostname("localhost-dev", "-");
 
     // Initialize basics
@@ -220,12 +220,12 @@ public class S3WriterTest extends SingerTestBase {
   }
 
   @Test
-  public void testS3ObjectKeyGeneration() {
+  public void testObjectKeyGeneration() {
     // Custom and default tokens used
     String
         keyFormat =
-        "my-path/%{namespace}/" + DefaultTokens.LOGNAME.getValue() + "/%{filename}-%{index}."
-            + DefaultTokens.TIMESTAMP.getValue();
+        "my-path/%{namespace}/{{" + DefaultTokens.LOGNAME
+            + "}}/%{filename}-%{index}.{{S}}";
     logStream = new LogStream(singerLog, "my_namespace-test_log.0");
     s3WriterConfig = new S3WriterConfig();
     s3WriterConfig.setKeyFormat(keyFormat);
@@ -244,7 +244,8 @@ public class S3WriterTest extends SingerTestBase {
     String[] keySuffixParts = objectKeyParts[3].split("\\.");
     assertEquals(3, keySuffixParts.length);
     assertEquals("test_log-0", keySuffixParts[0]);
-    assertNotEquals(DefaultTokens.LOGNAME.getValue(), keySuffixParts[1]);
+    assertNotEquals("{{S}}", keySuffixParts[1]);
+    assertEquals(2, keySuffixParts[1].length());
     // Custom tokens provided but filename pattern does not match
     s3WriterConfig.setFilenamePattern("(?<filename>[^.]+)\\.(?<index>\\d+).0");
     s3Writer =
@@ -253,6 +254,22 @@ public class S3WriterTest extends SingerTestBase {
     assertEquals("%{namespace}", objectKeyParts[1]);
     keySuffixParts = objectKeyParts[3].split("\\.");
     assertEquals("%{filename}-%{index}", keySuffixParts[0]);
+
+    // Custom tokens used but with typos in format
+    // Final result should be: my-path/%{{namespace}}/%testLog/%test_log/0%/<seconds>}.<uuid>
+    keyFormat =
+        "my-path/%{{namespace}}/%{{" + DefaultTokens.LOGNAME
+            + "}}/%%{filename}/%{index}%/{{S}}}";
+    s3WriterConfig.setKeyFormat(keyFormat);
+    s3WriterConfig.setFilenamePattern("(?<namespace>[^-]+)-(?<filename>[^.]+)\\.(?<index>\\d+)");
+    s3Writer = new S3Writer(logStream, s3WriterConfig, mockS3Client, mockObjectUploaderTask, tempPath);
+    objectKeyParts = s3Writer.generateS3ObjectKey().split("/");
+    assertEquals(6, objectKeyParts.length);
+    assertEquals("%{{namespace}}", objectKeyParts[1]);
+    assertEquals("%" + logStream.getSingerLog().getSingerLogConfig().getName(), objectKeyParts[2]);
+    assertEquals("%test_log", objectKeyParts[3]);
+    assertEquals("0%", objectKeyParts[4]);
+    assertEquals(3, objectKeyParts[5].split("\\.")[0].length());
   }
 
   @Test
