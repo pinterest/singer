@@ -63,23 +63,37 @@ public class RegexBasedModifier implements MessageTransformer<ByteBuffer> {
     if (!matcher.find()) {
       LOG.debug("[RegexParser] Message " + messageString + " did not match regex: " + regex);
       OpenTsdbMetricConverter.incr(SingerMetrics.REGEX_BASED_MODIFIER + "no_message_match",
-          "logName=" + "file=" + logStream.getFileNamePrefix());
+          "logName=" + logName + "file=" + logStream.getFileNamePrefix());
       return message;
     }
     try {
-      Map<String, String> groupMap = new HashMap<>();
-      for (int i = 1; i <= matcher.groupCount(); i++) {
-        groupMap.put("$" + i, matcher.group(i));
-        LOG.debug("Group " + i + ": " + matcher.group(i));
-      }
-      StringBuilder result = new StringBuilder(messageFormat);
-      groupMap.forEach((groupIndex, value) -> {
-        int start;
-        while ((start = result.indexOf(groupIndex)) != -1) {
-          result.replace(start, start + groupIndex.length(), value);
+      // Iterate through the message format and build the result string.
+      StringBuilder result = new StringBuilder();
+      int messageFormatLength = messageFormat.length();
+
+      for (int ndx = 0; ndx < messageFormatLength; ndx++) {
+        char currentChar = messageFormat.charAt(ndx);
+        if (currentChar == '$') {
+          int start = ndx + 1;
+          int end = start;
+          while (end < messageFormatLength && Character.isDigit(messageFormat.charAt(end))) {
+            end++;
+          }
+          // end > start means we have a group index.
+          int groupIndex = end > start ? Integer.parseInt(messageFormat.substring(start, end)) : -1;
+          if (groupIndex >= 0 && groupIndex <= matcher.groupCount()) {
+            result.append(matcher.group(groupIndex));
+          } else {
+            result.append(messageFormat, ndx, end);
+          }
+          ndx = end - 1;
+        } else {
+          result.append(currentChar);
         }
-      });
-      if (appendNewline) result.append("\n");
+      }
+      if (appendNewline) {
+        result.append("\n");
+      }
       OpenTsdbMetricConverter.incr(SingerMetrics.REGEX_BASED_MODIFIER + "success",
           "logName=" + logName, "file=" + logStream.getFileNamePrefix());
       return ByteBuffer.wrap(result.toString().getBytes(encoding));
