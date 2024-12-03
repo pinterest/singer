@@ -14,6 +14,7 @@ import com.pinterest.singer.utils.SingerUtils;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import org.apache.commons.text.StringSubstitutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,8 +25,10 @@ import java.io.IOException;
 
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Date;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
@@ -46,6 +49,7 @@ public class S3Writer implements LogStreamWriter {
   private static final String HOSTNAME = SingerUtils.HOSTNAME;
   private static final Logger LOG = LoggerFactory.getLogger(S3Writer.class);
   private static final SimpleDateFormat FORMATTER = new SimpleDateFormat("yyyyMMddHHmmssSSS");
+  private final Map<String, String> envMappings = System.getenv();
   private final LogStream logStream;
   private final String logName;
   private final String BUFFER_DIR;
@@ -82,17 +86,10 @@ public class S3Writer implements LogStreamWriter {
   }
 
   public enum DefaultTokens {
-    UUID("%UUID"),
-    TIMESTAMP("%TIMESTAMP"),
-    HOST("%HOST"),
-    LOGNAME("%LOGNAME");
-    private final String token;
-    DefaultTokens(String token) {
-      this.token = token;
-    }
-    public String getValue() {
-      return token;
-    }
+    UUID,
+    TIMESTAMP,
+    HOST,
+    LOGNAME;
   }
 
   /**
@@ -354,44 +351,82 @@ public class S3Writer implements LogStreamWriter {
   }
 
   /**
-   * Generates an S3 object key based on the configured key format. The key can contain tokens in the
-   * format %{token} that will be replaced with the values extracted from the log filename based on
-   * the regex pattern provided in filenamePattern using named regex groups.
+   * Generates a map of default token values that can be used in the key format.
+   *
+   * @return a map of default token values
+   */
+  private Map<String, String> getDefaultTokenValue() {
+    String timestamp = FORMATTER.format(new Date());
+    Map<String, String> defaultTokenValues = new HashMap<>();
+    for (DefaultTokens token : DefaultTokens.values()) {
+      String value;
+      switch (token) {
+        case UUID:
+          value = UUID.randomUUID().toString().substring(0, 8);
+          break;
+        case HOST:
+          value = HOSTNAME;
+          break;
+        case LOGNAME:
+          value = logName;
+          break;
+        case TIMESTAMP:
+          value = timestamp;
+          break;
+        default:
+          throw new IllegalStateException("Unexpected value: " + token);
+      }
+      defaultTokenValues.put(token.name(), value);
+    }
+    // Also allow for adding the timestamp in parts.
+    defaultTokenValues.put("y", timestamp.substring(0,4));
+    defaultTokenValues.put("M", timestamp.substring(4,6));
+    defaultTokenValues.put("d", timestamp.substring(6,8));
+    defaultTokenValues.put("H", timestamp.substring(8,10));
+    defaultTokenValues.put("m", timestamp.substring(10,12));
+    defaultTokenValues.put("S", timestamp.substring(12,14));
+    return defaultTokenValues;
+  }
+
+  /**
+   * Generates an S3 object key based on the configured key format. It uses {@link StringSubstitutor} to replace key tokens in the
+   * s3KeyFormat that will be replaced with the values extracted from the log filename based on the regex pattern provided in
+   * filenamePattern using named regex groups. We also support injection of environment variables and default tokens.
+   *
+   * Default tokens: {{TOKEN}}
+   * Environment variables: ${ENV_VAR}
+   * Named groups from filenamePattern: %{TOKEN}
    *
    * @return the generated S3 object key
    */
   public String generateS3ObjectKey() {
     String s3Key = keyFormat;
     Matcher matcher;
-    // Replace default tokens
-    // TODO: Implement a one pass replacement loop for all tokens if performance becomes an
-    //  issue, for now this reads better.
-    for (DefaultTokens token : DefaultTokens.values()) {
-      switch (token) {
-        case UUID:
-          s3Key = s3Key.replace(token.getValue(), UUID.randomUUID().toString().substring(0, 8));
-          break;
-        case TIMESTAMP:
-          s3Key = s3Key.replace(token.getValue(), FORMATTER.format(new Date()));
-          break;
-        case HOST:
-          s3Key = s3Key.replace(token.getValue(), HOSTNAME);
-          break;
-        case LOGNAME:
-          s3Key = s3Key.replace(token.getValue(), logName);
-          break;
-      }
+    // Replace default tokens in the "%TOKEN" format
+    Map<String, String> defaultTokenValues = getDefaultTokenValue();
+    StringSubstitutor stringSubstitutor = new StringSubstitutor(defaultTokenValues, "{{", "}}");
+    s3Key = stringSubstitutor.replace(s3Key);
+
+    // Replace environment variables
+    if (envMappings != null || !envMappings.isEmpty()) {
+      // Default replacement is with ${} format
+      stringSubstitutor = new StringSubstitutor(envMappings);
+      s3Key = stringSubstitutor.replace(s3Key);
     }
+
     // Replace named groups from filenamePattern
     if (filenameParsingEnabled) {
       if ((matcher = extractTokensFromFilename(logStream.getFileNamePrefix())) != null) {
+        Map<String, String> groupMap = new HashMap<>();
         for (String token : fileNameTokens) {
           // Attempt to replace the token in filenamePattern with the matched value
           String matchedValue = matcher.group(token);
           if (matchedValue != null) {
-            s3Key = s3Key.replace("%{" + token + "}", matchedValue);
+            groupMap.put(token, matchedValue);
           }
         }
+        stringSubstitutor = new StringSubstitutor(groupMap, "%{", "}");
+        s3Key = stringSubstitutor.replace(s3Key);
       } else {
         // If there is no match we simply return the key without replacing any custom tokens
         LOG.warn("Filename parsing is enabled but filenamePattern provided: " + filenamePattern
