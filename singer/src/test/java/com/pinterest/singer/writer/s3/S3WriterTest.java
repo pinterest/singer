@@ -18,7 +18,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
-import software.amazon.awssdk.services.s3.S3Client;
 
 import java.io.File;
 import java.io.IOException;
@@ -28,7 +27,6 @@ import java.util.Arrays;
 
 import static org.junit.Assert.assertNotEquals;
 import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -78,7 +76,6 @@ public class S3WriterTest extends SingerTestBase {
     // reset hostname
     SingerUtils.setHostname(SingerUtils.getHostname(), "-");
   }
-
 
   @Test
   public void testSanitizeFileName() {
