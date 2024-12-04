@@ -109,6 +109,7 @@ public class SingerConfigDef {
   public static final String RBM_ENCODING = "encoding";
   public static final String RBM_APPEND_NEW_LINE = "appendNewLine";
 
+  // S3 writer config
   public static final String BUCKET = "bucket";
   public static final String KEY_FORMAT = "keyFormat";
   public static final String MAX_FILE_SIZE_MB = "maxFileSizeMB";
@@ -117,5 +118,7 @@ public class SingerConfigDef {
   public static final String MAX_RETRIES = "maxRetries";
   public static final String BUFFER_DIR = "bufferDir";
   public static final String CANNED_ACL = "cannedAcl";
+  public static final String UPLOADER_CLASS = "uploaderClass";
+  public static final String REGION = "region";
   public static final String NAMED_GROUP_PATTERN = "\\(\\?<([a-zA-Z][a-zA-Z0-9]*)>";
 }
