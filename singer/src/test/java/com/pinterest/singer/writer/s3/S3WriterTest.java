@@ -1,4 +1,4 @@
-package com.pinterest.singer.writer;
+package com.pinterest.singer.writer.s3;
 
 import com.pinterest.singer.SingerTestBase;
 import com.pinterest.singer.common.LogStream;
@@ -8,8 +8,6 @@ import com.pinterest.singer.thrift.LogMessageAndPosition;
 import com.pinterest.singer.thrift.configuration.S3WriterConfig;
 import com.pinterest.singer.thrift.configuration.SingerLogConfig;
 import com.pinterest.singer.utils.SingerUtils;
-import com.pinterest.singer.writer.s3.ObjectUploaderTask;
-import com.pinterest.singer.writer.s3.S3Writer;
 import com.pinterest.singer.writer.s3.S3Writer.DefaultTokens;
 
 import org.apache.commons.io.FileUtils;
@@ -38,12 +36,8 @@ import static org.mockito.Mockito.when;
 
 @RunWith(MockitoJUnitRunner.class)
 public class S3WriterTest extends SingerTestBase {
-
   @Mock
-  private S3Client mockS3Client;
-
-  @Mock
-  private ObjectUploaderTask mockObjectUploaderTask;
+  private S3Uploader mockS3Uploader;
 
   private S3Writer s3Writer;
   private SingerLog singerLog;
@@ -72,7 +66,7 @@ public class S3WriterTest extends SingerTestBase {
 
     // Initialize the S3Writer with mock dependencies
     s3Writer =
-        new S3Writer(logStream, s3WriterConfig, mockS3Client, mockObjectUploaderTask, tempPath);
+        new S3Writer(logStream, s3WriterConfig, mockS3Uploader, tempPath);
   }
 
   @After
@@ -183,7 +177,7 @@ public class S3WriterTest extends SingerTestBase {
     LogMessageAndPosition logMessageAndPosition = new LogMessageAndPosition(logMessage, null);
 
     // Mock upload behavior
-    when(mockObjectUploaderTask.upload(any(File.class), anyString())).thenReturn(true);
+    when(mockS3Uploader.upload(any(S3ObjectUpload.class))).thenReturn(true);
 
     // Write log messages to commit
     s3Writer.startCommit(false);
@@ -193,7 +187,7 @@ public class S3WriterTest extends SingerTestBase {
     s3Writer.endCommit(2, false);
 
     // Verify upload was called
-    verify(mockObjectUploaderTask, atLeastOnce()).upload(any(File.class), anyString());
+    verify(mockS3Uploader, atLeastOnce()).upload(any(S3ObjectUpload.class));
   }
 
   @Test
@@ -204,7 +198,7 @@ public class S3WriterTest extends SingerTestBase {
     LogMessageAndPosition logMessageAndPosition = new LogMessageAndPosition(logMessage, null);
 
     // Mock upload behavior
-    when(mockObjectUploaderTask.upload(any(File.class), anyString())).thenReturn(true);
+    when(mockS3Uploader.upload(any(S3ObjectUpload.class))).thenReturn(true);
 
     // Write log messages to commit
     s3Writer.startCommit(false);
@@ -216,7 +210,7 @@ public class S3WriterTest extends SingerTestBase {
     s3Writer.endCommit(1, false);
 
     // Verify upload was called
-    verify(mockObjectUploaderTask, atLeastOnce()).upload(any(File.class), anyString());
+    verify(mockS3Uploader, atLeastOnce()).upload(any(S3ObjectUpload.class));
   }
 
   @Test
@@ -233,7 +227,7 @@ public class S3WriterTest extends SingerTestBase {
     s3WriterConfig.setFilenamePattern("(?<namespace>[^-]+)-(?<filename>[^.]+)\\.(?<index>\\d+)");
     s3WriterConfig.setFilenameTokens(Arrays.asList("namespace", "filename", "index"));
     s3Writer =
-        new S3Writer(logStream, s3WriterConfig, mockS3Client, mockObjectUploaderTask, tempPath);
+        new S3Writer(logStream, s3WriterConfig, mockS3Uploader, tempPath);
     // Check key prefix
     String[] objectKeyParts = s3Writer.generateS3ObjectKey().split("/");
     assertEquals(4, objectKeyParts.length);
@@ -249,7 +243,7 @@ public class S3WriterTest extends SingerTestBase {
     // Custom tokens provided but filename pattern does not match
     s3WriterConfig.setFilenamePattern("(?<filename>[^.]+)\\.(?<index>\\d+).0");
     s3Writer =
-        new S3Writer(logStream, s3WriterConfig, mockS3Client, mockObjectUploaderTask, tempPath);
+        new S3Writer(logStream, s3WriterConfig, mockS3Uploader, tempPath);
     objectKeyParts = s3Writer.generateS3ObjectKey().split("/");
     assertEquals("%{namespace}", objectKeyParts[1]);
     keySuffixParts = objectKeyParts[3].split("\\.");
@@ -262,7 +256,7 @@ public class S3WriterTest extends SingerTestBase {
             + "}}/%%{filename}/%{index}%/{{S}}}";
     s3WriterConfig.setKeyFormat(keyFormat);
     s3WriterConfig.setFilenamePattern("(?<namespace>[^-]+)-(?<filename>[^.]+)\\.(?<index>\\d+)");
-    s3Writer = new S3Writer(logStream, s3WriterConfig, mockS3Client, mockObjectUploaderTask, tempPath);
+    s3Writer = new S3Writer(logStream, s3WriterConfig, mockS3Uploader, tempPath);
     objectKeyParts = s3Writer.generateS3ObjectKey().split("/");
     assertEquals(6, objectKeyParts.length);
     assertEquals("%{{namespace}}", objectKeyParts[1]);
@@ -294,6 +288,6 @@ public class S3WriterTest extends SingerTestBase {
     File bufferFile = new File(FilenameUtils.concat(tempPath, bufferFileName));
     assertTrue(!bufferFile.exists());
     assertEquals(0, bufferFile.length());
-    verify(mockObjectUploaderTask, atLeastOnce()).upload(any(File.class), anyString());
+    verify(mockS3Uploader, atLeastOnce()).upload(any(S3ObjectUpload.class));
   }
 }

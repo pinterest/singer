@@ -173,6 +173,10 @@ struct S3WriterConfig {
   // The S3 canned access control lists (ACLs) that can be applied to uploaded objects to determine their access permissions.
   // We don't set a default since some buckets don't allow setting canned ACLs.
   9: optional string cannedAcl;
+  // The uploader class to use for uploading objects to S3.
+  10: optional string uploaderClass = "com.pinterest.singer.writer.s3.PutObjectUploader";
+  // Region of the S3 bucket.
+  11: optional string region = "us-east-1";
 }
 
 enum RealpinObjectType {

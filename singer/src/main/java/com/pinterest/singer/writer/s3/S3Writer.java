@@ -54,8 +54,7 @@ public class S3Writer implements LogStreamWriter {
   private final String logName;
   private final String BUFFER_DIR;
   private static final int BYTES_IN_MB = 1024 * 1024;
-  private ObjectUploaderTask putObjectUploader;
-  private S3Client s3Client;
+  private S3Uploader s3Uploader;
   private final S3WriterConfig s3WriterConfig;
 
   // S3 information
@@ -111,20 +110,18 @@ public class S3Writer implements LogStreamWriter {
 
   // Static factory method for testing
   @VisibleForTesting
-  public S3Writer(LogStream logStream, S3WriterConfig s3WriterConfig, S3Client s3Client,
-                  ObjectUploaderTask putObjectUploader, String path) {
+  public S3Writer(LogStream logStream, S3WriterConfig s3WriterConfig, S3Uploader s3Uploader,
+                  String path) {
     Preconditions.checkNotNull(logStream);
     Preconditions.checkNotNull(s3WriterConfig);
-    Preconditions.checkNotNull(s3Client);
-    Preconditions.checkNotNull(putObjectUploader);
+    Preconditions.checkNotNull(s3Uploader);
     Preconditions.checkNotNull(!Strings.isNullOrEmpty(path));
 
     this.BUFFER_DIR = path;
     this.logStream = logStream;
     this.logName = logStream.getSingerLog().getSingerLogConfig().getName();
     this.s3WriterConfig = s3WriterConfig;
-    this.putObjectUploader = putObjectUploader;
-    this.s3Client = s3Client;
+    this.s3Uploader = s3Uploader;
     initialize();
 
   }
@@ -157,13 +154,12 @@ public class S3Writer implements LogStreamWriter {
     }
 
     try {
-      if (s3Client == null) {
-        s3Client = S3Client.builder().build();
-      }
-      if (putObjectUploader == null) {
-        putObjectUploader =
-            new ObjectUploaderTask(s3Client, bucketName,
-                ObjectCannedACL.fromValue(s3WriterConfig.getCannedAcl()), maxRetries);
+      if (s3Uploader == null) {
+        Class<?> clazz = Class.forName(s3WriterConfig.getUploaderClass());
+        s3Uploader =
+            (S3Uploader) clazz.getConstructor(S3WriterConfig.class, S3Client.class)
+                .newInstance(s3WriterConfig, S3ClientManager.getInstance()
+                    .get(s3WriterConfig.getRegion()));
       }
     } catch (Exception e) {
       throw new RuntimeException(e);
@@ -259,7 +255,7 @@ public class S3Writer implements LogStreamWriter {
     try {
       Files.move(bufferFile.toPath(), fileToUpload.toPath());
       resetBufferFile();
-      if (this.putObjectUploader.upload(fileToUpload, fileFormat)) {
+      if (this.s3Uploader.upload(new S3ObjectUpload(fileFormat, fileToUpload))) {
         OpenTsdbMetricConverter.incr(SingerMetrics.S3_WRITER + "num_uploads", 1,
             "bucket=" + bucketName, "host=" + HOSTNAME,
             "logName=" + logName);
@@ -527,10 +523,7 @@ public class S3Writer implements LogStreamWriter {
       } catch (IOException e) {
         LOG.error("Failed to close buffer writers", e);
       }
-
-      if (s3Client != null) {
-        s3Client.close();
-      }
+      // Refrain from closing the S3 client because it can be shared by other writers
     }
   }
 }

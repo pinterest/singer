@@ -56,6 +56,7 @@ import com.pinterest.singer.thrift.configuration.ThriftReaderConfig;
 import com.pinterest.singer.thrift.configuration.TransformType;
 import com.pinterest.singer.thrift.configuration.WriterType;
 
+import com.amazonaws.regions.Regions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
@@ -848,6 +849,25 @@ public class LogConfigUtils {
 
     if (writerConfiguration.containsKey(SingerConfigDef.BUFFER_DIR)) {
       config.setBufferDir(writerConfiguration.getString(SingerConfigDef.BUFFER_DIR));
+    }
+
+    if (writerConfiguration.containsKey(SingerConfigDef.UPLOADER_CLASS)) {
+      // check if class is valid
+      try {
+        Class.forName(writerConfiguration.getString(SingerConfigDef.UPLOADER_CLASS));
+      } catch (ClassNotFoundException e) {
+        throw new ConfigurationException("Invalid uploader class: " + writerConfiguration.getString(SingerConfigDef.UPLOADER_CLASS), e);
+      }
+      config.setUploaderClass(writerConfiguration.getString(SingerConfigDef.UPLOADER_CLASS));
+    }
+
+    if (writerConfiguration.containsKey(SingerConfigDef.REGION)) {
+      try {
+        Regions.fromName(writerConfiguration.getString(SingerConfigDef.REGION));
+      } catch (IllegalArgumentException e) {
+        throw new ConfigurationException("Invalid region provided: " + writerConfiguration.getString(SingerConfigDef.REGION), e);
+      }
+      config.setRegion(writerConfiguration.getString(SingerConfigDef.REGION));
     }
     return config;
   }
