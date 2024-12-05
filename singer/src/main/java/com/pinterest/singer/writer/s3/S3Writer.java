@@ -39,7 +39,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 
 /**
  * A LogStreamWriter for Singer that writes to S3 (writer.type=s3).
@@ -68,7 +67,6 @@ public class S3Writer implements LogStreamWriter {
   // Custom Thresholds
   private int maxFileSizeMB;
   private int minUploadTime;
-  private int maxRetries;
   private Pattern filenamePattern;
   private List<String> fileNameTokens = new ArrayList<>();
   private boolean filenameParsingEnabled = false;
@@ -129,8 +127,6 @@ public class S3Writer implements LogStreamWriter {
   private void initialize() {
     this.maxFileSizeMB = s3WriterConfig.getMaxFileSizeMB();
     this.minUploadTime = s3WriterConfig.getMinUploadTimeInSeconds();
-    this.maxRetries = s3WriterConfig.getMaxRetries();
-
     if (s3WriterConfig.isSetFilenamePattern() && s3WriterConfig.isSetFilenameTokens()) {
       this.filenameParsingEnabled = true;
       this.filenamePattern = Pattern.compile(s3WriterConfig.getFilenamePattern());
@@ -182,13 +178,16 @@ public class S3Writer implements LogStreamWriter {
   }
 
   /**
-   * Takes the fullPathPrefix and removes all slashes and replaces them with underscores.
+   * Get or construct buffer file name based on the log stream name.
+   * The buffer file naming convention is "log_name.dir_name.file_name.buffer".
+   *
+   * @return the buffer file name
    */
-  public static String sanitizeFileName(String fullPathPrefix) {
-    if (fullPathPrefix.startsWith("/")) {
-      fullPathPrefix = fullPathPrefix.substring(1);
-    }
-    return fullPathPrefix.replace("/", "_");
+  public String getBufferFileName() {
+    return (bufferFile != null) ? bufferFile.getName()
+                                : logName + "." + logStream.getLogDir().substring(1)
+                                    .replace("/", "_") + "."
+                                    + logStream.getLogStreamName() + ".buffer";
   }
 
   /**
@@ -203,13 +202,13 @@ public class S3Writer implements LogStreamWriter {
   public synchronized void startCommit(boolean isDraining) throws LogStreamWriterException {
     try {
       if (!bufferFile.exists()) {
-        bufferFile.createNewFile();
+        resetBufferFile();
       }
 
       bufferedOutputStream = new BufferedOutputStream(new FileOutputStream(bufferFile, true));
 
     } catch (IOException e) {
-      throw new RuntimeException("Failed to create buffer file: " + bufferFile.getName(), e);
+      throw new RuntimeException("Failed to create buffer file: " + getBufferFileName(), e);
     }
     if (uploadFuture == null) {
       scheduleUploadTask();
@@ -250,7 +249,7 @@ public class S3Writer implements LogStreamWriter {
   private void uploadDiskBufferedFileToS3() throws IOException {
     File
         fileToUpload =
-        new File(BUFFER_DIR, bufferFile.getName() + "." + FORMATTER.format(new Date()));
+        new File(BUFFER_DIR, getBufferFileName() + "." + FORMATTER.format(new Date()));
     String fileFormat = generateS3ObjectKey();
     try {
       Files.move(bufferFile.toPath(), fileToUpload.toPath());
@@ -266,7 +265,7 @@ public class S3Writer implements LogStreamWriter {
       }
       fileToUpload.delete();
     } catch (IOException e) {
-      LOG.error("Failed to rename buffer file " + bufferFile.getName(), e);
+      LOG.error("Failed to rename buffer file " + getBufferFileName(), e);
     }
   }
 
@@ -318,22 +317,13 @@ public class S3Writer implements LogStreamWriter {
    * @throws IOException
    */
   private void resetBufferFile() throws IOException {
-    String
-        bufferFileName =
-        sanitizeFileName(logStream.getFullPathPrefix()) + ".buffer." + UUID.randomUUID()
-            .toString().substring(0, 8);
-    bufferFile = new File(BUFFER_DIR, bufferFileName);
-    bufferFile.createNewFile();
+    bufferFile = new File(BUFFER_DIR, getBufferFileName());
+    if (!bufferFile.createNewFile()) {
+      LOG.info(
+          "Buffer file for log stream {} already exists, continue with existing buffer file: {}",
+          logName, getBufferFileName());
+    }
     bufferedOutputStream = new BufferedOutputStream(new FileOutputStream(bufferFile, true));
-  }
-
-  /**
-   * Helper function to get the remaining part of the host name after the cluster prefix,
-   * typically a UUID.
-   */
-  public static String extractHostSuffix(String inputStr) {
-    String[] parts = inputStr.split("-");
-    return parts[parts.length - 1];
   }
 
   private Matcher extractTokensFromFilename(String logFileName) {
@@ -507,7 +497,7 @@ public class S3Writer implements LogStreamWriter {
           uploadDiskBufferedFileToS3();
           bufferFile.delete();
         } catch (IOException e) {
-          LOG.error("Failed to close bufferedWriter or upload buffer file: " + bufferFile.getName(),
+          LOG.error("Failed to close bufferedWriter or upload buffer file: " + getBufferFileName(),
               e);
         }
       }
