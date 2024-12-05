@@ -63,8 +63,7 @@ public class S3WriterTest extends SingerTestBase {
     s3WriterConfig.setMaxRetries(3);
 
     // Initialize the S3Writer with mock dependencies
-    s3Writer =
-        new S3Writer(logStream, s3WriterConfig, mockS3Uploader, tempPath);
+    s3Writer = new S3Writer(logStream, s3WriterConfig, mockS3Uploader, tempPath);
   }
 
   @After
@@ -75,62 +74,7 @@ public class S3WriterTest extends SingerTestBase {
     }
     // reset hostname
     SingerUtils.setHostname(SingerUtils.getHostname(), "-");
-  }
-
-  @Test
-  public void testSanitizeFileName() {
-    String fullPathPrefix = "/var/logs/app";
-    String expected = "var_logs_app";
-    String result = s3Writer.sanitizeFileName(fullPathPrefix);
-    assertEquals(expected, result);
-
-    fullPathPrefix = "var/logs/app";
-    expected = "var_logs_app";
-    result = s3Writer.sanitizeFileName(fullPathPrefix);
-    assertEquals(expected, result);
-
-    fullPathPrefix = "/var/logs/app/";
-    expected = "var_logs_app_";
-    result = s3Writer.sanitizeFileName(fullPathPrefix);
-    assertEquals(expected, result);
-
-    fullPathPrefix = "/";
-    expected = "";
-    result = s3Writer.sanitizeFileName(fullPathPrefix);
-    assertEquals(expected, result);
-
-    fullPathPrefix = "";
-    expected = "";
-    result = s3Writer.sanitizeFileName(fullPathPrefix);
-    assertEquals(expected, result);
-  }
-
-  @Test
-  public void testExtractHostSuffix() {
-    String hostname = "app-server-12345";
-    String expected = "12345";
-    String result = S3Writer.extractHostSuffix(hostname);
-    assertEquals(expected, result);
-
-    hostname = "app-12345";
-    expected = "12345";
-    result = S3Writer.extractHostSuffix(hostname);
-    assertEquals(expected, result);
-
-    hostname = "12345";
-    expected = "12345";
-    result = S3Writer.extractHostSuffix(hostname);
-    assertEquals(expected, result);
-
-    hostname = "app-server";
-    expected = "server";
-    result = S3Writer.extractHostSuffix(hostname);
-    assertEquals(expected, result);
-
-    hostname = "";
-    expected = "";
-    result = S3Writer.extractHostSuffix(hostname);
-    assertEquals(expected, result);
+    s3Writer.close();
   }
 
   @Test
@@ -146,21 +90,8 @@ public class S3WriterTest extends SingerTestBase {
     s3Writer.endCommit(1, false);
 
     // Verify that the messages are written to the buffer file
-    String
-        bufferFileNamePrefix =
-        s3Writer.sanitizeFileName(logStream.getFullPathPrefix()) + ".buffer.";
-    File tmpDir = new File(tempPath);
-    File bufferFile = null;
-    File [] tmpFiles = tmpDir.listFiles();
-    boolean bufferFileExists = false;
-    for (File file : tmpFiles) {
-      if (file.getName().startsWith(bufferFileNamePrefix)) {
-        bufferFileExists = true;
-        bufferFile = file;
-        break;
-      }
-    }
-    assertTrue(bufferFileExists);
+    File bufferFile = new File(tempPath + "/" + s3Writer.getBufferFileName());
+    assertTrue(bufferFile.exists());
     String content = new String(Files.readAllBytes(bufferFile.toPath()));
     assertTrue(content.contains("test message"));
   }
@@ -211,6 +142,37 @@ public class S3WriterTest extends SingerTestBase {
   }
 
   @Test
+  public void testResumeFromExistingBufferFile() throws Exception {
+    // Prepare log message
+    ByteBuffer messageBuffer = ByteBuffer.wrap("This is message 1 :".getBytes());
+    LogMessage logMessage = new LogMessage(messageBuffer);
+    LogMessageAndPosition logMessageAndPosition = new LogMessageAndPosition(logMessage, null);
+
+    // Write log message to commit
+    s3Writer.startCommit(false);
+    s3Writer.writeLogMessageToCommit(logMessageAndPosition, false);
+
+    // Create a new S3Writer with the same buffer file and write another message to simulate resuming
+    S3Writer
+        newS3Writer =
+        new S3Writer(logStream, s3WriterConfig, mockS3Uploader, tempPath);
+    messageBuffer = ByteBuffer.wrap(" This is message 2".getBytes());
+    logMessage = new LogMessage(messageBuffer);
+    logMessageAndPosition = new LogMessageAndPosition(logMessage, null);
+
+    // Write log message to commit
+    newS3Writer.startCommit(false);
+    newS3Writer.writeLogMessageToCommit(logMessageAndPosition, false);
+
+    // Verify that the messages are written to the buffer file
+    File bufferFile = new File(tempPath + "/" + newS3Writer.getBufferFileName());
+    assertTrue(bufferFile.exists());
+    String content = new String(Files.readAllBytes(bufferFile.toPath()));
+    assertTrue(content.contains("This is message 1 : This is message 2"));
+    newS3Writer.close();
+  }
+
+  @Test
   public void testObjectKeyGeneration() {
     // Custom and default tokens used
     String
@@ -223,24 +185,25 @@ public class S3WriterTest extends SingerTestBase {
     s3WriterConfig.setBucket("bucket-name");
     s3WriterConfig.setFilenamePattern("(?<namespace>[^-]+)-(?<filename>[^.]+)\\.(?<index>\\d+)");
     s3WriterConfig.setFilenameTokens(Arrays.asList("namespace", "filename", "index"));
-    s3Writer =
-        new S3Writer(logStream, s3WriterConfig, mockS3Uploader, tempPath);
+    s3Writer = new S3Writer(logStream, s3WriterConfig, mockS3Uploader, tempPath);
+
     // Check key prefix
     String[] objectKeyParts = s3Writer.generateS3ObjectKey().split("/");
     assertEquals(4, objectKeyParts.length);
     assertEquals("my-path", objectKeyParts[0]);
     assertEquals("my_namespace", objectKeyParts[1]);
     assertEquals(logStream.getSingerLog().getSingerLogConfig().getName(), objectKeyParts[2]);
+
     // Check last part of object key
     String[] keySuffixParts = objectKeyParts[3].split("\\.");
     assertEquals(3, keySuffixParts.length);
     assertEquals("test_log-0", keySuffixParts[0]);
     assertNotEquals("{{S}}", keySuffixParts[1]);
     assertEquals(2, keySuffixParts[1].length());
+
     // Custom tokens provided but filename pattern does not match
     s3WriterConfig.setFilenamePattern("(?<filename>[^.]+)\\.(?<index>\\d+).0");
-    s3Writer =
-        new S3Writer(logStream, s3WriterConfig, mockS3Uploader, tempPath);
+    s3Writer = new S3Writer(logStream, s3WriterConfig, mockS3Uploader, tempPath);
     objectKeyParts = s3Writer.generateS3ObjectKey().split("/");
     assertEquals("%{namespace}", objectKeyParts[1]);
     keySuffixParts = objectKeyParts[3].split("\\.");
@@ -280,10 +243,9 @@ public class S3WriterTest extends SingerTestBase {
 
     // Verify that the buffer file was correctly handled
     String
-        bufferFileName =
-        s3Writer.sanitizeFileName(logStream.getFullPathPrefix()) + ".buffer.log";
+        bufferFileName = s3Writer.getBufferFileName();
     File bufferFile = new File(FilenameUtils.concat(tempPath, bufferFileName));
-    assertTrue(!bufferFile.exists());
+    assertFalse(bufferFile.exists());
     assertEquals(0, bufferFile.length());
     verify(mockS3Uploader, atLeastOnce()).upload(any(S3ObjectUpload.class));
   }
