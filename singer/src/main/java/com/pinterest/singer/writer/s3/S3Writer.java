@@ -421,10 +421,6 @@ public class S3Writer implements LogStreamWriter {
             "bucket=" + bucketName, "host=" + HOSTNAME, "logName=" + logName);
       }
     }
-
-    // We append a random UUID to the key to avoid collisions
-    // TODO: Provide configuration to disable this behavior if use case comes up
-    s3Key += "." + UUID.randomUUID().toString().substring(0, 8);
     LOG.info("Generated S3 object key: " + s3Key);
     return s3Key;
   }

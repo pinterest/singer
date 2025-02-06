@@ -196,7 +196,7 @@ public class S3WriterTest extends SingerTestBase {
 
     // Check last part of object key
     String[] keySuffixParts = objectKeyParts[3].split("\\.");
-    assertEquals(3, keySuffixParts.length);
+    assertEquals(2, keySuffixParts.length);
     assertEquals("test_log-0", keySuffixParts[0]);
     assertNotEquals("{{S}}", keySuffixParts[1]);
     assertEquals(2, keySuffixParts[1].length());
