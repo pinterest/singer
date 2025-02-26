@@ -290,6 +290,11 @@ public class LogConfigUtils {
       config.setDefaultDeletionTimeoutInSeconds(
           subsetConfig.getInt(SingerConfigDef.KUBE_DEFAULT_DELETION_TIMEOUT));
     }
+
+    if (subsetConfig.containsKey(SingerConfigDef.KUBE_IGNORE_POD_DIRECTORY)) {
+      config.setIgnorePodDirectory(
+          subsetConfig.getString(SingerConfigDef.KUBE_IGNORE_POD_DIRECTORY));
+    }
     return config;
   }
 
