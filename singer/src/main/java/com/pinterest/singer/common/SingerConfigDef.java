@@ -75,6 +75,7 @@ public class SingerConfigDef {
   public static final String KUBE_POLL_FREQUENCY_SECONDS = "pollFrequencyInSeconds";
   public static final String KUBE_POD_LOG_DIR = "podLogDirectory";
   public static final String KUBE_DEFAULT_DELETION_TIMEOUT = "defaultDeletionTimeoutInSeconds";
+  public static final String KUBE_IGNORE_POD_DIRECTORY = "ignorePodDirectory";
 
   public static final String SINGER_ADMIN_CONFIG_PREFIX = "singer.admin.";
   public static final String ADMIN_SOCKET_FILE = "socket.file";
