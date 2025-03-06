@@ -17,6 +17,7 @@ package com.pinterest.singer.kubernetes;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -30,7 +31,9 @@ import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
 
@@ -53,6 +56,13 @@ import com.sun.net.httpserver.HttpServer;
 public class TestKubeService {
 
     private static HttpServer server;
+    private final List<String> podNames = Arrays.asList(
+        "default_enimanager-ppl56_b1a2a0c2-d3ab-11e7-a1db-0674200569b6",
+        "default_zk-update-monitor-r1vlt_7d1d8b00-b532-11e7-b628-0674200569b6",
+        "default_tcollector-q4qx8_8ad2dba8-b84c-11e7-b628-0674200569b6",
+        "default_metrics-agent-8vm9g_bfc5f760-b8e1-11e7-b628-0674200569b6",
+        "kube-system_kubernetes-dashboard-1835568627-hhfhj_a343643b-b936-11e7-b628-0674200569b6",
+        "kubernetes-plugin_test-ci-0_f084af12-cbe6-11e7-a1db-0674200569b6");
 
     @BeforeClass
     public static void beforeClass() throws IOException {
@@ -111,20 +121,7 @@ public class TestKubeService {
         // check uid count is correct
         assertEquals(6, fetchPodNamesFromMetadata.size());
 
-        List<String> podNameList = new ArrayList<>();
-        podNameList.add(
-            "default" + "_" + "enimanager-ppl56" + "_" + "b1a2a0c2-d3ab-11e7-a1db-0674200569b6");
-        podNameList.add("default" + "_" + "zk-update-monitor-r1vlt" + "_"
-            + "7d1d8b00-b532-11e7-b628-0674200569b6");
-        podNameList.add(
-            "default" + "_" + "tcollector-q4qx8" + "_" + "8ad2dba8-b84c-11e7-b628-0674200569b6");
-        podNameList.add(
-            "default" + "_" + "metrics-agent-8vm9g" + "_" + "bfc5f760-b8e1-11e7-b628-0674200569b6");
-        podNameList.add("kube-system" + "_" + "kubernetes-dashboard-1835568627-hhfhj" + "_"
-            + "a343643b-b936-11e7-b628-0674200569b6");
-        podNameList.add(
-            "kubernetes-plugin" + "_" + "test-ci-0" + "_" + "f084af12-cbe6-11e7-a1db-0674200569b6");
-        for (String podName : podNameList) {
+        for (String podName : podNames) {
             assertTrue(fetchPodNamesFromMetadata.contains(podName));
         }
     }
@@ -185,6 +182,29 @@ public class TestKubeService {
 
         // send interrupt to kill thread
         thTest.interrupt();
+    }
+
+    @Test
+    public void testUpdatePodMetadata() {
+        registerGoodResponse();
+
+        KubeConfig kubeConfig = new KubeConfig();
+        kubeConfig.setPodMetadataFields(
+            Arrays.asList("labels:name", "namespace", "annotations:kubernetes.io/config.source"));
+        KubeService kubeService = new KubeService(kubeConfig);
+        PodMetadataTracker pmdTracker = new PodMetadataTracker(kubeConfig);
+        kubeService.addWatcher(pmdTracker);
+        for (String pod : podNames) {
+            kubeService.updatePodWatchers(pod, false);
+        }
+        assertEquals(podNames.size(), pmdTracker.getPodMetadataMap().size());
+        for (Map.Entry<String, Map<String, String>> pod : pmdTracker.getPodMetadataMap().entrySet()) {
+            assertTrue(podNames.contains(pod.getKey()));
+            assertNotNull(pod.getValue().get("namespace"));
+            assertNotNull(pod.getValue().get("kubernetes.io/config.source"));
+        }
+        kubeService.updatePodWatchers(podNames.get(podNames.size() - 1), true);
+        assertEquals(podNames.size() - 1, pmdTracker.getPodMetadataMap().size());
     }
 
 //    @Test

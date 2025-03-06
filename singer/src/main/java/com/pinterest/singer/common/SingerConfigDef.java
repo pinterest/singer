@@ -71,10 +71,12 @@ public class SingerConfigDef {
   public static final String TOPIC_NAMES = "topic_names";
   public static final String DEFAULT_PARTITIONER = "com.pinterest.singer.writer.partitioners.DefaultPartitioner";
 
+  // KubeService configs
   public static final String SINGER_KUBE_CONFIG_PREFIX = "singer.kubernetes.";
   public static final String KUBE_POLL_FREQUENCY_SECONDS = "pollFrequencyInSeconds";
   public static final String KUBE_POD_LOG_DIR = "podLogDirectory";
   public static final String KUBE_DEFAULT_DELETION_TIMEOUT = "defaultDeletionTimeoutInSeconds";
+  public static final String POD_METADATA_FIELDS = "podMetadataFields";
 
   public static final String SINGER_ADMIN_CONFIG_PREFIX = "singer.admin.";
   public static final String ADMIN_SOCKET_FILE = "socket.file";

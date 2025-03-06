@@ -100,6 +100,10 @@ public class TextLogFileReader implements LogFileReader {
       headers.put("hostname", SingerUtils.getByteBuf(hostname));
       headers.put("file", SingerUtils.getByteBuf(path));
       headers.put("availabilityZone", SingerUtils.getByteBuf(availabilityZone));
+      Map<String, ByteBuffer> logMetadata = logStream.getSingerLog().getPodMetadata();
+      if (logMetadata != null && !logMetadata.isEmpty()) {
+        headers.putAll(logMetadata);
+      }
     }
 
     this.hostname = hostname;

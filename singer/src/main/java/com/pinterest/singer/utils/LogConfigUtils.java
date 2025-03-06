@@ -276,6 +276,12 @@ public class LogConfigUtils {
           subsetConfig.getInt(SingerConfigDef.KUBE_POLL_FREQUENCY_SECONDS));
     }
 
+    if (subsetConfig.containsKey(SingerConfigDef.POD_METADATA_FIELDS)) {
+      config.setPodMetadataFields(subsetConfig.getList(SingerConfigDef.POD_METADATA_FIELDS).stream()
+          .map(Object::toString)
+          .collect(Collectors.toList()));
+    }
+
     if (subsetConfig.containsKey(SingerConfigDef.KUBE_POD_LOG_DIR)) {
       String logDirectory = subsetConfig.getString(SingerConfigDef.KUBE_POD_LOG_DIR);
       // normalize path before setting the property

@@ -58,7 +58,9 @@ import com.pinterest.singer.common.SingerMetrics;
 import com.pinterest.singer.common.errors.LogStreamException;
 import com.pinterest.singer.common.errors.SingerLogException;
 import com.pinterest.singer.kubernetes.KubeService;
+import com.pinterest.singer.kubernetes.PodMetadataTracker;
 import com.pinterest.singer.kubernetes.PodWatcher;
+import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
 import com.pinterest.singer.thrift.LogFile;
 import com.pinterest.singer.thrift.configuration.FileNameMatchMode;
 import com.pinterest.singer.thrift.configuration.SingerConfig;
@@ -716,6 +718,15 @@ public class LogStreamManager implements PodWatcher {
           // which is dependent on LogStream name
           clone.setName(podUid + POD_LOGNAME_SEPARATOR + clone.getName());
           singerLog = new SingerLog(clone, podUid);
+          // Add pod metadata to the singer log
+          Map<String, String> podMetadata = PodMetadataTracker.getInstance().getPodMetadata(podUid);
+          if (podMetadata != null) {
+            LOG.info("Initializing pod metadata {} for pod: {}", podMetadata, podUid);
+            OpenTsdbMetricConverter.incr("pod_metadata_enabled", 1, "pod=" + podUid, "log=" + clone.getName());
+            for (Map.Entry<String, String> entry : podMetadata.entrySet()) {
+              singerLog.addMetadata(entry.getKey(), SingerUtils.getByteBuf(entry.getValue()));
+            }
+          }
 
           if (!singerLogPaths.containsKey(logPathKey)) {
             singerLogPaths.put(logPathKey, new HashSet<>());
