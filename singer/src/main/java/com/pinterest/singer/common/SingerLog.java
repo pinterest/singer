@@ -19,6 +19,11 @@ import com.pinterest.singer.thrift.configuration.SingerLogConfig;
 
 import com.google.common.base.Preconditions;
 
+import java.nio.ByteBuffer;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+
 /**
  * Represent a log which can have multiple LogStreams in it.
  * All LogStreams in a SingerLog shares the same SingerLogConfig.
@@ -28,6 +33,7 @@ public class SingerLog {
   // The config for the SingerLog.
   private final SingerLogConfig singerLogConfig;
   private String podUid;
+  private Map<String, ByteBuffer> podMetadata = new HashMap<>();
 
   public SingerLog(SingerLogConfig singerLogConfig) {
     this.singerLogConfig = Preconditions.checkNotNull(singerLogConfig);
@@ -71,5 +77,21 @@ public class SingerLog {
   
   public String getPodUid() {
     return podUid;
+  }
+
+  public void addMetadata(String key, ByteBuffer value) {
+    podMetadata.put(key, value);
+  }
+
+  public Map<String, ByteBuffer> getPodMetadata() {
+    return this.podMetadata;
+  }
+
+  public void setPodMetadata(Map<String, ByteBuffer> podMetadata) {
+    this.podMetadata = podMetadata;
+  }
+
+  public Optional<ByteBuffer> getMetadata(String key) {
+    return Optional.ofNullable(podMetadata.get(key));
   }
 }

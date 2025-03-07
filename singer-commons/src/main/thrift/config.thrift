@@ -337,6 +337,12 @@ struct KubeConfig {
   */
   6: optional string ignorePodDirectory = "";
 
+  /**
+  * List of pod metadata fields to include per Singer log, Singer will not
+  * track any pod metadata if this field is not set
+  */
+  7: optional list<string> podMetadataFields;
+
 }
 
 struct AdminConfig {

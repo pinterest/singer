@@ -89,6 +89,8 @@ public class KubeService implements Runnable {
     Preconditions.checkNotNull(kubeConfig);
     try {
       init(kubeConfig);
+      // Register here so it is the first watcher in the set
+      addWatcher(PodMetadataWatcher.getInstance());
     } catch (Exception e) {
       LOG.error("Exception while initializing KubeService", e);
       throw new RuntimeException(e);
@@ -193,7 +195,7 @@ public class KubeService implements Runnable {
         if (temp.contains("." + podName) || checkIgnoreDirectory(podName)) {
           LOG.info("Ignoring POD directory " + podName
               + " since there is a tombstone file present or has ignored directory inside");
-          // Skip adding this pod to the active podset
+          // Skip adding this pod to the active pod set
           continue;
         }
 
@@ -269,17 +271,11 @@ public class KubeService implements Runnable {
    * @throws IOException
    */
   public Set<String> fetchPodNamesFromMetadata() throws IOException {
-    LOG.debug("Attempting to make pod md request");
-    String response = SingerUtils.makeGetRequest(PODS_MD_URL);
-    LOG.debug("Received pod md response:" + response);
-    Gson gson = new Gson();
-    JsonObject obj = gson.fromJson(response, JsonObject.class);
-    LOG.debug("Finished parsing kubelet response for PODs; now extracting POD names");
+    JsonArray podList = getPodListFromKubelet();
     Set<String> podNames = new HashSet<>();
-    if (obj != null && obj.has("items")) {
-      JsonArray ary = obj.get("items").getAsJsonArray();
-      for (int i = 0; i < ary.size(); i++) {
-        JsonObject metadata = ary.get(i).getAsJsonObject().get("metadata").getAsJsonObject();
+    if (podList != null) {
+      for (int i = 0; i < podList.size(); i++) {
+        JsonObject metadata = podList.get(i).getAsJsonObject().get("metadata").getAsJsonObject();
         // pod name
         String name = metadata.get("name").getAsString();
         // to support namespace based POD directories
@@ -289,27 +285,32 @@ public class KubeService implements Runnable {
         String podUid = metadata.get("uid").getAsString();
 
         // coexist of 2 format: namespace_podname or namespace_podname_uid
-        String formatOne = namespace + "_" + name;
-        String formatTwo = namespace + "_" + name + "_" + podUid;
-        // Ignore pod if Ignore directory exists, this indicates that the pod is running its own 
-        // dedicated logging agent (dual mode)
-        if (checkIgnoreDirectory(formatOne) || checkIgnoreDirectory(formatTwo)) {
-          LOG.debug("Ignoring pod " + name + ", ignore flag found inside pod log directory");
+        String podDirectoryName = getPodDirectoryName(podLogDirectory, namespace, name, podUid);
+        // Ignore pod if Ignore directory exists, this indicates that the pod is running its own dedicated logging agent (dual mode)
+        if (checkIgnoreDirectory(podDirectoryName)) {
+          LOG.debug("Ignoring pod " + podDirectoryName + ", ignore flag found inside pod log directory");
           OpenTsdbMetricConverter.incr(SingerMetrics.PODS_IGNORED, "podname=" + name);
           continue;
         }
-        if (Files.exists(Paths.get(podLogDirectory, formatOne))) {
-          podNames.add(formatOne);
-          LOG.debug("Added format one: " + formatOne);
-        } else {
-          podNames.add(formatTwo);
-          LOG.debug("Added formate two: " + formatTwo);
-        }
+        podNames.add(podDirectoryName);
         LOG.debug("Found active POD name in JSON:" + name);
       }
     }
     LOG.debug("Pod names from kubelet:" + podNames);
     return podNames;
+  }
+
+  /**
+   * Fetch pod list from kubelet
+   *
+   * @return
+   * @throws IOException
+   */
+  public static JsonArray getPodListFromKubelet() throws IOException {
+    String response = SingerUtils.makeGetRequest(PODS_MD_URL);
+    Gson gson = new Gson();
+    JsonObject obj = gson.fromJson(response, JsonObject.class);
+    return obj != null && obj.has("items") ? obj.get("items").getAsJsonArray() : null;
   }
 
   /**
@@ -464,5 +465,14 @@ public class KubeService implements Runnable {
       return false;
     }
     return Files.exists(Paths.get(podLogDirectory, podName, ignorePodDirectory));
+  }
+
+  public static String getPodDirectoryName(String dir, String namespace, String podName, String uuid) {
+    String podFormat = namespace + "_" + podName;
+    if (Files.exists(Paths.get(dir, podFormat))) {
+      return podFormat;
+    }
+    podFormat = namespace + "_" + podName + "_" + uuid;
+    return podFormat;
   }
 }
