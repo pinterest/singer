@@ -90,7 +90,7 @@ public class KubeService implements Runnable {
     try {
       init(kubeConfig);
       // Register here so it is the first watcher in the set
-      addWatcher(PodMetadataTracker.getInstance());
+      addWatcher(PodMetadataWatcher.getInstance());
     } catch (Exception e) {
       LOG.error("Exception while initializing KubeService", e);
       throw new RuntimeException(e);

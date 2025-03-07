@@ -30,7 +30,6 @@ import java.nio.file.Files;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -192,7 +191,7 @@ public class TestKubeService {
         kubeConfig.setPodMetadataFields(
             Arrays.asList("labels:name", "namespace", "annotations:kubernetes.io/config.source"));
         KubeService kubeService = new KubeService(kubeConfig);
-        PodMetadataTracker pmdTracker = new PodMetadataTracker(kubeConfig);
+        PodMetadataWatcher pmdTracker = new PodMetadataWatcher(kubeConfig);
         kubeService.addWatcher(pmdTracker);
         for (String pod : podNames) {
             kubeService.updatePodWatchers(pod, false);

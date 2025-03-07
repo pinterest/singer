@@ -20,26 +20,26 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class PodMetadataTracker implements PodWatcher {
-  private static final Logger LOG = LoggerFactory.getLogger(PodMetadataTracker.class);
+public class PodMetadataWatcher implements PodWatcher {
+  private static final Logger LOG = LoggerFactory.getLogger(PodMetadataWatcher.class);
   private final Map<String, Map<String,String>> podMetadata = new ConcurrentHashMap<>();
   private final List<String> podMetadataFields;
   private final String podLogDirectory;
-  private static PodMetadataTracker instance;
+  private static PodMetadataWatcher instance;
 
 
-  public static PodMetadataTracker getInstance() {
+  public static PodMetadataWatcher getInstance() {
     if (instance == null) {
-      synchronized (PodMetadataTracker.class) {
+      synchronized (PodMetadataWatcher.class) {
         if (instance == null) {
-          instance = new PodMetadataTracker();
+          instance = new PodMetadataWatcher();
         }
       }
     }
     return instance;
   }
 
-  protected PodMetadataTracker() {
+  protected PodMetadataWatcher() {
     SingerConfig config = SingerSettings.getSingerConfig();
     Preconditions.checkNotNull(config);
     KubeConfig kubeConfig = config.getKubeConfig();
@@ -52,7 +52,7 @@ public class PodMetadataTracker implements PodWatcher {
   }
 
   @VisibleForTesting
-  protected PodMetadataTracker(KubeConfig kubeConfig) {
+  protected PodMetadataWatcher(KubeConfig kubeConfig) {
     Preconditions.checkNotNull(kubeConfig);
     podMetadataFields = kubeConfig.getPodMetadataFields();
     podLogDirectory = kubeConfig.getPodLogDirectory();
