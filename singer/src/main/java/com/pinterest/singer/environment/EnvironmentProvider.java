@@ -25,11 +25,14 @@ public abstract class EnvironmentProvider {
   
   public EnvironmentProvider() {
     environment.setDeploymentStage(getDeploymentStage());
+    environment.setAccountId(getAccountId());
     environment.setLocality(getLocality());
     environment.setHostname(getHostname());
   }
   
   protected abstract String getLocality();
+
+  protected abstract String getAccountId();
 
   protected abstract String getDeploymentStage();
   

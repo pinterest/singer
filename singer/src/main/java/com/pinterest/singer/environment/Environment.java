@@ -30,6 +30,8 @@ public class Environment {
 
   public static final String LOCALITY_NOT_AVAILABLE = "n/a";
   public static final String DEFAULT_HOSTNAME = SingerUtils.getHostname();
+  // Useful to track when running in cloud environments
+  private String accountId;
   private String locality = LOCALITY_NOT_AVAILABLE;
   private String deploymentStage;
   private String hostname = DEFAULT_HOSTNAME;
@@ -46,6 +48,20 @@ public class Environment {
    */
   public void setLocality(String locality) {
     this.locality = locality;
+  }
+
+  /**
+   * @param accountId the accountId to set
+   */
+  public void setAccountId(String accountId) {
+    this.accountId = accountId;
+  }
+
+  /**
+   * @return the accountId
+   */
+  public String getAccountId() {
+    return accountId;
   }
 
   /**
@@ -82,7 +98,7 @@ public class Environment {
   @Override
   public String toString() {
     return "Environment [locality=" + locality + ", deploymentStage=" + deploymentStage
-        + ", hostname=" + hostname + "]";
+        + ", hostname=" + hostname + ", accountId=" + accountId + "]";
   }
 
 }
