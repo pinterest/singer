@@ -16,6 +16,7 @@
 package com.pinterest.singer.reader;
 
 import com.pinterest.singer.common.LogStream;
+import com.pinterest.singer.common.SingerSettings;
 import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
 import com.pinterest.singer.thrift.LogFile;
 import com.pinterest.singer.thrift.LogMessage;
@@ -110,6 +111,8 @@ public class ThriftLogFileReader implements LogFileReader {
       headers.put("hostname", SingerUtils.getByteBuf(hostname));
       headers.put("file", SingerUtils.getByteBuf(path));
       headers.put("availabilityZone", SingerUtils.getByteBuf(availabilityZone));
+      headers.put("accountId",
+          SingerUtils.getByteBuf(SingerSettings.getEnvironment().getAccountId()));
       Map<String, ByteBuffer> logMetadata = logStream.getSingerLog().getPodMetadata();
       if (logMetadata != null && !logMetadata.isEmpty()) {
         headers.putAll(logMetadata);

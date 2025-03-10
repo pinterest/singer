@@ -23,6 +23,7 @@ public class EnvVariableBasedEnvironmentProvider extends EnvironmentProvider {
 
   private static final String DEPLOYMENT_STAGE = "DEPLOYMENT_STAGE";
   private static final String LOCALITY = "LOCALITY";
+  private static final String ACCOUNT_ID = "ACCOUNT_ID";
 
   @Override
   protected String getLocality() {
@@ -32,6 +33,12 @@ public class EnvVariableBasedEnvironmentProvider extends EnvironmentProvider {
     } else {
       return Environment.LOCALITY_NOT_AVAILABLE;
     }
+  }
+
+  @Override
+  protected String getAccountId() {
+    String accountId = System.getenv(ACCOUNT_ID);
+    return accountId != null ? accountId : "n/a";
   }
 
   @Override
