@@ -173,12 +173,13 @@ public class ThriftLogFileReaderTest extends SingerTestBase {
       while (message != null) {
         messagesRead.add(message);
         assertNotNull(message.getInjectedHeaders());
-        assertEquals(1 + 3, message.getInjectedHeaders().size());
+        assertEquals(1 + 4, message.getInjectedHeaders().size());
         assertTrue(message.getInjectedHeaders().containsKey("test"));
         assertTrue(Arrays.equals("test_value".getBytes(), message.getInjectedHeaders().get("test").array()));
         assertTrue(message.getInjectedHeaders().containsKey("hostname"));
         assertTrue(message.getInjectedHeaders().containsKey("file"));
         assertTrue(message.getInjectedHeaders().containsKey("availabilityZone"));
+        assertTrue(message.getInjectedHeaders().containsKey("accountId"));
         message = reader.readLogMessageAndPosition();
       }
     } finally {
