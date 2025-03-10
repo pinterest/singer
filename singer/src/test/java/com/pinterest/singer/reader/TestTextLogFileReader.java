@@ -34,6 +34,7 @@ import com.google.common.collect.ImmutableMap;
 import com.pinterest.singer.SingerTestBase;
 import com.pinterest.singer.common.LogStream;
 import com.pinterest.singer.common.SingerLog;
+import com.pinterest.singer.common.SingerSettings;
 import com.pinterest.singer.thrift.LogFile;
 import com.pinterest.singer.thrift.LogMessageAndPosition;
 import com.pinterest.singer.thrift.configuration.MessageTransformerConfig;
@@ -203,10 +204,11 @@ public class TestTextLogFileReader extends SingerTestBase {
         new HashMap<>(ImmutableMap.of("test", ByteBuffer.wrap("value".getBytes()))), null);
     for (int i = 0; i < 100; i = i + 2) {
       LogMessageAndPosition log = reader.readLogMessageAndPosition();
-      assertEquals(4, log.getInjectedHeadersSize());
+      assertEquals(5, log.getInjectedHeadersSize());
       assertTrue(log.getInjectedHeaders().containsKey("hostname"));
       assertTrue(log.getInjectedHeaders().containsKey("file"));
       assertTrue(log.getInjectedHeaders().containsKey("availabilityZone"));
+      assertTrue(log.getInjectedHeaders().containsKey("accountId"));
       assertTrue(log.getInjectedHeaders().containsKey("test"));
       assertEquals(dataWritten.get(i) + dataWritten.get(i + 1).trim(),
           new String(log.getLogMessage().getMessage()));
