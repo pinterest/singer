@@ -34,7 +34,6 @@ import com.google.common.collect.ImmutableMap;
 import com.pinterest.singer.SingerTestBase;
 import com.pinterest.singer.common.LogStream;
 import com.pinterest.singer.common.SingerLog;
-import com.pinterest.singer.common.SingerSettings;
 import com.pinterest.singer.thrift.LogFile;
 import com.pinterest.singer.thrift.LogMessageAndPosition;
 import com.pinterest.singer.thrift.configuration.MessageTransformerConfig;
