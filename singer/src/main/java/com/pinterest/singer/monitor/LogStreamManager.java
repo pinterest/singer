@@ -722,7 +722,6 @@ public class LogStreamManager implements PodWatcher {
           Map<String, String> podMetadata = PodMetadataWatcher.getInstance().getPodMetadata(podUid);
           if (podMetadata != null) {
             LOG.info("Initializing pod metadata {} for pod: {}", podMetadata, podUid);
-            OpenTsdbMetricConverter.incr("pod_metadata_enabled", 1, "pod=" + podUid, "log=" + clone.getName());
             for (Map.Entry<String, String> entry : podMetadata.entrySet()) {
               singerLog.addMetadata(entry.getKey(), SingerUtils.getByteBuf(entry.getValue()));
             }
