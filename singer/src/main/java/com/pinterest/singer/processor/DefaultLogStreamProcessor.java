@@ -467,7 +467,7 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
    * @return
    */
   static String getWatermarkFilename(LogStream logStream) {
-    String path = logStream.getSingerLog().getSingerLogConfig().getLogDir();
+    String path = logStream.getLogDir();
     // Get the globally unique watermark file name
     String watermarkFilename = "." + logStream.getSingerLog().getLogName()
         + "." + logStream.getLogStreamName();

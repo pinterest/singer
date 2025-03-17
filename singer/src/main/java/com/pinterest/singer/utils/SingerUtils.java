@@ -370,6 +370,88 @@ public class SingerUtils {
       }
     }
   }
+
+  /**
+   * Helper function to turn a list of directories as a String into an ArrayList of String directories ignoring
+   * whitespace as well
+   * ie) "/dir1, /dir2,   /dir3" -> ["/dir1", "/dir2", "/dir3"]
+   * @param input
+   * @return ArrayList of directories
+   * */
+  public static ArrayList<String> splitString(String input) {
+    input = input.replaceAll("\\s+", "");
+    String[] splitArray = input.split(",\\s*");
+    return new ArrayList<>(Arrays.asList(splitArray));
+  }
+
+
+  /**
+   * Helper function to concatenate a list of directories with a given prefix
+   * ie) ["/dir1", "/dir2", "/dir3"], "file" -> ["/dir1/file", "/dir2/file", "/dir3/file"]
+   * @param directories
+   * @param fileNamePrefix
+   * @return ArrayList of directories
+   * */
+  public static ArrayList<String> concatenateDirectories(ArrayList<String> directories, String fileNamePrefix) {
+    ArrayList<String> concatenatedFileNames = new ArrayList<>();
+    for (String directory : directories) {
+      String concatenatedFileName = directory + "/" + fileNamePrefix;
+      concatenatedFileNames.add(concatenatedFileName);
+    }
+    return concatenatedFileNames;
+  }
+
+  /**
+   * Helper function to extract the directory path from a file path
+   */
+  public static String extractDirectoryPath(String filePath) {
+    // Check if the filePath ends with a file name
+    int index = filePath.lastIndexOf("/");
+    if (index >= 0) {
+      // Extract the directory path from the filePath
+      String directoryPath = filePath.substring(0, index);
+      return directoryPath;
+    } else {
+      return null; // No directory path found
+    }
+  }
+
+
+  /**
+   * Helper function to see if all directories exist
+   * */
+  public static boolean allDirectoriesExist(ArrayList<String> directories) {
+    for (String directory : directories) {
+      File dir = new File(directory);
+      if (!dir.exists()) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+
+  /**
+   * Function to modify the file path by removing `/var/logs` and adding the podUid.
+   *
+   * @param file The file object with the original path.
+   * @param podUid The podUid string.
+   * @return A modified path string.
+   */
+  public static String getModifiedFilePath(File file, String podUid) {
+    String originalPath = file.getAbsolutePath();
+    String targetPrefix = "/var/logs";
+
+    // Check if the original path ends with the target prefix
+    if (originalPath.endsWith(targetPrefix)) {
+      // Remove the target prefix
+      originalPath = originalPath.substring(0, originalPath.length() - targetPrefix.length());
+    }
+
+    // Return the modified path
+    return originalPath + podUid + "/";
+  }
+
   @VisibleForTesting
   public static void setHostname(String hostname, String regex) {
     HOSTNAME = hostname;

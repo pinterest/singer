@@ -65,6 +65,7 @@ import com.pinterest.singer.thrift.LogFile;
 import com.pinterest.singer.thrift.configuration.FileNameMatchMode;
 import com.pinterest.singer.thrift.configuration.SingerConfig;
 import com.pinterest.singer.thrift.configuration.SingerLogConfig;
+import com.pinterest.singer.utils.LogConfigUtils;
 import com.pinterest.singer.utils.SingerUtils;
 import com.twitter.ostrich.stats.Stats;
 
@@ -198,15 +199,20 @@ public class LogStreamManager implements PodWatcher {
    * Creates a new LogStream object from a file and this configuration.
    * @return The LogStream object that contains this file
    */
-  public static LogStream createNewLogStream(SingerLog singerLog, String fileName) {
-    return LogStreamManager.getInstance().createNewLogStreamInternal(singerLog, fileName);
+  @VisibleForTesting
+  public static LogStream createNewLogStream(SingerLog singerLog, Path fullAddedPath) {
+    return LogStreamManager.getInstance().createNewLogStreamInternal(singerLog, fullAddedPath);
   }
 
-  private LogStream createNewLogStreamInternal(SingerLog singerLog, String fileName) {
-    LogStream logStream = new LogStream(singerLog, fileName);
-    Path logDir = new File(singerLog.getSingerLogConfig().getLogDir()).toPath();
-    registerLogStreamInDirLogStreamMap(logDir, logStream);
-    LOG.debug("Created and registered new logstream:" + logDir);
+  private LogStream createNewLogStreamInternal(SingerLog singerLog, Path fullAddedPath) {
+    LogStream logStream = new LogStream(singerLog, fullAddedPath);
+    ArrayList<String> directories = SingerUtils.splitString(singerLog.getSingerLogConfig().getLogDir());
+    Set<String> allRegexPaths = LogConfigUtils.findDirectories(directories);
+    for (String directory : allRegexPaths) {
+      Path logDir = new File(directory).toPath();
+      registerLogStreamInDirLogStreamMap(logDir, logStream);
+      LOG.debug("Created and registered new logstream:" + logDir);
+    }
     return logStream;
   }
 
@@ -232,6 +238,7 @@ public class LogStreamManager implements PodWatcher {
     LogStreamManager.getInstance().initializeLogStreamsInternal();
   }
 
+  @VisibleForTesting
   public static void initializeLogStreams(SingerLog singerLog) throws SingerLogException {
     // removed file system monitor initialization check
     LogStreamManager.getInstance().initializeLogStreamsInternal(NON_KUBERNETES_POD_ID, singerLog);
@@ -255,15 +262,21 @@ public class LogStreamManager implements PodWatcher {
     List<SingerLogConfig> logConfigs = SingerSettings.getSingerConfig().getLogConfigs();
 
     if (logConfigs!=null) {
-       for (SingerLogConfig singerLogConfig : logConfigs) {
-          String logPathKey = singerLogConfig.getLogDir();
-          SingerLog singerLog = new SingerLog(singerLogConfig);
+      for (SingerLogConfig singerLogConfig : logConfigs) {
+        ArrayList<String> directories = SingerUtils.splitString(singerLogConfig.getLogDir());
+        SingerLog singerLog = new SingerLog(singerLogConfig);
+
+        // as normal, add all directories to singerLogPaths
+        Set<String> allRegexPaths = LogConfigUtils.findDirectories(directories);
+        for (String logPathKey : allRegexPaths) {
           if (!singerLogPaths.containsKey(logPathKey)) {
             singerLogPaths.put(logPathKey, new HashSet<>());
           }
           singerLogPaths.get(logPathKey).add(singerLog);
-          initializeLogStreamsInternal(NON_KUBERNETES_POD_ID, singerLog);
         }
+        // initialize the log streams
+        initializeLogStreamsInternal(NON_KUBERNETES_POD_ID, singerLog);
+      }
       LOG.info("set singerLogsWithoutDir and start MissingDirChecker thread.");
       missingDirChecker.setSingerLogsWithoutDir(singerLogsWithoutDir);
       missingDirChecker.start();
@@ -283,43 +296,54 @@ public class LogStreamManager implements PodWatcher {
   private void initializeLogStreamsInternal(String podUid, SingerLog singerLog) throws SingerLogException {
     try {
       SingerLogConfig singerLogConfig = singerLog.getSingerLogConfig();
-      String logDir = singerLogConfig.getLogDir();
-      Path logDirPath = SingerUtils.getPath(logDir);
-
-      SingerSettings.getOrCreateFileSystemMonitor(podUid).registerPath(logDirPath);
-      LOG.info("LogDir: {}", logDir);
-
-      File dir = new File(logDir);
-      if (dir.exists()) {
-        String regexStr = singerLogConfig.getLogStreamRegex();
-        LOG.info("Attempting to match files under {} with filter {}", logDirPath.toFile().getAbsolutePath(), regexStr);
-        // @variable files contains files for a list of log streams. Each file represents one stream
-        FileFilter regexFileFilter = new RegexFileFilter(regexStr);;
-
-        // Add another filter on top of the regex filter to exclude watermark files
-        FileFilter excludeDotFilesFilter = file -> {
-          // Exclude files that start with a dot (mostly want to ignore watermark files)
-          if (file.getName().startsWith(".")) {
-            return false;
-          }
-          // Apply the regex filter
-          return regexFileFilter.accept(file);
-        };
-        File[] files = dir.listFiles(excludeDotFilesFilter);
-
-        LOG.info(files.length + " files matches the regex " + regexStr);
-        if (singerLogConfig.getFilenameMatchMode() == FileNameMatchMode.EXACT) {
-          for (File file : files) {
-            LogStream stream = new LogStream(singerLog, FilenameUtils.getName(file.getPath()));
-            this.registerLogStreamInDirLogStreamMap(logDirPath, stream);
-            long inode = SingerUtils.getFileInode(file.getAbsolutePath());
-            stream.append(new LogFile(inode), file.getPath());
-          }
-        } else if (singerLogConfig.getFilenameMatchMode() == FileNameMatchMode.PREFIX) {
-          createPrefixBasedLogStreams(singerLog, singerLogConfig, dir, files, logDirPath);
-        }
-      } else if (NON_KUBERNETES_POD_ID.equals(podUid)) {
+      List<String> directoriesFromConfig = SingerUtils.splitString(singerLogConfig.getLogDir());
+      for (String dir : directoriesFromConfig) {
+        if (LogConfigUtils.WILDCARD_SUPPORTED_CHARS.matcher(dir).find()) {
+          LOG.info("SingerLog {} contains wildcard directories, adding it to MissingDirChecker for dynamic discovery.", singerLog);
           singerLogsWithoutDir.putIfAbsent(singerLog, podUid);
+          break;
+        }
+      }
+
+      Set<String>
+          directories =
+          LogConfigUtils.findDirectories(SingerUtils.splitString(singerLogConfig.getLogDir()));
+
+      for (String logDir : directories) {
+        Path logDirPath = SingerUtils.getPath(logDir);
+        SingerSettings.getOrCreateFileSystemMonitor(podUid).registerPath(logDirPath); // register the watch key for this path
+        File dir = new File(logDir);
+        if (dir.exists()) {
+          String regexStr = singerLogConfig.getLogStreamRegex();
+          LOG.info("Attempting to match files under {} with filter {}", logDirPath.toFile().getAbsolutePath(), regexStr);
+          // @variable files contains files for a list of log streams. Each file represents one stream
+          FileFilter regexFileFilter = new RegexFileFilter(regexStr);;
+
+          // Add another filter on top of the regex filter to exclude watermark files
+          FileFilter excludeDotFilesFilter = file -> {
+            // Exclude files that start with a dot (mostly want to ignore watermark files)
+            if (file.getName().startsWith(".")) {
+              return false;
+            }
+            // Apply the regex filter
+            return regexFileFilter.accept(file);
+          };
+          File[] files = dir.listFiles(excludeDotFilesFilter);
+
+          LOG.info(files.length + " files matches the regex " + regexStr);
+          if (singerLogConfig.getFilenameMatchMode() == FileNameMatchMode.EXACT) {
+            for (File file : files) {
+              LogStream stream = new LogStream(singerLog, FilenameUtils.getName(file.getPath()));
+              this.registerLogStreamInDirLogStreamMap(logDirPath, stream);
+              long inode = SingerUtils.getFileInode(file.getAbsolutePath());
+              stream.append(new LogFile(inode), file.getPath());
+            }
+          } else if (singerLogConfig.getFilenameMatchMode() == FileNameMatchMode.PREFIX) {
+            createPrefixBasedLogStreams(singerLog, singerLogConfig, dir, files, logDirPath);
+          }
+        } else if (NON_KUBERNETES_POD_ID.equals(podUid)) {
+            singerLogsWithoutDir.putIfAbsent(singerLog, podUid);
+        }
       }
     } catch (NoSuchFileException e) {
       Stats.incr(SingerMetrics.NO_SUCH_FILE_EXCEPTION);
@@ -339,7 +363,7 @@ public class LogStreamManager implements PodWatcher {
    * @throws IOException
    */
   public LogStream createLogStream(SingerLog singerLog, Path fullAddedPath) throws IOException {
-    LogStream logStream = createNewLogStreamInternal(singerLog, fullAddedPath.toFile().getName());
+    LogStream logStream = createNewLogStreamInternal(singerLog, fullAddedPath);
     long inode = SingerUtils.getFileInode(fullAddedPath);
     logStream.append(new LogFile(inode), fullAddedPath.toString());
     return logStream;
@@ -375,7 +399,7 @@ public class LogStreamManager implements PodWatcher {
     Map<String, ConcurrentHashMap<String, Long>> nameToFileInodes = new HashMap<>();
 
     for (File file : files) {
-      LogStream stream = new LogStream(singerLog, file.getName());
+      LogStream stream = new LogStream(singerLog, new File(file.getAbsolutePath()).toPath());
       this.registerLogStreamInDirLogStreamMap(logDirPath, stream);
       nameToLogStream.put(file.getName(), stream);
       nameToFileInodes.put(file.getName(), new ConcurrentHashMap<>());
@@ -698,46 +722,44 @@ public class LogStreamManager implements PodWatcher {
    * @throws SingerLogException
    */
   public void initializeLogStreamForPod(String podUid, Collection<SingerLogConfig> configs) throws SingerLogException {
-      // initialize logstreams for the supplied configs only
-      for(SingerLogConfig singerLogConfig : configs) {
-          String logDir = singerLogConfig.getLogDir();
+    // initialize logstreams for the supplied configs only
+    for(SingerLogConfig singerLogConfig : configs) {
+      ArrayList<String> directories = SingerUtils.splitString(singerLogConfig.getLogDir());
+      String logPathKeys = directories.stream()
+          .map(dir -> new File(podLogDirectory + "/" + podUid + "/" + dir).getAbsolutePath())
+          .collect(Collectors.joining(","));
+      SingerLog singerLog = null;
 
-          // treat kubernetes special
-          String logPathKey =
-              new File(podLogDirectory + "/" + podUid + "/" + logDir).getAbsolutePath();
-          // note this key is actually an absolute path; if the path key above is not a real path, processing will not start for it
-          LOG.info("For POD:" + podUid + " configuring logpath:" + logDir + " with key:" + logPathKey);
+      // clone the log config and override the log directory from relative to absolute path
+      SingerLogConfig clone = singerLogConfig.deepCopy();
+      clone.setLogDir(logPathKeys);
+      // logstreams from two different pods were getting dropped
+      // since the DefaultLogMonitor de-duplicates this using hashcode
+      // which is dependent on LogStream name
+      clone.setName(podUid + POD_LOGNAME_SEPARATOR + clone.getName());
+      singerLog = new SingerLog(clone, podUid);
 
-          SingerLog singerLog = null;
-
-          // clone the log config and override the log directory from relative to absolute path
-          SingerLogConfig clone = singerLogConfig.deepCopy();
-          clone.setLogDir(logPathKey);
-          // logstreams from two different pods were getting dropped
-          // since the DefaultLogMonitor de-duplicates this using hashcode
-          // which is dependent on LogStream name
-          clone.setName(podUid + POD_LOGNAME_SEPARATOR + clone.getName());
-          singerLog = new SingerLog(clone, podUid);
-          // Add pod metadata to the singer log
-          Map<String, String> podMetadata = PodMetadataWatcher.getInstance().getPodMetadata(podUid);
-          if (podMetadata != null) {
-            LOG.info("Initializing pod metadata {} for pod: {}", podMetadata, podUid);
-            for (Map.Entry<String, String> entry : podMetadata.entrySet()) {
-              singerLog.addMetadata(entry.getKey(), SingerUtils.getByteBuf(entry.getValue()));
-            }
-          }
-
-          if (!singerLogPaths.containsKey(logPathKey)) {
-            singerLogPaths.put(logPathKey, new HashSet<>());
-          }
-
-          boolean added = singerLogPaths.get(logPathKey).add(singerLog);
-          // we check to avoid duplicate start
-          if(added) {
-              LOG.info("New singerlog " + singerLog.getSingerLogConfig().getLogDir() + " for pod:" + podUid);
-              initializeLogStreamsInternal(podUid, singerLog);
-          }
+      Map<String, String> podMetadata = PodMetadataWatcher.getInstance().getPodMetadata(podUid);
+      if (podMetadata != null) {
+        LOG.info("Initializing pod metadata {} for pod: {}", podMetadata, podUid);
+        OpenTsdbMetricConverter.incr("pod_metadata_enabled", 1, "pod=" + podUid, "log=" + clone.getName());
+        for (Map.Entry<String, String> entry : podMetadata.entrySet()) {
+          singerLog.addMetadata(entry.getKey(), SingerUtils.getByteBuf(entry.getValue()));
+        }
       }
+
+      for (String logPathKey : logPathKeys.split(",")) {
+        if (!singerLogPaths.containsKey(logPathKey)) {
+          singerLogPaths.put(logPathKey, new HashSet<>());
+        }
+        boolean added = singerLogPaths.get(logPathKey).add(singerLog);
+        // we check to avoid duplicate start
+        if (added) {
+          LOG.info("New singerlog " + singerLog.getSingerLogConfig().getLogDir() + " for pod:" + podUid);
+          initializeLogStreamsInternal(podUid, singerLog);
+        }
+      }
+    }
   }
 
   /**

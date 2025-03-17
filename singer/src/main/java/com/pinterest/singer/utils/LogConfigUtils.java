@@ -70,7 +70,12 @@ import com.twitter.util.Function;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Collections;
 import java.util.HashMap;
 import org.apache.commons.configuration.AbstractConfiguration;
@@ -160,6 +165,8 @@ public class LogConfigUtils {
   // Minimum value that can be set for S3WriterConfig.maxRetries
   private static final int MIN_MAX_RETRIES = 5;
   public static boolean SHADOW_MODE_ENABLED;
+  // this is used to check if the wildcard characters are present in dir config provided by user
+  public static final Pattern WILDCARD_SUPPORTED_CHARS = Pattern.compile("[*?\\]\\[{}]");
 
   private LogConfigUtils() {
   }
@@ -462,6 +469,74 @@ public class LogConfigUtils {
     return restartConfig;
   }
 
+  /**
+   * Finds full-path directories matching the given list of paths that may include wildcards
+   *
+   * @param pathsWithWildcards List of directory paths that may include wildcard characters  (e.g. /mnt/thrift_logger/*)
+   * @return A set of fully resolved directory paths matching any wildcard expressions.
+   *      If a path does not contain wildcards, it will be included in the result directly.
+   * @throws IllegalArgumentException If any path is not a valid directory path.
+   *
+   * For example, given the directory structure:
+   *     /var/logs/app1/
+   *     /var/logs/app2/
+   *     /mnt/logs/tmp1/
+   *
+   * Calling findDirectories(Arrays.asList("/var/logs/*", /mnt/thrift_logs/*")) will return:
+   * Set { "/var/logs/app1/", "/var/logs/app2/", "/mnt/logs/tmp1/" }
+   */
+  public static Set<String> findDirectories(List<String> pathsWithWildcards) {
+    Set<String> result = new HashSet<>();
+    for (String pathAndWildcard : pathsWithWildcards) {
+      if (!WILDCARD_SUPPORTED_CHARS.matcher(pathAndWildcard).find()) {
+        result.add(pathAndWildcard);
+      } else {
+        // Compute base path for wildcard directory matching
+        String [] dirParts = pathAndWildcard.split("/");
+        StringBuilder basePath = new StringBuilder();
+        for (String part : dirParts) {
+          if (WILDCARD_SUPPORTED_CHARS.matcher(part).find()) {
+            break;
+          }
+          basePath.append(part).append("/");
+        }
+        result.addAll(wildcardDirectoryMatcher(pathAndWildcard, Paths.get(basePath.toString())));
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Finds directories matching the given wildcard pattern within the specified base path.
+   * Uses Files.walkFileTree to traverse the directory tree and match against the wildcard pattern.
+   *
+   * @param pathAndWildcard The path with wildcard to match against.
+   * @param basePath The base directory to start searching from.
+   * @return A set of matching directory paths.
+   */
+  private static Set<String> wildcardDirectoryMatcher(String pathAndWildcard, Path basePath) {
+    Set<String> matchingDirectories = new HashSet<>();
+    if (basePath == null || !Files.exists(basePath)) {
+      return matchingDirectories;
+    }
+
+    try {
+      Files.walkFileTree(basePath, new SimpleFileVisitor<Path>() {
+        @Override
+        public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
+          File directory = dir.toFile();
+          if (directory.isDirectory() && FilenameUtils.wildcardMatch(directory.getAbsolutePath(), pathAndWildcard)) {
+            matchingDirectories.add(directory.getPath());
+          }
+          return FileVisitResult.CONTINUE;
+        }
+      });
+    } catch (IOException e) {
+      LOG.error("Error while discovering directories in file tree for " + pathAndWildcard, e);
+    }
+    return matchingDirectories;
+  }
+
   public static SingerConfig parseFileBasedSingerConfig(String singerConfigFile) throws ConfigurationException {
     AbstractConfiguration singerConfiguration = new SubsetConfiguration(
         new PropertiesConfiguration(singerConfigFile), SingerConfigDef.SINGER_CONFIGURATION_PREFIX);
@@ -513,7 +588,26 @@ public class LogConfigUtils {
 
     String local_dir = null;
     if (logConfiguration.containsKey("logDir")) {
-      local_dir = logConfiguration.getString("logDir");
+      // Retrieve the list of strings associated with the key
+      List<Object> list = logConfiguration.getList("logDir");
+
+      // Optionally, convert the List<Object> to List<String> (Apache Commons Configuration
+      // can store any type of object, so casting may be necessary)
+      List<String> stringList = list.stream()
+          .map(Object::toString)
+          .collect(Collectors.toList());
+
+      for (int i = 0; i < stringList.size(); i++) {
+        String dir = stringList.get(i);
+        if (dir.endsWith("/")) {
+          stringList.set(i, dir.substring(0, dir.length() - 1));
+        }
+      }
+
+      LOG.info("Found directories for logDir: {}", stringList);
+      List<String> sortedPaths = new ArrayList<>(stringList);
+      Collections.sort(sortedPaths); // Sort the list
+      local_dir = String.join(",", sortedPaths);
     } else if (logConfiguration.containsKey("local_dir")) {
       local_dir = logConfiguration.getString("local_dir");
     } else {

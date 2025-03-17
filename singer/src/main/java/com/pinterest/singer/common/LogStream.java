@@ -40,6 +40,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -94,7 +95,7 @@ public class LogStream {
 
   // The descriptor of the LogStream which consists of SingleLog name and LogStream name.
   // It is globally unique descriptor of the LogStream.
-  private final String logStreamDescriptor;
+  private String logStreamDescriptor;
 
   private Object logFilesInfoLock = new Object();
 
@@ -117,7 +118,24 @@ public class LogStream {
 
   private long lastCompleteCycleTime;
 
+  // the directory that this logStream pertains to
+  private String dir;
+
   private FileNameMatchMode fileNameMatchMode;
+
+  /**
+   * New constructor if there are multiple directories in a config because we need to know the directory through the
+   * full added path to derive the directory, we can no longer use the log config to derive the directory
+   *
+   * Example full added path: "/var/log/singer/singer.log.0"
+   * With the Multi-directory feature, the directory can be "/var/log/*" and the above full added path can be used.
+   * */
+  public LogStream(SingerLog singerLog, Path fullAddedPath) {
+    this(singerLog, fullAddedPath.toFile().getName());
+    this.dir = SingerUtils.extractDirectoryPath(fullAddedPath.toString());
+    this.logStreamDescriptor = String.format("%s:%s:%s", singerLog.getLogName(), fileNamePrefix, this.dir);
+    this.fullPathPrefix = FilenameUtils.concat(dir, fileNamePrefix);
+  }
 
   public LogStream(SingerLog singerLog, String fileNamePrefix) {
     Preconditions.checkArgument(!Strings.isNullOrEmpty(fileNamePrefix));
@@ -129,7 +147,8 @@ public class LogStream {
     this.logFilePathsIndex = new HashMap<>();
     this.lastStreamModificationTime = -1L;
 
-    String dir = this.singerLog.getSingerLogConfig().getLogDir();
+    this.dir = this.singerLog.getSingerLogConfig().getLogDir();
+    this.logStreamDescriptor = String.format("%s:%s:%s", singerLog.getLogName(), fileNamePrefix, this.dir);
     this.fileNameMatchMode = singerLog.getSingerLogConfig().getFilenameMatchMode();
     this.fileNamePrefix = fileNamePrefix;
     this.fullPathPrefix = FilenameUtils.concat(dir, fileNamePrefix);
@@ -147,7 +166,7 @@ public class LogStream {
   public void initialize() throws IOException {
     SingerLogConfig singerLogConfig = singerLog.getSingerLogConfig();
     String regexStr = fileNamePrefix;
-    File logDir = new File(singerLogConfig.getLogDir());
+    File logDir = new File(dir);
 
     if (singerLogConfig.getFilenameMatchMode() == FileNameMatchMode.PREFIX) {
       regexStr += ".*";
@@ -283,7 +302,7 @@ public class LogStream {
   }
 
   public String getLogDir() {
-    return this.singerLog.getSingerLogConfig().getLogDir();
+    return this.dir;
   }
 
   /**

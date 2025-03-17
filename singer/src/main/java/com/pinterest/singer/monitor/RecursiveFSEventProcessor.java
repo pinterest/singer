@@ -21,9 +21,12 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.StandardWatchEventKinds;
 import java.nio.file.WatchEvent;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.SortedMap;
+import java.util.Map;
 
+import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -146,8 +149,17 @@ public class RecursiveFSEventProcessor implements Runnable {
     String logConfigKey = extractRelativeLogPathFromAbsoluteEventPath(
         SingerSettings.getSingerConfig().getKubeConfig().getPodLogDirectory(), path, podUid);
 
-    Collection<SingerLogConfig> collection = SingerSettings.getLogConfigMap().get(logConfigKey);
-    if (collection != null) {
+    int directoryDepth = logConfigKey.split("/").length - 1;
+    Collection<SingerLogConfig> collection = new ArrayList<>();
+    for (Map.Entry<Pair<Integer, String>, Collection<SingerLogConfig>> entry : SingerSettings.getLogConfigMap().entrySet()) {
+      if (entry.getKey().getLeft() == directoryDepth && FilenameUtils.wildcardMatch(logConfigKey,
+          entry.getKey().getRight())) {
+        collection = entry.getValue();
+        break;
+      }
+    }
+
+    if (!collection.isEmpty()) {
       LOG.info("Found log config collection for pod:" + podUid + " and directory:" + path + " configsize:"
           + collection.size());
       try {
@@ -159,13 +171,9 @@ public class RecursiveFSEventProcessor implements Runnable {
       LOG.debug("No matching configurations found for directory");
     }
 
-    // Check if we should register recursive watchers
-    SortedMap<String, Collection<SingerLogConfig>> subMap = SingerSettings.getLogConfigMap().subMap(logConfigKey,
-        logConfigKey + "/" + Character.MAX_VALUE);
-
     // only register new watchers if there are any log configurations for it's
     // subdirectories
-    if (subMap != null && subMap.size() > 0 && !file.isFile()) {
+    if (directoryDepth <= SingerSettings.getLogConfigMap().lastKey().getLeft()) {
       // register for recursive watch if this event wasn't for a file
       LOG.info("Registering recursive watch for path:" + path);
       try {
@@ -177,8 +185,8 @@ public class RecursiveFSEventProcessor implements Runnable {
       // directories
       listDirectoriesAndCallEvaluate(path, podUid);
     } else {
-      LOG.warn("Ignoring path from recursive watch:" + path + " logconfigspaths:" + SingerSettings.getLogConfigMap()
-          .keySet());
+      LOG.warn("Reached max directory depth for pod:" + podUid + " path:" + path + " depth:"
+          + SingerSettings.getLogConfigMap().lastKey().getLeft());
     }
   }
 
