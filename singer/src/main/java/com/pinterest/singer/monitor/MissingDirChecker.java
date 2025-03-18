@@ -19,14 +19,19 @@ import com.pinterest.singer.common.SingerLog;
 import com.pinterest.singer.common.SingerMetrics;
 import com.pinterest.singer.common.errors.SingerLogException;
 import com.pinterest.singer.thrift.configuration.SingerLogConfig;
+import com.pinterest.singer.utils.LogConfigUtils;
+import com.pinterest.singer.utils.SingerUtils;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.twitter.ostrich.stats.Stats;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.io.File;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -77,8 +82,8 @@ public class MissingDirChecker implements Runnable {
   public void run() {
     LOG.info("[{}] is checking missing directories if any...", Thread.currentThread().getName());
     try {
-      while (!cancelled.get() && singerLogsWithoutDir != null && singerLogsWithoutDir.size() >0) {
-        LOG.info("[{}] found {} singerLogs without directory",
+      while (!cancelled.get() && singerLogsWithoutDir != null && !singerLogsWithoutDir.isEmpty()) {
+        LOG.info("[{}] Checking missing directories for {} SingerLogs.",
             Thread.currentThread().getName(), singerLogsWithoutDir.size());
         Iterator<Map.Entry<SingerLog, String>> iterator = singerLogsWithoutDir.entrySet().iterator();
         while (iterator.hasNext()) {
@@ -86,20 +91,39 @@ public class MissingDirChecker implements Runnable {
           SingerLog singerLog = entry.getKey();
           String podUid = entry.getValue();
           SingerLogConfig singerLogConfig = singerLog.getSingerLogConfig();
-          String logDir = singerLogConfig.getLogDir();
-          File dir = new File(logDir);
-          // if dir has been created, method initializeLogStreams will be called for this SingerLog.
-          // This SingerLog will be removed once method call throws no exception.
-          if (dir.exists()) {
-            try {
-              LogStreamManager.initializeLogStreams(singerLog, podUid);
-              iterator.remove();
-              Stats.setGauge(SingerMetrics.NUMBER_OF_MISSING_DIRS,  singerLogsWithoutDir.size());
-              LOG.info("[{}] after {} created, log stream is initialized for {}.",
-                  Thread.currentThread().getName(), dir.getAbsoluteFile(), singerLog.getLogName());
-            } catch (SingerLogException e) {
-              LOG.warn("Exception thrown while initializing log streams ", e);
+          boolean wildCardDir = false;
+          boolean directoryInitialized = false;
+          List<String> directories = SingerUtils.splitString(singerLogConfig.getLogDir());
+
+          for (String logDir : directories) {
+            Set<String> foundDirectories = null;
+            // If directory contains wildcards, check if directories exist first
+            if (LogConfigUtils.WILDCARD_SUPPORTED_CHARS.matcher(logDir).find()) {
+              foundDirectories = LogConfigUtils.findDirectories(Collections.singletonList(logDir));
+              wildCardDir = true;
             }
+            File dir = new File(logDir);
+            if (dir.exists() || (foundDirectories != null && !foundDirectories.isEmpty())) {
+              // if dir has been created, method initializeLogStreams will be
+              // called for this SingerLog.
+              // This SingerLog will be removed once method call throws no exception.
+              try {
+                LogStreamManager.initializeLogStreams(singerLog, podUid);
+                Stats.setGauge(SingerMetrics.NUMBER_OF_MISSING_DIRS, singerLogsWithoutDir.size());
+                LOG.info("[{}] after {} created, log stream is initialized for {}.",
+                    Thread.currentThread().getName(), dir.getAbsoluteFile(),
+                    singerLog.getLogName());
+                directoryInitialized = true;
+              } catch (SingerLogException e) {
+                LOG.warn("Exception thrown while initializing log streams ", e);
+              }
+            }
+          }
+          if (directoryInitialized && !wildCardDir) {
+            // remove the SingerLog from the map if the directory has been created
+            // and it is not a wildcard directory, configs with wildcard directories
+            // will be kept in the map for dynamic directory discovery
+            iterator.remove();
           }
         }
         LOG.info("[{}] sleep for {} milliseconds and then check again.",

@@ -60,6 +60,74 @@ public class FileSystemMonitorTest extends com.pinterest.singer.SingerTestBase {
   }
 
   @Test
+  public void testTwoLogStreamsInSameDirWithMultipleDirectories() throws Exception {
+    File testDir1 = this.tempDir.newFolder();
+    File testDir2 = this.tempDir.newFolder();
+    String filePrefix = "test";
+    String filePrefix2 = "second.test";
+
+    SingerLogConfig config = createSingerLogConfig(filePrefix, testDir1.getAbsolutePath());
+    SingerLogConfig config2 = createSingerLogConfig(filePrefix2, testDir1.getAbsolutePath());
+
+    SingerLogConfig config_new = createSingerLogConfig(filePrefix, testDir2.getAbsolutePath());
+    SingerLogConfig config2_new = createSingerLogConfig(filePrefix2, testDir2.getAbsolutePath());
+
+    LogStream toMonitor = new LogStream(new SingerLog(config), filePrefix);
+    LogStream toMonitor2 = new LogStream(new SingerLog(config2), filePrefix2);
+
+    LogStream toMonitor_new = new LogStream(new SingerLog(config_new), filePrefix);
+    LogStream toMonitor2_new = new LogStream(new SingerLog(config2_new), filePrefix2);
+
+    SingerConfig singerConfig = new SingerConfig();
+    FileSystemMonitor t = new FileSystemMonitor(singerConfig,
+        Arrays.asList(toMonitor, toMonitor2, toMonitor_new, toMonitor2_new), "testTwoLogStreamsInSameDirWithMultipleDirectories");
+    t.start();
+
+    final int NUM_FILES = 10;
+
+    File[] created = new File[NUM_FILES];
+    File[] created2 = new File[NUM_FILES];
+    File[] created_new = new File[NUM_FILES];
+    File[] created2_new = new File[NUM_FILES];
+
+    for (int i = 0; i < NUM_FILES; i++) {
+      created[i] = File.createTempFile(filePrefix, ".tmp", testDir1);
+      created2[i] = File.createTempFile(filePrefix2, ".tmp", testDir1);
+      created_new[i] = File.createTempFile(filePrefix, ".tmp", testDir2);
+      created2_new[i] = File.createTempFile(filePrefix2, ".tmp", testDir2);
+    }
+
+    Thread.sleep(3000);
+    String[] files = testDir1.list();
+    assertEquals("Number of files should be the sum of the number of files in the two log streams",
+        files.length, toMonitor.size() + toMonitor2.size());
+
+    String[] files_new = testDir2.list();
+    assertEquals("Number of files should be the sum of the number of files in the two log streams",
+        files_new.length, toMonitor_new.size() + toMonitor2_new.size());
+
+    for (String fileName : testDir1.list()) {
+      if (toMonitor.containsFile(fileName)) {
+        assertFalse("File should be in only one log stream", toMonitor2.containsFile(fileName));
+      } else if (toMonitor2.containsFile(fileName)) {
+        assertFalse("File should be in only one log stream", toMonitor.containsFile(fileName));
+      } else {
+        fail("File should be in exactly one log stream");
+      }
+    }
+
+    for (String filename : testDir2.list()) {
+      if (toMonitor_new.containsFile(filename)) {
+        assertFalse("File should be in only one log stream", toMonitor2_new.containsFile(filename));
+      } else if (toMonitor2_new.containsFile(filename)) {
+        assertFalse("File should be in only one log stream", toMonitor_new.containsFile(filename));
+      } else {
+        fail("File should be in exactly one log stream");
+      }
+    }
+  }
+
+  @Test
   public void testTwoLogStreamsInSameDir() throws Exception {
     File testDir = this.tempDir.newFolder();
     String filePrefix = "test";
@@ -181,7 +249,10 @@ public class FileSystemMonitorTest extends com.pinterest.singer.SingerTestBase {
 
     SingerLogConfig config = createSingerLogConfig(filePrefix, testDir.getAbsolutePath());
     config.setLogStreamRegex("test.tmp");
-    LogStream toMonitor = LogStreamManager.createNewLogStream(new SingerLog(config), filePrefix);
+    LogStream
+        toMonitor =
+        LogStreamManager.createNewLogStream(new SingerLog(config),
+            new File(testDir + "/" + filePrefix).toPath());
 
     SingerConfig singerConfig = new SingerConfig();
     FileSystemMonitor t = new FileSystemMonitor(singerConfig, Arrays.asList(toMonitor), "testRenameFile");
@@ -249,7 +320,11 @@ public class FileSystemMonitorTest extends com.pinterest.singer.SingerTestBase {
     SingerLogConfig config = createSingerLogConfig(filePrefix, testDir.getAbsolutePath());
     config.setLogStreamRegex("test.tmp");
 
-    LogStream toMonitor = LogStreamManager.createNewLogStream(new SingerLog(config), filePrefix);
+    LogStream
+        toMonitor =
+        LogStreamManager.createNewLogStream(new SingerLog(config),
+            new File(testDir + "/" + filePrefix).toPath());
+
     SingerConfig singerConfig = new SingerConfig();
     FileSystemMonitor t = new FileSystemMonitor(singerConfig, Arrays.asList(toMonitor), "testRemoveFiles");
     verifyFiles(testDir.list(), toMonitor);

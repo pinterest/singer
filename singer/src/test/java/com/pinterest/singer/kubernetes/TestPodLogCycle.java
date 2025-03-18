@@ -266,6 +266,129 @@ public class TestPodLogCycle {
       assertEquals(999, ((Double)Stats.getGauge(SingerMetrics.POD_DELETION_TIME_ELAPSED).get()), 0);
     }
 
+  @Test
+  public void testExistingPodDetectionWithMultipleDirectoriesAndWildcard()
+      throws InterruptedException, SingerLogException, IOException {
+    // Standard Config
+    SingerLogConfig logConfig1 = new SingerLogConfig();
+    logConfig1.setLogDir("/var/logs, /mnt/logs");
+    logConfig1.setFilenameMatchMode(FileNameMatchMode.PREFIX);
+    logConfig1.setName("test1");
+    logConfig1.setLogStreamRegex("access.log");
+
+    // Regex Config
+    SingerLogConfig logConfig2 = new SingerLogConfig();
+    logConfig2.setLogDir("/var, /var/logs/dir*/test");
+    logConfig2.setFilenameMatchMode(FileNameMatchMode.PREFIX);
+    logConfig2.setName("test2");
+    logConfig2.setLogStreamRegex("access.log");
+
+    // Add both log configurations
+    List<SingerLogConfig> logConfigs = Arrays.asList(logConfig1, logConfig2);
+    config.setLogConfigs(logConfigs);
+    SingerSettings.getLogConfigMap().putAll(SingerSettings.loadLogConfigMap(config));
+
+    // Regex-based directory creation
+    new File(podLogPath + "/a1223-1111-2222-3333/var/logs/dir1/test").mkdirs();
+    new File(podLogPath + "/a1223-1111-2222-3333/var/logs/dir2/test").mkdirs();
+    new File(podLogPath + "/a1223-1111-2222-3333/var/logs/example/test").mkdirs();
+    new File(podLogPath + "/a1223-1111-2222-3333/mnt/logs").mkdirs();
+    new File(podLogPath + "/a1223-1111-2222-3333/var/logs/access.log").createNewFile();
+    new File(podLogPath + "/a1223-1111-2222-3333/var/access.log").createNewFile();
+    new File(podLogPath + "/a1223-1111-2222-3333/mnt/logs/access.log").createNewFile();
+    new File(podLogPath + "/a1223-1111-2222-3333/var/logs/dir1/test/access.log").createNewFile();
+    new File(podLogPath + "/a1223-1111-2222-3333/var/logs/dir2/test/access.log").createNewFile();
+    new File(podLogPath + "/a1223-1111-2222-3333/var/logs/example/test/access.log").createNewFile();
+    Thread.sleep(SingerTestBase.FILE_EVENT_WAIT_TIME_MS);
+
+    // Start the services
+    LogStreamManager lsm = LogStreamManager.getInstance();
+    KubeService instance = KubeService.getInstance();
+    instance.start();
+    Thread.sleep(SingerTestBase.FILE_EVENT_WAIT_TIME_MS);
+
+    // Assert standard path detection
+    assertEquals(1, instance.getActivePodSet().size());
+    System.out.println("Log stream paths: " + lsm.getSingerLogPaths());
+    assertEquals(4, lsm.getSingerLogPaths().size()); // Now includes regex matches
+    assertEquals(1, SingerSettings.getFsMonitorMap().size());
+    assertTrue(SingerSettings.getFsMonitorMap().containsKey("a1223-1111-2222-3333"));
+    assertTrue(LogStreamManager.getInstance().getSingerLogPaths()
+        .containsKey(podLogPath + "/a1223-1111-2222-3333/var/logs/dir*/test"));
+    assertTrue(LogStreamManager.getInstance().getSingerLogPaths()
+        .containsKey(podLogPath + "/a1223-1111-2222-3333/mnt/logs"));
+
+    // Tear down
+    FileSystemMonitor fsm = SingerSettings.getFsMonitorMap().get("a1223-1111-2222-3333");
+    assertEquals(fsm, SingerSettings.getOrCreateFileSystemMonitor("a1223-1111-2222-3333"));
+    instance.stop();
+    fsm.stop();
+    delete(new File(podLogPath + "/a1223-1111-2222-3333"));
+  }
+
+
+  @Test
+  public void testNewPodDetectionWithMultipleDirectoriesAndWildcards() throws InterruptedException, SingerLogException, IOException {
+    // Standard Config
+    SingerLogConfig logConfig1 = new SingerLogConfig();
+    logConfig1.setLogDir("/var/log");
+    logConfig1.setFilenameMatchMode(FileNameMatchMode.PREFIX);
+    logConfig1.setName("test1");
+    logConfig1.setLogStreamRegex("access.log");
+
+    // Regex Config
+    SingerLogConfig logConfig2 = new SingerLogConfig();
+    logConfig2.setLogDir("/var/logs/*");
+    logConfig2.setFilenameMatchMode(FileNameMatchMode.PREFIX);
+    logConfig2.setName("test2");
+    logConfig2.setLogStreamRegex("access2.log");
+
+    // Add both log configurations
+    List<SingerLogConfig> logConfigs = Arrays.asList(logConfig1, logConfig2);
+    config.setLogConfigs(logConfigs);
+    SingerSettings.getLogConfigMap().putAll(SingerSettings.loadLogConfigMap(config));
+
+    // Start the services
+    LogStreamManager lsm = LogStreamManager.getInstance();
+    KubeService instance = KubeService.getInstance();
+    instance.start();
+    Thread.sleep(SingerTestBase.FILE_EVENT_WAIT_TIME_MS * 2);
+
+    assertEquals("Shouldn't have found any pods:" + Arrays.toString(new File(podLogPath).list()), 0,
+        instance.getActivePodSet().size());
+    assertEquals(0, lsm.getSingerLogPaths().size());
+
+    // Create new directory to trigger pod detection
+    new File(podLogPath + "/b2121-1111-2222-3333/var/logs/happy").mkdirs();
+    new File(podLogPath + "/b2121-1111-2222-3333/var/log").mkdirs();
+    Thread.sleep(SingerTestBase.FILE_EVENT_WAIT_TIME_MS);
+
+    File file1 = new File(podLogPath + "/b2121-1111-2222-3333/var/logs/happy/access2.log");
+    file1.createNewFile();
+    File file2 = new File(podLogPath + "/b2121-1111-2222-3333/var/log/access.log");
+    file2.createNewFile();
+    Thread.sleep(SingerTestBase.FILE_EVENT_WAIT_TIME_MS);
+
+    try (PrintWriter pr = new PrintWriter(file1)) {
+      pr.println("testdata");
+    }
+    try (PrintWriter pr = new PrintWriter(file2)) {
+      pr.println("testdata");
+    }
+
+    Thread.sleep(SingerTestBase.FILE_EVENT_WAIT_TIME_MS * 2);
+
+    assertEquals(1, instance.getActivePodSet().size());
+    assertEquals(2, lsm.getSingerLogPaths().size());
+    assertTrue(SingerSettings.getFsMonitorMap().containsKey("b2121-1111-2222-3333"));
+    assertTrue(LogStreamManager.getInstance().getSingerLogPaths().containsKey(podLogPath + "/b2121-1111-2222-3333/var/logs/*"));
+    assertTrue(LogStreamManager.getInstance().getSingerLogPaths().containsKey(podLogPath + "/b2121-1111-2222-3333/var/log"));
+
+    // Tear down
+    instance.stop();
+    LogStreamManager.reset();
+  }
+
     /*
      * Copied from
      * https://github.com/srotya/sidewinder/blob/development/core/src/main/java/com/

@@ -49,7 +49,9 @@ import org.junit.Test;
 import java.io.IOException;
 import java.io.File;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -427,6 +429,194 @@ public class DefaultLogStreamProcessorTest extends com.pinterest.singer.SingerTe
       }
     }
     SingerUtils.setHostname(SingerUtils.getHostname(), "-");
+  }
+
+  @Test
+  public void testRegexDirLogStreamInitializationWithTwoLogStreamsInSeries() throws Exception {
+    String baseDir = getTempPath();
+    String logStreamRegex = "singer_testing_(\\d+).log.0";
+    String varDirWithPattern = baseDir + "/var/log/*";
+
+    SingerLogConfig logConfig = new SingerLogConfig(
+        "test_log_stream",
+        varDirWithPattern, // Regex pattern that matches multiple directories
+        logStreamRegex,
+        null,
+        null,
+        null
+    );
+    logConfig.setFilenameMatchMode(FileNameMatchMode.PREFIX);
+
+    List<SingerLogConfig> logConfigs = Collections.singletonList(logConfig);
+    SingerConfig singerConfig = initializeSingerConfig(1, 1, logConfigs);
+    SingerSettings.initialize(singerConfig);
+
+    LogStreamManager.initializeLogStreams();
+
+    Thread.sleep(3000);
+
+    String newDirPath1 = baseDir + "/var/log/tmp1";
+    Files.createDirectories(Paths.get(newDirPath1));
+
+    Thread.sleep(3000);
+
+    String newLogFilePath1 = FilenameUtils.concat(newDirPath1, "singer_testing_0.log.0");
+    SimpleThriftLogger<LogMessage> logger1 = new SimpleThriftLogger<>(newLogFilePath1);
+
+    writeThriftLogMessages(logger1, 10, 50);
+    logger1.close();
+
+    LogStreamManager.initializeLogStreams();
+
+    // Verify log streams for the first directory
+    Collection<LogStream> logStreams1 = LogStreamManager.getLogStreams(Paths.get(newDirPath1));
+    assertNotNull(logStreams1);
+    assertFalse(logStreams1.isEmpty());
+    assertTrue(logStreams1.size() == 1);
+
+    System.out.println(LogStreamManager.getInstance().getSingerLogPaths());
+
+    // Operations for the second directory
+    String newDirPath2 = baseDir + "/var/log/tmp2";
+    Files.createDirectories(Paths.get(newDirPath2));
+
+    Thread.sleep(3000);
+
+    String newLogFilePath2 = FilenameUtils.concat(newDirPath2, "singer_testing_0.log.0");
+    SimpleThriftLogger<LogMessage> logger2 = new SimpleThriftLogger<>(newLogFilePath2);
+
+    writeThriftLogMessages(logger2, 10, 50);
+    logger2.close();
+
+    LogStreamManager.initializeLogStreams();
+
+    Collection<LogStream> logStreams2 = LogStreamManager.getLogStreams(Paths.get(newDirPath2));
+    assertNotNull(logStreams2);
+    assertFalse(logStreams2.isEmpty());
+    assertTrue(logStreams2.size() == 1);
+
+    System.out.println(LogStreamManager.getInstance().getSingerLogPaths());
+  }
+
+  @Test
+  public void testRegexDirLogStreamInitializationWithTwoLogStreamsInParallel() throws Exception {
+    String baseDir = getTempPath();
+    String logStreamRegex = "singer_testing_(\\d+).log.0";
+    String varDirWithPattern = baseDir + "/var/*";
+
+    // Step 1: Using the existing initialization style with new logDir and regex pattern
+    SingerLogConfig logConfig = new SingerLogConfig(
+        "test_log_stream",
+        varDirWithPattern, // Regex pattern that matches multiple directories
+        logStreamRegex,
+        null,
+        null,
+        null
+    );
+    logConfig.setFilenameMatchMode(FileNameMatchMode.PREFIX);
+
+    // Initialize SingerConfig and SingerSettings
+    List<SingerLogConfig> logConfigs = Collections.singletonList(logConfig);
+    SingerConfig singerConfig = initializeSingerConfig(1, 1, logConfigs);
+    SingerSettings.initialize(singerConfig);
+
+    // Initialize LogStreamManager
+    LogStreamManager.initializeLogStreams();
+
+    // Simulate delay
+    Thread.sleep(3000);
+
+    // Step 2: Dynamically create directories
+    String newDirPath1 = baseDir + "/var/log";
+    String newDirPath2 = baseDir + "/var/log1";
+    Files.createDirectories(Paths.get(newDirPath1));
+    Files.createDirectories(Paths.get(newDirPath2));
+
+    // Simulate delay to ensure directories are registered
+    Thread.sleep(3000);
+
+    // Step 3: Dynamically create log files in both new directories
+    String newLogFilePath1 = FilenameUtils.concat(newDirPath1, "singer_testing_0.log.0");
+    String newLogFilePath2 = FilenameUtils.concat(newDirPath2, "singer_testing_0.log.0");
+
+    // Write messages to newly created log files
+    SimpleThriftLogger<LogMessage> logger1 = new SimpleThriftLogger<>(newLogFilePath1);
+    SimpleThriftLogger<LogMessage> logger2 = new SimpleThriftLogger<>(newLogFilePath2);
+
+    // Write log messages
+    writeThriftLogMessages(logger1, 10, 50);
+    writeThriftLogMessages(logger2, 10, 50);
+    logger1.close();
+    logger2.close();
+
+    // Re-run initializeLogStreams to capture any newly created directories and files
+    LogStreamManager.initializeLogStreams();
+
+    // Step 4: Verify LogStream initialization
+    Collection<LogStream> logStreams1 = LogStreamManager.getLogStreams(Paths.get(newDirPath1));
+    Collection<LogStream> logStreams2 = LogStreamManager.getLogStreams(Paths.get(newDirPath2));
+
+    // Verify log streams for directory 1
+    assertNotNull(logStreams1);
+    assertFalse(logStreams1.isEmpty());
+    assertTrue(logStreams1.size() == 1);
+    System.out.println(LogStreamManager.getInstance().getSingerLogPaths());
+    // Verify log streams for directory 2
+    assertNotNull(logStreams2);
+    assertFalse(logStreams2.isEmpty());
+    assertTrue(logStreams2.size() == 1);
+    System.out.println(LogStreamManager.getInstance().getSingerLogPaths());
+  }
+
+
+  @Test
+  public void testRegexDirLogStreamInitialization() throws Exception {
+    String baseDir = getTempPath();
+    String logStreamRegex = "singer_testing_(\\d+).log.0";
+    String varDirWithPattern = baseDir + "/var/*";
+
+    // Step 1: Using the existing initialization style with new logDir and regex pattern
+    SingerLogConfig logConfig = new SingerLogConfig(
+        "test_log_stream",
+        varDirWithPattern,
+        logStreamRegex,
+        null,
+        null,
+        null
+    );
+    logConfig.setFilenameMatchMode(FileNameMatchMode.PREFIX);
+
+    List<SingerLogConfig> logConfigs = Collections.singletonList(logConfig);
+    SingerConfig singerConfig = initializeSingerConfig(1, 1, logConfigs);
+    SingerSettings.initialize(singerConfig);
+
+    // Initialize LogStreamManager
+    LogStreamManager.initializeLogStreams();
+
+    // Simulate delay
+    Thread.sleep(3000);
+
+    // Step 2: Create and register a new directory and file after a delay
+    String newDirPath = baseDir + "/var/log";
+    Files.createDirectories(Paths.get(newDirPath));
+
+    // Simulate delay
+    Thread.sleep(3000);
+
+    String newLogFilePath = FilenameUtils.concat(newDirPath, "singer_testing_2.log.0");
+    SimpleThriftLogger<LogMessage> logger = new SimpleThriftLogger<>(newLogFilePath);
+
+    // Step 3: Write log messages to newly created log file
+    writeThriftLogMessages(logger, 10, 50);
+    logger.close();
+
+    LogStreamManager.initializeLogStreams();
+
+    // Step 4: Verify LogStream initialization
+    Collection<LogStream> logStreams = LogStreamManager.getLogStreams(Paths.get(newDirPath));
+    assertNotNull(logStreams);
+    assertFalse(logStreams.isEmpty());
+    assertTrue(logStreams.size() == 1);
   }
 
   private static List<LogMessage> getMessages(List<LogMessageAndPosition> messageAndPositions) {

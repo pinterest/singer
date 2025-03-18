@@ -27,10 +27,12 @@ import com.pinterest.singer.monitor.FileSystemMonitor;
 import com.pinterest.singer.monitor.LogStreamManager;
 import com.pinterest.singer.thrift.configuration.SingerConfig;
 import com.pinterest.singer.thrift.configuration.SingerLogConfig;
+import com.pinterest.singer.utils.SingerUtils;
 import com.pinterest.singer.writer.KafkaProducerMetricsMonitor;
 import com.twitter.ostrich.stats.Stats;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,6 +43,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.SortedMap;
@@ -92,7 +95,7 @@ public final class SingerSettings {
   public static HeartbeatGenerator heartbeatGenerator;
   
   // initialized here so that unit tests aren't required to call the initialize method below
-  private static SortedMap<String, Collection<SingerLogConfig>> logConfigMap = new TreeMap<>();
+  private static SortedMap<Pair<Integer, String>, Collection<SingerLogConfig>> logConfigMap = new TreeMap<>();
   
   //environment is production by default
   private static Environment environment = new Environment();
@@ -249,17 +252,18 @@ public final class SingerSettings {
     return getInstance;
   }
 
-  public static SortedMap<String, Collection<SingerLogConfig>> loadLogConfigMap(SingerConfig config) {
-    SortedMap<String, Collection<SingerLogConfig>> logConfigMap = new TreeMap<>();
-    if(config.getLogConfigs()!=null) {
-        for (SingerLogConfig singerLogConfig : config.getLogConfigs()) {
-            Collection<SingerLogConfig> collection = logConfigMap.get(singerLogConfig.getLogDir());
-            if (collection == null) {
-                collection = new ArrayList<>();
-                logConfigMap.put(singerLogConfig.getLogDir(), collection);
-            }
-            collection.add(singerLogConfig);
-        }
+  public static SortedMap<Pair<Integer, String>, Collection<SingerLogConfig>> loadLogConfigMap(SingerConfig config) {
+    SortedMap<Pair<Integer, String>, Collection<SingerLogConfig>> logConfigMap = new TreeMap<>();
+    List<SingerLogConfig> logConfigs = config.getLogConfigs();
+    if (logConfigs == null) {
+      return logConfigMap;
+    }
+    for (SingerLogConfig singerLogConfig : logConfigs) {
+      List<String> directories = SingerUtils.splitString(singerLogConfig.getLogDir());
+      for (String logDir : directories) {
+        logConfigMap.computeIfAbsent(Pair.of(logDir.split("/").length - 1, logDir),
+            k -> new ArrayList<>()).add(singerLogConfig);
+      }
     }
     return logConfigMap;
   }
@@ -334,7 +338,7 @@ public final class SingerSettings {
     fsMonitorMap.clear();
   }
   
-  public static SortedMap<String, Collection<SingerLogConfig>> getLogConfigMap() {
+  public static SortedMap<Pair<Integer, String>, Collection<SingerLogConfig>> getLogConfigMap() {
     return logConfigMap;
   }
   

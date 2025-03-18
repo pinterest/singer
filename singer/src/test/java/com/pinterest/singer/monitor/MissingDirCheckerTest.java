@@ -29,7 +29,9 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -122,6 +124,63 @@ public class MissingDirCheckerTest extends SingerTestBase {
     instance.stop();
     assertTrue(instance.getMissingDirChecker().getCancelled().get());
 
+  }
+
+  @Test
+  public void testDynamicDirectoryDiscovery() throws Exception{
+    String testBasePath = tempDir.getRoot().getAbsolutePath();
+
+    LOG.info("Create test singer property file and singer log config property file.");
+    Map<String, String> singerConfigProperties = makeDirectorySingerConfigProperties("");
+    File singerConfigFile = createSingerConfigFile(singerConfigProperties);
+    List<String> propertyFileNames = Arrays.asList("test.app1.properties", "test.app2.properties");
+    List<String> logStreamRegexes = Arrays.asList("app1_(\\\\w+)", "app2_(\\\\w+)");
+    List<String>
+        logDirPaths = Arrays.asList("/mnt/log_*/singer/", "/mnt/service/*", "/var/log");
+    logDirPaths.replaceAll(path -> testBasePath + path); // append base path
+    List<String> topicNames = Arrays.asList("topic1", "topic2");
+
+    List<File> propertiesFiles = Arrays.asList(
+        createSingerLogConfigPropertyFile(propertyFileNames.get(0), logStreamRegexes.get(0),
+            logDirPaths.get(0) + "," + logDirPaths.get(1), topicNames.get(0)),
+        createSingerLogConfigPropertyFile(propertyFileNames.get(1), logStreamRegexes.get(1),
+            logDirPaths.get(2), topicNames.get(1)));
+
+    LOG.info("Try to parse SingerConfig.");
+    String parentDirPath = singerConfigFile.getParent();
+    DirectorySingerConfigurator configurator = new DirectorySingerConfigurator(parentDirPath);
+    SingerConfig singerConfig = configurator.parseSingerConfig();
+
+    LOG.info("Create LogStreamManager instance (Singleton).");
+    SingerSettings.setSingerConfig(singerConfig);
+    LogStreamManager instance = LogStreamManager.getInstance();
+    LogStreamManager.initializeLogStreams();
+
+    // setting sleep time of MissingDirChecker to be 5 seconds in order to accelerate unit test.
+    instance.getMissingDirChecker().setSleepInMills(5000);
+
+    int numOfSingerLogsWithoutDir = propertiesFiles.size(); // +1 for the two directories in one config
+    assertEquals(numOfSingerLogsWithoutDir, instance.getMissingDirChecker().getSingerLogsWithoutDir().size());
+    LOG.info("Verify MissingDirChecker runs properly while logDir is created for each SingerLog");
+
+    // Create n directories for /mnt/log_*/singer/ and /mnt/service/*
+    for (int i = 0; i < 3; i++) {
+      String path = logDirPaths.get(i).replace("*", String.valueOf(i));
+      File f1 = new File(path);
+      f1.mkdirs();
+      assertTrue(f1.exists() && f1.isDirectory());
+      Thread.sleep(instance.getMissingDirChecker().getSleepInMills() * 2);
+      LOG.info("verify the number match: {} {}", numOfSingerLogsWithoutDir,
+          instance.getMissingDirChecker().getSingerLogsWithoutDir().size());
+      if (i == 2) {
+        numOfSingerLogsWithoutDir -= 1; // only static directory should be removed from list
+      }
+      assertEquals(numOfSingerLogsWithoutDir, instance.getMissingDirChecker().getSingerLogsWithoutDir().size());
+    }
+    LOG.info("Verify MissingDirChecker thread can be stopped properly.");
+    assertFalse(instance.getMissingDirChecker().getCancelled().get());
+    instance.stop();
+    assertTrue(instance.getMissingDirChecker().getCancelled().get());
   }
 
   public Map<String, String> makeDirectorySingerConfigProperties(String logConfigDirPath) {

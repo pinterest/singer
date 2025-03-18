@@ -45,7 +45,10 @@ public class LogDirectoryScannerTest extends com.pinterest.singer.SingerTestBase
     System.out.println("testDir: " + testDir.getPath());
     SingerLogConfig singerLogConfig = createSingerLogConfig("test", testDir.getPath());
     SingerLog singerLog = new SingerLog(singerLogConfig);
-    LogStream logStream = LogStreamManager.createNewLogStream(singerLog, filePrefix);
+    LogStream
+        logStream =
+        LogStreamManager.createNewLogStream(singerLog,
+            new File(testDir + "/" + filePrefix).toPath());
     return logStream;
   }
 
