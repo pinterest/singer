@@ -151,8 +151,8 @@ public class ThriftLogFileReader implements LogFileReader {
         long newByteOffset = thriftReader.getByteOffset();
         int messageSize = logMessage.getMessage().length;
         if (messageSize > maxMessageSize) {
-          LOG.warn("Found a message at offset " + newByteOffset + "that exceeds the size limit in "
-              + logFile.toString() + ": messageSize =  " + messageSize);
+          LOG.warn("Found a message at offset " + newByteOffset + " that exceeds the size limit in log file: "
+              + logStream.getFullPathPrefix() + " with messageSize =  " + messageSize);
           OpenTsdbMetricConverter.incr("singer.thrift_reader.skip_message", 1, "log=" + logStream.getSingerLog().getLogName());
           logMessage = thriftReader.read();
         } else {
