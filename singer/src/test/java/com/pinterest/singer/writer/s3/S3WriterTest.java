@@ -224,6 +224,17 @@ public class S3WriterTest extends SingerTestBase {
     assertEquals("%test_log", objectKeyParts[3]);
     assertEquals("0%", objectKeyParts[4]);
     assertEquals(3, objectKeyParts[5].split("\\.")[0].length());
+
+    // Test with matchAbsolutePath enabled
+    keyFormat =
+        "my-path/%{namespace}/{{" + DefaultTokens.LOGNAME
+            + "}}/%{filename}-%{index}.{{S}}";
+    s3WriterConfig.setKeyFormat(keyFormat);
+    s3WriterConfig.setFilenamePattern(tempPath + "/(?<namespace>[^-]+)-(?<filename>[^.]+)\\.(?<index>\\d+)");
+    s3WriterConfig.setMatchAbsolutePath(true);
+    s3Writer = new S3Writer(logStream, s3WriterConfig, mockS3Uploader, tempPath);
+    objectKeyParts = s3Writer.generateS3ObjectKey().split("/");
+    assertEquals(4, objectKeyParts.length);
   }
 
   @Test
