@@ -23,7 +23,10 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -180,16 +183,33 @@ public class S3Writer implements LogStreamWriter {
   }
 
   /**
-   * Get or construct buffer file name based on the log stream name.
-   * The buffer file naming convention is "log_name.dir_name.file_name.buffer".
+   * Get or construct buffer file name based on the log stream name and absolute path hash.
+   * The buffer file naming convention is "log_name.absolute_path_hash.buffer".
    *
    * @return the buffer file name
    */
   public String getBufferFileName() {
-    return (bufferFile != null) ? bufferFile.getName()
-                                : logName + "." + logStream.getLogDir().substring(1)
-                                    .replace("/", "_") + "."
-                                    + logStream.getLogStreamName() + ".buffer";
+    if (bufferFile != null) {
+      return bufferFile.getName();
+    }
+    try {
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      byte[] hash = digest.digest(logStream.getFullPathPrefix().getBytes(StandardCharsets.UTF_8));
+      StringBuilder hashedPath = new StringBuilder(64);
+      for (byte b : hash) {
+        String hex = Integer.toHexString(0xff & b);
+        // handle single digit values
+        if (hex.length() == 1) hashedPath.append('0');
+        hashedPath.append(hex);
+      }
+      return logName + "." + hashedPath + ".buffer";
+    } catch (Exception e) {
+      if (e instanceof NoSuchAlgorithmException) {
+        LOG.error("Failed to generate hash for log stream {} and absolute path {}", logName,
+            logStream.getFullPathPrefix(), e);
+      }
+      throw new RuntimeException("Failed to generate buffer file name", e);
+    }
   }
 
   /**
