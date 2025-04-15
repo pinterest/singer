@@ -161,7 +161,7 @@ public class LogConfigUtils {
   // Minimum value that can be set for S3WriterConfig.minUploadTimeInSeconds
   private static final int MIN_UPLOAD_TIME_IN_SECONDS = 30;
   // Minimum value that can be set for S3WriterConfig.maxFileSizeInMB
-  private static final int MIN_MAX_FILE_SIZE_IN_MB = 50;
+  private static final int MIN_MAX_FILE_SIZE_IN_MB = 5;
   // Minimum value that can be set for S3WriterConfig.maxRetries
   private static final int MIN_MAX_RETRIES = 5;
   public static boolean SHADOW_MODE_ENABLED;
