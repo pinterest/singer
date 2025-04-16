@@ -70,6 +70,7 @@ public class S3Writer implements LogStreamWriter {
   private Pattern filenamePattern;
   private List<String> fileNameTokens = new ArrayList<>();
   private boolean filenameParsingEnabled = false;
+  private boolean matchAbsolutePath;
 
   // Timer for scheduling uploads
   private static ScheduledExecutorService fileUploadTimer;
@@ -142,6 +143,7 @@ public class S3Writer implements LogStreamWriter {
     }
 
     this.keyFormat = s3WriterConfig.getKeyFormat();
+    this.matchAbsolutePath = s3WriterConfig.isMatchAbsolutePath();
 
     // Configure bucket name
     this.bucketName = s3WriterConfig.getBucket();
@@ -387,6 +389,9 @@ public class S3Writer implements LogStreamWriter {
    */
   public String generateS3ObjectKey() {
     String s3Key = keyFormat;
+    String
+        logFilenameOrAbsolutePath =
+        matchAbsolutePath ? logStream.getFullPathPrefix() : logStream.getFileNamePrefix();
     Matcher matcher;
     // Replace default tokens in the "%TOKEN" format
     Map<String, String> defaultTokenValues = getDefaultTokenValue();
@@ -402,7 +407,7 @@ public class S3Writer implements LogStreamWriter {
 
     // Replace named groups from filenamePattern
     if (filenameParsingEnabled) {
-      if ((matcher = extractTokensFromFilename(logStream.getFileNamePrefix())) != null) {
+      if ((matcher = extractTokensFromFilename(logFilenameOrAbsolutePath)) != null) {
         Map<String, String> groupMap = new HashMap<>();
         for (String token : fileNameTokens) {
           // Attempt to replace the token in filenamePattern with the matched value
@@ -416,7 +421,7 @@ public class S3Writer implements LogStreamWriter {
       } else {
         // If there is no match we simply return the key without replacing any custom tokens
         LOG.warn("Filename parsing is enabled but filenamePattern provided: " + filenamePattern
-            + " does not match the log file: " + logStream.getFileNamePrefix());
+            + " does not match the log file: " + logFilenameOrAbsolutePath);
         OpenTsdbMetricConverter.incr(SingerMetrics.S3_WRITER + "no_filename_pattern_match", 1,
             "bucket=" + bucketName, "host=" + HOSTNAME, "logName=" + logName);
       }

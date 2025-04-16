@@ -177,6 +177,8 @@ struct S3WriterConfig {
   10: optional string uploaderClass = "com.pinterest.singer.writer.s3.PutObjectUploader";
   // Region of the S3 bucket.
   11: optional string region = "us-east-1";
+  // Use absolute path for filenamePattern regex matching.
+  12: optional bool matchAbsolutePath = false;
 }
 
 enum RealpinObjectType {

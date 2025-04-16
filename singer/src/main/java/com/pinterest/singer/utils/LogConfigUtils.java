@@ -915,6 +915,10 @@ public class LogConfigUtils {
       config.setFilenameTokens(tokenList);
     }
 
+    if (writerConfiguration.containsKey(SingerConfigDef.MATCH_ABSOLUTE_PATH)) {
+      config.setMatchAbsolutePath(writerConfiguration.getBoolean(SingerConfigDef.MATCH_ABSOLUTE_PATH));
+    }
+
     if (writerConfiguration.containsKey(SingerConfigDef.CANNED_ACL)) {
       try {
         // Check if the canned ACL is valid
