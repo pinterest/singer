@@ -16,7 +16,10 @@
 package com.pinterest.singer.reader;
 
 import com.pinterest.singer.common.LogStream;
+import com.pinterest.singer.common.SingerMetrics;
 import com.pinterest.singer.common.SingerSettings;
+import com.pinterest.singer.common.errors.LogStreamReaderException;
+import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
 import com.pinterest.singer.thrift.LogFile;
 import com.pinterest.singer.thrift.configuration.MessageTransformerConfig;
 import com.pinterest.singer.thrift.configuration.TextReaderConfig;
@@ -55,7 +58,11 @@ public class TextLogFileReaderFactory implements LogFileReaderFactory {
         LOG.warn("Re-initialize log stream {} due to inode mismatch: expect {}, is {}",
             logStream, logFile.getInode(), inode);
         logStream.initialize();
-        path = logStream.getLogFilePath(logFile);
+        if (path == null) {
+          OpenTsdbMetricConverter.incr(SingerMetrics.READER_INODE_MISMATCH, 1,
+              "log=" + logStream.getSingerLog().getLogName(), "reader_type=text");
+          throw new LogStreamReaderException("Log file " + logFile.getInode() + " not found after re-initializing logstream " + logStream);
+        }
       }
       reader = new TextLogFileReader(logStream, logFile, path, byteOffset,
           readerConfig.getReaderBufferSize(),

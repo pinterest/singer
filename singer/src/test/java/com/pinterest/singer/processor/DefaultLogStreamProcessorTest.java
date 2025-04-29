@@ -16,6 +16,7 @@
 package com.pinterest.singer.processor;
 
 import static org.hamcrest.core.Is.is;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertThat;
 
 import com.pinterest.singer.common.LogStream;
@@ -364,14 +365,84 @@ public class DefaultLogStreamProcessorTest extends com.pinterest.singer.SingerTe
     writeThriftLogMessages(logger, processorBatchSize, 50);
     Thread.sleep(FILE_EVENT_WAIT_TIME_MS);
 
-    // Watermark positions should be equal since symlink would need to be recreated
-    // to re-initialize the logstream
     LogPosition positionBefore = WatermarkUtils.loadCommittedPositionFromWatermark(
         DefaultLogStreamProcessor.getWatermarkFilename(logStream));
-    processor.processLogStream();
+    try {
+      processor.processLogStream();
+    } catch (LogStreamProcessorException e) {
+      // Exception is expected until we are able to gracefully handle symlink rotations
+    } finally {
+      processor.processLogStream();
+    }
     LogPosition positionAfter = WatermarkUtils.loadCommittedPositionFromWatermark(
         DefaultLogStreamProcessor.getWatermarkFilename(logStream));
-    assertEquals(positionBefore, positionAfter);
+    assertNotEquals(positionBefore, positionAfter);
+  }
+
+  public void testSymlinkRotations() throws Exception {
+    String tempPath = getTempPath();
+    File tmpTarget = new File(tempPath + "/target");
+    tmpTarget.mkdirs();
+    String symlinkLogStreamHeadFile = "thrift-symlink.log";
+    String thriftLog = "thrift.log";
+    String logPath = FilenameUtils.concat(tmpTarget.toString(), thriftLog);
+    String symlinkPath = FilenameUtils.concat(tempPath, symlinkLogStreamHeadFile);
+
+    int processorBatchSize = 10;
+
+    // initialize a singer log config
+    SingerLogConfig logConfig = new SingerLogConfig("test", tempPath, symlinkLogStreamHeadFile, null, null, null);
+    SingerLog singerLog = new SingerLog(logConfig);
+    singerLog.getSingerLogConfig().setFilenameMatchMode(FileNameMatchMode.PREFIX);
+
+    // initialize global variables in SingerSettings
+    try {
+      SingerConfig singerConfig = initializeSingerConfig(1, 1, Arrays.asList(logConfig));
+      SingerSettings.initialize(singerConfig);
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail("got exception in test: " + e);
+    }
+
+    SimpleThriftLogger<LogMessage> logger = new SimpleThriftLogger<>(logPath);
+    writer = new NoOpLogStreamWriter();
+
+    // Write some messages and wait
+    for (int i = 0; i < 2; ++i) {
+      writeThriftLogMessages(logger, processorBatchSize, 150);
+      Thread.sleep(FILE_EVENT_WAIT_TIME_MS);
+    }
+
+    Files.createSymbolicLink(new File(symlinkPath).toPath(), new File(logPath).toPath());
+
+    // initialize log stream
+    LogStream logStream = new LogStream(singerLog, symlinkLogStreamHeadFile);
+    LogStreamManager.addLogStream(logStream);
+
+    initializeReaderAndProcessor(Collections.singletonMap("processorBatchSize", String.valueOf(processorBatchSize)), logStream);
+
+    waitForFileSystemEvents(logStream);
+
+    // Process everything in the stream so far
+    long numOfMessagesProcessed = processor.processLogStream();
+    assertEquals(processorBatchSize * 2, numOfMessagesProcessed);
+    rotateWithDelay(logger, 1000);
+    writeThriftLogMessages(logger, processorBatchSize * 4, 5);
+
+    numOfMessagesProcessed = 0;
+    LogPosition positionBefore = WatermarkUtils.loadCommittedPositionFromWatermark(
+        DefaultLogStreamProcessor.getWatermarkFilename(logStream));
+    while (numOfMessagesProcessed >= 0 && numOfMessagesProcessed < processorBatchSize * 4) {
+      try {
+        numOfMessagesProcessed += processor.processLogStream();
+      } catch (LogStreamProcessorException e) {
+        // Exception is expected until we are able to gracefully handle symlink rotations
+      }
+    }
+    assertEquals(processorBatchSize * 4, numOfMessagesProcessed);
+    LogPosition positionAfter = WatermarkUtils.loadCommittedPositionFromWatermark(
+        DefaultLogStreamProcessor.getWatermarkFilename(logStream));
+    assertNotEquals(positionBefore, positionAfter);
   }
 
   @Test
