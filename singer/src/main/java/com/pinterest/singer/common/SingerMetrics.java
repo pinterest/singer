@@ -45,6 +45,8 @@ public class SingerMetrics {
 
   public static final String LOGSTREAM_CREATION_FAILURE = "singer.logstream.creation_failure";
 
+  public static final String LOGSTREAM_MISSING_INODE_PATH = "singer.logstream.missing_inode_path";
+
   public static final String LOGSTREAM_INITIALIZE = "singer.logstream.initialize";
 
   public static final String LOGSTREAM_FILE_DELETION = "singer.logstream.file_deletion";
@@ -65,6 +67,7 @@ public class SingerMetrics {
   public static final String DISABLE_DECIDER_ACTIVE = "singer.processor.disable_decider_active";
 
   public static final String SKIPPED_BYTES = "singer.reader.skipped_bytes";
+  public static final String READER_INODE_MISMATCH = "singer.reader.inode_mismatch";
 
   public static final String WATERMARK_CREATION_FAILURE = "singer.watermark.creation.failure";
 

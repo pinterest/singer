@@ -211,13 +211,13 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
       LogFile logFile = committedPosition.getLogFile();
       String path = logStream.getLogFilePath(logFile);
       if (logStream.hasLogFile(logFile) && !(new File(path)).exists()) {
-        // File does not exist, but it is still in logFile paths which means it was not properly
-        // removed from logStream or this was a symbolic link
-        LOG.warn(
-            "Log stream: {}'s current file {} not found, removing it from logFilePaths to reset "
-                + "watermark files",
-            logStream, path);
-        logStream.removeLogFilePathInfo(path);
+        // File does not exist, but it is still in logFilePaths which means this is a dangling symlink or
+        // we're in the middle of a rotation. The log stream will be re-initialized in the next cycle.
+        LOG.info(
+            "File {} does not exist but inode {} is still in log stream {}, skipping this cycle to re-initialize the log stream.",
+            logStream, logFile.getInode(), path);
+        OpenTsdbMetricConverter.incr(SingerMetrics.LOGSTREAM_MISSING_INODE_PATH,
+            "log=" + logStream.getSingerLog().getLogName());
         return 0;
       }
 
