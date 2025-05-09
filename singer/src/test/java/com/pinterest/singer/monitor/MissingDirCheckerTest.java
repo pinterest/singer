@@ -20,6 +20,12 @@ import com.pinterest.singer.common.SingerSettings;
 import com.pinterest.singer.config.DirectorySingerConfigurator;
 import com.pinterest.singer.thrift.configuration.SingerConfig;
 
+import com.pinterest.singer.utils.LogConfigUtils;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.HashSet;
+import java.util.Set;
 import org.apache.commons.io.FileUtils;
 import org.junit.After;
 import org.junit.Before;
@@ -211,6 +217,42 @@ public class MissingDirCheckerTest extends SingerTestBase {
     return  createLogConfigPropertiesFile(propertyFileName, override);
   }
 
+  @Test
+  public void testWildCardDirectoryDiscovery() throws Exception {
+    // Setup directory structure:
+    // tempDir/
+    //   ├── test_1
+    //   │   ├── session_123
+    //   │   │   └── logs
+    //   │   └── session_456
+    //   │       ├── logs
+    //   │       └── unrelated
+    //   └── test_2
+    //       └── session_789
+    //           └── logs
+    //           └── deep
+    //               └── logs
+    Set<String> logDirs = new HashSet<>();
+    String tempDir = getTempPath();
+    Path firstBaseDir = Files.createDirectory(Paths.get(tempDir + "/test_1"));
+
+    Path firstSessionSubDir = Files.createDirectory(Paths.get(firstBaseDir + "/session_123"));
+    logDirs.add(Files.createDirectory(Paths.get(firstSessionSubDir + "/logs")).toString());
+    Path secondSessionSubDir = Files.createDirectory(Paths.get(firstBaseDir + "/session_456"));
+    logDirs.add(Files.createDirectory(Paths.get(secondSessionSubDir + "/logs")).toString());
+    Files.createDirectory(Paths.get(secondSessionSubDir + "/unrelated"));
+
+    Path secondBaseDir = Files.createDirectory(Paths.get(tempDir + "/test_2"));
+    Path thirdSessionSubDir = Files.createDirectory(Paths.get(secondBaseDir + "/session_789"));
+    logDirs.add(Files.createDirectory(Paths.get(thirdSessionSubDir + "/logs")).toString());
+
+    Files.createDirectories(Paths.get(thirdSessionSubDir + "/deep/logs"));
+
+    String pattern = tempDir + "/*/session_*/logs";
+
+    Set<String> result = LogConfigUtils.wildcardDirectoryMatcher(pattern, Paths.get(tempDir));
+    assertEquals(logDirs, result);
+  }
 }
 
 

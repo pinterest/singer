@@ -70,9 +70,11 @@ import com.twitter.util.Function;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
+import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.PathMatcher;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -514,8 +516,9 @@ public class LogConfigUtils {
    * @param basePath The base directory to start searching from.
    * @return A set of matching directory paths.
    */
-  private static Set<String> wildcardDirectoryMatcher(String pathAndWildcard, Path basePath) {
+  public static Set<String> wildcardDirectoryMatcher(String pathAndWildcard, Path basePath) {
     Set<String> matchingDirectories = new HashSet<>();
+    PathMatcher matcher = FileSystems.getDefault().getPathMatcher("glob:" + pathAndWildcard);
     if (basePath == null || !Files.exists(basePath)) {
       return matchingDirectories;
     }
@@ -525,7 +528,7 @@ public class LogConfigUtils {
         @Override
         public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
           File directory = dir.toFile();
-          if (directory.isDirectory() && FilenameUtils.wildcardMatch(directory.getAbsolutePath(), pathAndWildcard)) {
+          if (directory.isDirectory() && matcher.matches(dir)) {
             matchingDirectories.add(directory.getPath());
           }
           return FileVisitResult.CONTINUE;
@@ -534,6 +537,8 @@ public class LogConfigUtils {
     } catch (IOException e) {
       LOG.error("Error while discovering directories in file tree for " + pathAndWildcard, e);
     }
+    LOG.info("Wilcard directory matching found " + matchingDirectories.size() + " directories for "
+        + pathAndWildcard + ": " + matchingDirectories);
     return matchingDirectories;
   }
 
