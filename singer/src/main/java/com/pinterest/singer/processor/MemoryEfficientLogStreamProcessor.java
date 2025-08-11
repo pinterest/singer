@@ -15,6 +15,8 @@
  */
 package com.pinterest.singer.processor;
 
+import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
+import com.pinterest.singer.utils.SingerUtils;
 import java.io.IOException;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -66,6 +68,7 @@ public class MemoryEfficientLogStreamProcessor extends DefaultLogStreamProcessor
   protected int processLogMessageBatch() throws IOException, LogStreamWriterException, TException {
     LOG.debug("Start processing a batch of log messages in log stream: {} starting at position: {}",
         logStream, committedPosition);
+    long processingStartTime = System.currentTimeMillis();
     LogPosition batchStartPosition = committedPosition;
 
     int deciderValue = getDeciderValue();
@@ -142,6 +145,9 @@ public class MemoryEfficientLogStreamProcessor extends DefaultLogStreamProcessor
     } else {
       LOG.debug("Done processing log messages in LogStream {} : no new messages.", this.logStream);
     }
+    long processingDuration = System.currentTimeMillis() - processingStartTime;
+    OpenTsdbMetricConverter.gauge("processor.batch_duration_ms", processingDuration,
+        "log=" + logStream.getSingerLog().getSingerLogConfig().getName(), "host=" + SingerUtils.HOSTNAME);
     return logMessagesRead;
   }
 

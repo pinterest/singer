@@ -33,6 +33,7 @@ import com.pinterest.singer.thrift.LogMessage;
 import com.pinterest.singer.thrift.LogMessageAndPosition;
 import com.pinterest.singer.thrift.LogPosition;
 import com.pinterest.singer.utils.LogConfigUtils;
+import com.pinterest.singer.utils.SingerUtils;
 import com.pinterest.singer.utils.WatermarkUtils;
 
 import com.google.common.base.Preconditions;
@@ -191,7 +192,7 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
    * @throws LogStreamProcessorException when run into processing error.
    */
   @Override
-  public long processLogStream() throws LogStreamProcessorException {
+  public long processLogStream() throws LogStreamProcessorException, LogStreamWriterException {
     try {
       LOG.info("Start a processing cycle for log stream: {}", logStream);
       long cycleStartTime = System.currentTimeMillis();
@@ -253,6 +254,10 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
         logStream.removeOldFiles(committedPosition.logFile, logRetentionInSecs);
       }
       return numOfLogMessagesCommitted - cycleStartNumOfLogMessagesCommitted;
+    }  catch (LogStreamWriterException e) {
+      // specifically rethrow it
+      LOG.error("Caught LogStreamWriterException while processing " + logStream, e);
+      throw e;
     } catch (LogStreamReaderException e) {
       LOG.error("Failed to seek to position " + committedPosition, e);
     } catch (Exception e) {
@@ -338,6 +343,9 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
     } catch (LogStreamProcessorException e) {
       LOG.error("LogStreamProcessorException in processing log stream: " + logStream, e);
       Stats.incr(SingerMetrics.PROCESSOR_EXCEPTION);
+    } catch (LogStreamWriterException writerException) {
+      LOG.error("Caught LogStreamWriterException while processing " + logStream, writerException);
+      Stats.incr("singer.processor.writer_exception");
     } catch (Exception e) {
       LOG.error("Caught unexpected exception while processing " + logStream, e);
       Stats.incr("singer.processor.unexpected_exception");
@@ -353,18 +361,7 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
         batchSize = batchSizeOriginal;
         LOG.warn("Restoring batch size to " + batchSize);
       }
-      long newProcessingIntervalInMillis = processingIntervalInMillis;
-      // Adjust processing interval
-      if (logMessagesProcessed == 0L) {
-        // If we processed 0 messages at this processing cycle, we use a simply algorithm to
-        // double the processing interval for this log stream. This will introduce processing
-        // latency at most the message incoming interval.
-        newProcessingIntervalInMillis =
-            Math.min(processingIntervalInMillisMax, processingIntervalInMillis * 2);
-      } else if (logMessagesProcessed > 0L) {
-        // If got at least one message, reset the processing interval to min value to restart.
-        newProcessingIntervalInMillis = processingIntervalInMillisMin;
-      }
+      long newProcessingIntervalInMillis = getNewProcessingIntervalInMillis(logMessagesProcessed);
 
       if (newProcessingIntervalInMillis != processingIntervalInMillis) {
         // We have a new processing interval.
@@ -384,6 +381,23 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
             logStream.getLogStreamDescriptor(), processingIntervalInMillis);
       }
     }
+  }
+
+  private long getNewProcessingIntervalInMillis(long logMessagesProcessed) {
+    long newProcessingIntervalInMillis;
+    // Adjust processing interval
+    if (logMessagesProcessed <= 0L) {
+      // If we processed 0 (successful cycle but 0 messages) or -1 (exception thrown during processing)
+      // messages at this processing cycle, we use a simple algorithm to
+      // double the processing interval for this log stream. This will introduce processing
+      // latency at most the message incoming interval.
+      newProcessingIntervalInMillis =
+          Math.min(processingIntervalInMillisMax, processingIntervalInMillis * 2);
+    } else {
+      // If got at least one message, reset the processing interval to min value to restart.
+      newProcessingIntervalInMillis = processingIntervalInMillisMin;
+    }
+    return newProcessingIntervalInMillis;
   }
 
   @Override
@@ -538,6 +552,7 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
   protected int processLogMessageBatch() throws IOException, LogStreamWriterException, TException {
     LOG.debug("Start processing a batch of log messages in log stream: {} starting at position: {}",
         logStream, committedPosition);
+    long processingStartTime = System.currentTimeMillis();
     LogPosition batchStartPosition = committedPosition;
     List<LogMessageAndPosition> logMessagesRead = Lists.newArrayListWithExpectedSize(batchSize);
 
@@ -553,6 +568,9 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
           logMessagesRead.get(logMessagesRead.size() - 1).getNextPosition();
 
       commitLogPosition(newCommittedPosition, true);
+      long processingDuration = System.currentTimeMillis() - processingStartTime;
+      OpenTsdbMetricConverter.gauge("processor.batch_duration_ms", processingDuration,
+          "log=" + logStream.getSingerLog().getSingerLogConfig().getName(), "host=" + SingerUtils.HOSTNAME);
       numOfLogMessagesCommitted += logMessagesRead.size();
       LOG.debug("Done processing {} log messages in LogStream {} from position {} to position {}.",
           logMessagesRead.size(), this.logStream, batchStartPosition, committedPosition);
