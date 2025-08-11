@@ -402,6 +402,12 @@ public class LogConfigUtils {
     if (configuration.containsKey("auditor.enabled")) {
       parseMemqAuditorConfigs(config, new SubsetConfiguration(configuration, "auditor"));
     }
+    if (configuration.containsKey("maxInFlightRequestsMemoryBytes")) {
+      config.setMaxInFlightRequestsMemoryBytes(configuration.getInt("maxInFlightRequestsMemoryBytes"));
+    }
+    if (configuration.containsKey("maxBlockMs")) {
+      config.setMaxBlockMs(configuration.getInt("maxBlockMs"));
+    }
     return config;
   }
   

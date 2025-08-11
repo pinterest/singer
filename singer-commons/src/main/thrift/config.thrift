@@ -216,6 +216,8 @@ struct MemqWriterConfig {
   10: optional bool enableRackAwareness = true;
   11: required string cluster;
   12: optional MemqAuditorConfig auditorConfig;
+  13: optional i32 maxInFlightRequestsMemoryBytes = 33554432;  // 32 MB
+  14: optional i32 maxBlockMs = 0; // non-blocking by default
 }
 
 struct PulsarProducerConfig {

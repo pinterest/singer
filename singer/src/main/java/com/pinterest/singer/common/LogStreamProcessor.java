@@ -16,6 +16,7 @@
 package com.pinterest.singer.common;
 
 import com.pinterest.singer.common.errors.LogStreamProcessorException;
+import com.pinterest.singer.common.errors.LogStreamWriterException;
 import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
 import com.pinterest.singer.thrift.LogMessage;
 import com.pinterest.singer.utils.SingerUtils;
@@ -38,7 +39,7 @@ public interface LogStreamProcessor extends Closeable {
    * @return Number of LogMessage processed.
    * @throws LogStreamProcessorException when processor can not process the LogStream.
    */
-  long processLogStream() throws LogStreamProcessorException;
+  long processLogStream() throws LogStreamProcessorException, LogStreamWriterException;
 
   /**
    * Start the LogStream processor.

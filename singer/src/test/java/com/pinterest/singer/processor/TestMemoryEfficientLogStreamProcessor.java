@@ -357,7 +357,7 @@ public class TestMemoryEfficientLogStreamProcessor extends com.pinterest.singer.
       try {
         processor.processLogStream();
         fail("No exception is thrown on writer error");
-      } catch (LogStreamProcessorException e) {
+      } catch (LogStreamProcessorException | LogStreamWriterException e) {
         // Exception is thrown.
       }
       LogPosition positionAfter = WatermarkUtils.loadCommittedPositionFromWatermark(
