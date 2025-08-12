@@ -115,11 +115,11 @@ public class TestLogConfigUtils {
     // set up empty serverset
     LogConfigUtils.DEFAULT_SERVERSET_DIR = "target/serversets";
     new File(LogConfigUtils.DEFAULT_SERVERSET_DIR).mkdirs();
-    File emptyServerset = new File(LogConfigUtils.DEFAULT_SERVERSET_DIR + "/discovery.m10nkafka.prod");
+    File emptyServerset = new File(LogConfigUtils.DEFAULT_SERVERSET_DIR + "/discovery.kafka.prod");
     emptyServerset.createNewFile();
     //set up bad producer config
     Map<String, Object> map = new HashMap<>();
-    map.put("metadata.broker.serverset", "/discovery/m10nkafka/prod");
+    map.put("metadata.broker.serverset", "/discovery/kafka/prod");
     AbstractConfiguration config = new MapConfiguration(map);
     try {
       LogConfigUtils.parseProducerConfig(config);

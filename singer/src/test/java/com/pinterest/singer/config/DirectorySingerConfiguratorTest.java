@@ -201,7 +201,7 @@ public class DirectorySingerConfiguratorTest extends SingerTestBase {
   public void testSkipBadConfigEmptyServerset() throws Exception {
     dumpServerSetFiles();
     // create serverset dir + file
-    String path = "discovery.m10nkafka.prod";
+    String path = "discovery.kafka.prod";
     LogConfigUtils.DEFAULT_SERVERSET_DIR = "target/serversets";
     new File(LogConfigUtils.DEFAULT_SERVERSET_DIR).mkdirs();
     File emptyServerset = new File(LogConfigUtils.DEFAULT_SERVERSET_DIR + path);
