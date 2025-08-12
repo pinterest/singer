@@ -46,6 +46,8 @@ import com.google.common.collect.Lists;
 import org.apache.commons.io.FilenameUtils;
 import org.junit.After;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.File;
@@ -59,6 +61,7 @@ import java.util.List;
 import java.util.Map;
 
 public class DefaultLogStreamProcessorTest extends com.pinterest.singer.SingerTestBase {
+  private static final Logger LOG = LoggerFactory.getLogger(DefaultLogStreamProcessorTest.class);
 
   LogStreamReader logStreamReader;
   DefaultLogStreamProcessor processor;
@@ -138,7 +141,7 @@ public class DefaultLogStreamProcessorTest extends com.pinterest.singer.SingerTe
   }
 
   private SingerConfig initializeSingerConfig(int processorThreadPoolSize, int writerThreadPoolSize,
-      List<SingerLogConfig> singerLogConfigs) {
+                                              List<SingerLogConfig> singerLogConfigs) {
     SingerConfig singerConfig = new SingerConfig();
     singerConfig.setThreadPoolSize(1);
     singerConfig.setWriterThreadPoolSize(1);
@@ -181,7 +184,9 @@ public class DefaultLogStreamProcessorTest extends com.pinterest.singer.SingerTe
 
     // initialize global variables in SingerSettings
     try {
-      SingerConfig singerConfig = initializeSingerConfig(1, 1, Arrays.asList(logConfig));
+      SingerConfig
+          singerConfig =
+          initializeSingerConfig(1, 1, Collections.singletonList(logConfig));
       SingerSettings.initialize(singerConfig);
     } catch (Exception e) {
       e.printStackTrace();
@@ -454,7 +459,8 @@ public class DefaultLogStreamProcessorTest extends com.pinterest.singer.SingerTe
           new SingerLogConfig("test", getTempPath(), "thrift.log", null, null, null));
       LogStream logStream = new LogStream(singerLog, "thrift.log");
       writer = new NoOpLogStreamWriter();
-      initializeReaderAndProcessor(Collections.singletonMap("logDecider", "singer_test_decider"), logStream);
+      initializeReaderAndProcessor(Collections.singletonMap("logDecider", "singer_test_decider"),
+          logStream);
       Decider.setInstance(ImmutableMap.of("singer_test_decider", 0));
       // Write messages to be skipped.
       boolean deciderEnabled = processor.isLoggingAllowedByDecider();

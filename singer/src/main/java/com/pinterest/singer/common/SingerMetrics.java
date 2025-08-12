@@ -63,7 +63,6 @@ public class SingerMetrics {
 
   public static final String PROCESSOR_MESSAGE_KEY_SIZE_BYTES = "processor.message.key.size.bytes";
   public static final String PROCESSOR_MESSAGE_VALUE_SIZE_BYTES = "processor.message.value.size.bytes";
-
   public static final String DISABLE_DECIDER_ACTIVE = "singer.processor.disable_decider_active";
 
   public static final String SKIPPED_BYTES = "singer.reader.skipped_bytes";

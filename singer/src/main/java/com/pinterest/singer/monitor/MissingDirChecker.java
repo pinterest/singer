@@ -27,9 +27,9 @@ import com.twitter.ostrich.stats.Stats;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -93,7 +93,7 @@ public class MissingDirChecker implements Runnable {
           SingerLogConfig singerLogConfig = singerLog.getSingerLogConfig();
           boolean wildCardDir = false;
           boolean directoryInitialized = false;
-          List<String> directories = SingerUtils.splitString(singerLogConfig.getLogDir());
+          ArrayList<String> directories = SingerUtils.splitString(singerLogConfig.getLogDir());
 
           for (String logDir : directories) {
             Set<String> foundDirectories = null;

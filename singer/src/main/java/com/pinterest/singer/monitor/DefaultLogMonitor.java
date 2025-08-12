@@ -561,10 +561,6 @@ public class DefaultLogMonitor implements LogMonitor, Runnable {
     int numStuckStreams = 0;
     long processingLatency;
 
-    Map<String, List<Long>> perLogLatency = Maps.newHashMap();
-    Map<String, Integer> perLogStuck = Maps.newHashMap();
-    DefaultLogStreamProcessor processor;
-
     OpenTsdbMetricConverter.gauge("singer.netty_heap_buffer.memory.used",
         PooledByteBufAllocator.DEFAULT.metric().usedHeapMemory());
     OpenTsdbMetricConverter.gauge("singer.netty_heap_buffer.active.allocation.bytes", PooledByteBufAllocator.DEFAULT.metric().heapArenas().stream()
@@ -573,6 +569,10 @@ public class DefaultLogMonitor implements LogMonitor, Runnable {
         PooledByteBufAllocator.DEFAULT.metric().usedDirectMemory());
     OpenTsdbMetricConverter.gauge("singer.netty_direct_buffer.active.allocation.bytes", PooledByteBufAllocator.DEFAULT.metric().directArenas().stream()
         .mapToLong(PoolArenaMetric::numActiveBytes).sum());
+
+    Map<String, List<Long>> perLogLatency = Maps.newHashMap();
+    Map<String, Integer> perLogStuck = Maps.newHashMap();
+    DefaultLogStreamProcessor processor;
 
     for (LogStream logStream : processedLogStreams.keySet()) {
       String logName = logStream.getSingerLog().getSingerLogConfig().getName();

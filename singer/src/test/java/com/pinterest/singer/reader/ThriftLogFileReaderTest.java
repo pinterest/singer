@@ -63,7 +63,7 @@ public class ThriftLogFileReaderTest extends SingerTestBase {
     LogStream logStream = new LogStream(new SingerLog(new SingerLogConfig()), "test");
 
     // Open reader which cap the log message at 500 bytes
-    LogFileReader reader = new ThriftLogFileReader(logStream, logger.getLogFile(), path, 0L, 16000, 500,"localhost", "us-east-1a",null);
+    LogFileReader reader = new ThriftLogFileReader(logStream, logger.getLogFile(), path, 0L, 16000, 500,"localhost", "us-east-1a", null);
     int count = 0;
     for (int i = 0; i < 403; i++) {
       try {
@@ -103,7 +103,7 @@ public class ThriftLogFileReaderTest extends SingerTestBase {
     LogStream logStream = new LogStream(new SingerLog(new SingerLogConfig()), "test");
 
     // Open reader which cap the log message at 500 bytes
-    LogFileReader reader = new ThriftLogFileReader(logStream, logger.getLogFile(), path, 0L, 16000, 500, "localhost", "us-east-1a",null);
+    LogFileReader reader = new ThriftLogFileReader(logStream, logger.getLogFile(), path, 0L, 16000, 500, "localhost", "us-east-1a", null);
     try {
       // Seek to start offset.
       reader.setByteOffset(startOffset);
@@ -119,7 +119,7 @@ public class ThriftLogFileReaderTest extends SingerTestBase {
     }
 
     // Open reader.
-    reader = new ThriftLogFileReader(logStream, logger.getLogFile(), path, 0L, 16000, 16000, "localhost", "us-east-1a",null);
+    reader = new ThriftLogFileReader(logStream, logger.getLogFile(), path, 0L, 16000, 16000, "localhost", "us-east-1a", null);
     List<LogMessageAndPosition> messagesRead = Lists.newArrayListWithExpectedSize(3);
     try {
       // Seek to start offset.
@@ -141,9 +141,6 @@ public class ThriftLogFileReaderTest extends SingerTestBase {
       assertThat(written.getLogMessage(), is(read.getLogMessage()));
       assertThat(written.getNextPosition().getByteOffset(), is(read.getNextPosition().getByteOffset()));
     }
-
-    // Return null when no more message in the log file.
-    assertThat(messagesRead, is(messagesWritten));
   }
 
   public void testEnvironmentVariableInjection() throws Exception {

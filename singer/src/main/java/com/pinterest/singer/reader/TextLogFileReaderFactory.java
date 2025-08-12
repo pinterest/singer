@@ -58,6 +58,7 @@ public class TextLogFileReaderFactory implements LogFileReaderFactory {
         LOG.warn("Re-initialize log stream {} due to inode mismatch: expect {}, is {}",
             logStream, logFile.getInode(), inode);
         logStream.initialize();
+        path = logStream.getLogFilePath(logFile);
         if (path == null) {
           OpenTsdbMetricConverter.incr(SingerMetrics.READER_INODE_MISMATCH, 1,
               "log=" + logStream.getSingerLog().getLogName(), "reader_type=text");

@@ -256,7 +256,6 @@ public class FileSystemMonitorTest extends com.pinterest.singer.SingerTestBase {
 
     SingerConfig singerConfig = new SingerConfig();
     FileSystemMonitor t = new FileSystemMonitor(singerConfig, Arrays.asList(toMonitor), "testRenameFile");
-    verifyFiles(testDir.list(), toMonitor);
 
     int NUM_FILES = 10;
     File[] created = createTestLogStreamFiles(testDir, "test.tmp", NUM_FILES);

@@ -115,12 +115,12 @@ public class ThriftLogFileReader implements LogFileReader {
           SingerUtils.getByteBuf(SingerSettings.getEnvironment().getAccountId()));
       Map<String, ByteBuffer> logMetadata = logStream.getSingerLog().getPodMetadata();
       if (logMetadata != null && !logMetadata.isEmpty()) {
-        headers.putAll(logMetadata);
+          headers.putAll(logMetadata);
       }
     }
 
     this.thriftReader = new ThriftReader(
-        path, new LogMessageFactory(), new BinaryProtocolFactory(), readBufferSize,
+        path, new com.pinterest.singer.reader.ThriftLogFileReader.LogMessageFactory(), new com.pinterest.singer.reader.ThriftLogFileReader.BinaryProtocolFactory(), readBufferSize,
         maxMessageSizeInternal);
     this.thriftReader.setByteOffset(byteOffset);
 

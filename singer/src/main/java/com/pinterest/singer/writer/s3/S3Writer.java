@@ -226,9 +226,7 @@ public class S3Writer implements LogStreamWriter {
       if (!bufferFile.exists()) {
         resetBufferFile();
       }
-
       bufferedOutputStream = new BufferedOutputStream(new FileOutputStream(bufferFile, true));
-
     } catch (IOException e) {
       throw new RuntimeException("Failed to create buffer file: " + getBufferFileName(), e);
     }
@@ -488,7 +486,6 @@ public class S3Writer implements LogStreamWriter {
         "writeLogMessages is not supported. Use writeLogMessagesToCommit instead.");
   }
 
-
   /**
    * Closes the S3Writer, ensuring that remaining buffered log messages are safely uploaded to S3.
    *
@@ -518,8 +515,7 @@ public class S3Writer implements LogStreamWriter {
           uploadDiskBufferedFileToS3();
           bufferFile.delete();
         } catch (IOException e) {
-          LOG.error("Failed to close bufferedWriter or upload buffer file: " + getBufferFileName(),
-              e);
+          LOG.error("Failed to close bufferedWriter or upload buffer file: " + getBufferFileName(), e);
         }
       }
 

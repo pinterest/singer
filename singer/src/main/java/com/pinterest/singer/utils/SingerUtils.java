@@ -40,7 +40,6 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 
-import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.configuration.ConfigurationException;
 import org.apache.commons.io.comparator.LastModifiedFileComparator;
 import org.apache.commons.io.comparator.NameFileComparator;
@@ -57,6 +56,7 @@ import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.pinterest.singer.common.LogStream;
 import com.pinterest.singer.common.SingerSettings;
@@ -71,7 +71,7 @@ import com.pinterest.singer.thrift.configuration.SingerConfig;
  * The utility methods for Singer
  */
 public class SingerUtils {
-	
+
   private static String OS = System.getProperty("os.name").toLowerCase();
   private static final boolean IS_MAC = OS.indexOf("mac") >= 0;
   private static final Logger LOG = LoggerFactory.getLogger(SingerUtils.class);
@@ -107,7 +107,7 @@ public class SingerUtils {
       return Arrays.asList(HOSTNAME);
     }
     List<String> hostPrefixes = new ArrayList<>();
-    String [] splitHostname = HOSTNAME.split(regex);
+    String[] splitHostname = HOSTNAME.split(regex);
     StringBuilder currentPrefix = new StringBuilder();
     for (String prefix : splitHostname) {
       currentPrefix.append(prefix);

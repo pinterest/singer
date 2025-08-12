@@ -342,7 +342,7 @@ public class LogStreamManager implements PodWatcher {
             createPrefixBasedLogStreams(singerLog, singerLogConfig, dir, files, logDirPath);
           }
         } else if (NON_KUBERNETES_POD_ID.equals(podUid)) {
-            singerLogsWithoutDir.putIfAbsent(singerLog, podUid);
+          singerLogsWithoutDir.putIfAbsent(singerLog, podUid);
         }
       }
     } catch (NoSuchFileException e) {

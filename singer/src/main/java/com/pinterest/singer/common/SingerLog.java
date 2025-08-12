@@ -79,6 +79,7 @@ public class SingerLog {
     return podUid;
   }
 
+
   public void addMetadata(String key, ByteBuffer value) {
     podMetadata.put(key, value);
   }

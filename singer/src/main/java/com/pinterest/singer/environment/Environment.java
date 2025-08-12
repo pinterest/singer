@@ -30,9 +30,9 @@ public class Environment {
 
   public static final String LOCALITY_NOT_AVAILABLE = "n/a";
   public static final String DEFAULT_HOSTNAME = SingerUtils.getHostname();
+  private String locality = LOCALITY_NOT_AVAILABLE;
   // Useful to track when running in cloud environments
   private String accountId = "n/a";
-  private String locality = LOCALITY_NOT_AVAILABLE;
   private String deploymentStage;
   private String hostname = DEFAULT_HOSTNAME;
 

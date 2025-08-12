@@ -32,7 +32,6 @@ import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
@@ -108,7 +107,7 @@ public class FileSystemEventFetcher implements Runnable {
    *  @param name of the event fetcher.
    */
   public void start(String name) {
-    // we don't want to start another thread for the
+    // we don't want to start another thread for the 
     // same instance of FileSystemEventFetcher
     if(this.thread == null) {
         this.name = name;

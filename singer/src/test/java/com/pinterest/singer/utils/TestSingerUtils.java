@@ -64,7 +64,7 @@ public class TestSingerUtils {
     String [] prefixes = {"localhost", "localhost-prod", "localhost-prod-cluster", "localhost-prod-cluster-19970722"};
     List<String> finalPrefixes = SingerUtils.getHostnamePrefixes(regex);
     assertTrue(finalPrefixes.equals(java.util.Arrays.asList(prefixes)));
-    
+
     // Check dots and dashes
     regex = "[.-]";
     SingerUtils.setHostname("localhost-prod.cluster-19970722", regex);

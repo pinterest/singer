@@ -284,6 +284,7 @@ struct SingerLogConfig {
    *  this log will be skipped directly when draining is enabled
    */
   14: optional bool skipDraining = false;
+
   /**
    *  Configuration to transform log message
    */
@@ -336,9 +337,9 @@ struct KubeConfig {
   5: optional i32 kubePollStartDelaySeconds = 10;
 
   /**
-  * Directory that serves as a flag that indicates
-  * a pod should be ingored
-  */
+   * Directory that serves as a flag that indicates
+   * a pod should be ingored
+   */
   6: optional string ignorePodDirectory = "";
 
   /**
@@ -500,8 +501,8 @@ struct SingerConfig {
   27: optional string fsEventQueueImplementation;
 
   /**
-   * Hostname Prefix regex pattern
-   */
+    * Hostname Prefix regex pattern
+    */
   28: optional string hostnamePrefixRegex = "-";
 
   /**

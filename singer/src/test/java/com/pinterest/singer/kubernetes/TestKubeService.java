@@ -33,6 +33,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
 
@@ -56,12 +57,12 @@ public class TestKubeService {
 
     private static HttpServer server;
     private final List<String> podNames = Arrays.asList(
-        "default_nginx-deployment-5c689d7589-abcde_12345678-1234-1234-1234-1234567890ab",
-        "default_nginx-deployment-5c689d7589-fghij_12345678-1234-5678-1234-567890abcdef",
-        "default_backend-service-7987d5b5c-12345_54321678-9876-5432-9876-5432198765ac",
-        "default_frontend-service-7f8d5b7c6-xzywv_54321098-7654-3210-6798-5432123456dc",
-        "default_database-7f8d5b7c6-mnopq_98765432-7654-4321-6543-987654321098",
-        "default_analytics-57c66b48c6-qwer7_09876543-7654-5432-8765-098765432109");
+            "default_nginx-deployment-5c689d7589-abcde_12345678-1234-1234-1234-1234567890ab",
+            "default_nginx-deployment-5c689d7589-fghij_12345678-1234-5678-1234-567890abcdef",
+            "default_backend-service-7987d5b5c-12345_54321678-9876-5432-9876-5432198765ac",
+            "default_frontend-service-7f8d5b7c6-xzywv_54321098-7654-3210-6798-5432123456dc",
+            "default_database-7f8d5b7c6-mnopq_98765432-7654-4321-6543-987654321098",
+            "default_analytics-57c66b48c6-qwer7_09876543-7654-5432-8765-098765432109");
 
     @BeforeClass
     public static void beforeClass() throws IOException {
@@ -197,7 +198,7 @@ public class TestKubeService {
             kubeService.updatePodWatchers(pod, false);
         }
         assertEquals(podNames.size(), pmdTracker.getPodMetadataMap().size());
-        for (Map.Entry<String, Map<String, String>> pod : pmdTracker.getPodMetadataMap().entrySet()) {
+        for (Entry<String, Map<String, String>> pod : pmdTracker.getPodMetadataMap().entrySet()) {
             assertTrue(podNames.contains(pod.getKey()));
             assertNotNull(pod.getValue().get("namespace"));
             assertNotNull(pod.getValue().get("name"));

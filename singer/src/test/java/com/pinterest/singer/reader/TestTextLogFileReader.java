@@ -55,8 +55,8 @@ public class TestTextLogFileReader extends SingerTestBase {
     LogFile logFile = new LogFile(inode);
     LogStream logStream = new LogStream(new SingerLog(new SingerLogConfig()), "test");
     LogFileReader reader = new TextLogFileReader(logStream, logFile, path, 0, 8192, 102400, 1,
-        Pattern.compile("^.*$"), null, TextLogMessageType.PLAIN_TEXT, false, false, true, null, null,
-        null, null, null);
+        Pattern.compile("^.*$"), null, TextLogMessageType.PLAIN_TEXT, false, false, true, null, null, null,
+        null, null);
     for (int i = 0; i < 100; i++) {
       LogMessageAndPosition log = reader.readLogMessageAndPosition();
       assertEquals(dataWritten.get(i).trim(), new String(log.getLogMessage().getMessage()));
@@ -96,8 +96,8 @@ public class TestTextLogFileReader extends SingerTestBase {
     LogFile logFile = new LogFile(inode);
     LogStream logStream = new LogStream(new SingerLog(new SingerLogConfig()), "test");
     LogFileReader reader = new TextLogFileReader(logStream, logFile, path, 0, 8192, 102400, 2,
-        Pattern.compile("^.*$"), null, TextLogMessageType.PLAIN_TEXT, false, false, true, null, "n/a",
-        null, null, null);
+        Pattern.compile("^.*$"), null, TextLogMessageType.PLAIN_TEXT, false, false, true, null, "n/a", null,
+        null, null);
     for (int i = 0; i < 100; i = i + 2) {
       LogMessageAndPosition log = reader.readLogMessageAndPosition();
       assertEquals(dataWritten.get(i) + dataWritten.get(i + 1).trim(),
