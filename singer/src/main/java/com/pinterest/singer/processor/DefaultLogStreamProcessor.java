@@ -254,12 +254,12 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
         logStream.removeOldFiles(committedPosition.logFile, logRetentionInSecs);
       }
       return numOfLogMessagesCommitted - cycleStartNumOfLogMessagesCommitted;
+    } catch (LogStreamReaderException e) {
+      LOG.error("Failed to seek to position " + committedPosition, e);
     }  catch (LogStreamWriterException e) {
       // specifically rethrow it
       LOG.error("Caught LogStreamWriterException while processing " + logStream, e);
       throw e;
-    } catch (LogStreamReaderException e) {
-      LOG.error("Failed to seek to position " + committedPosition, e);
     } catch (Exception e) {
       LOG.error("Caught unexpected exception while processing " + logStream, e);
     }
@@ -287,7 +287,8 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
             LOG.info("Disabling log stream {} because fleet disable decider {} is set to 100",
                 logStream.getLogStreamName(), disableDecider);
             OpenTsdbMetricConverter.gauge(
-                SingerMetrics.DISABLE_DECIDER_ACTIVE, 1, "log=" + logStream.getSingerLog().getLogName());
+                SingerMetrics.DISABLE_DECIDER_ACTIVE, 1,
+                "log=" + logStream.getSingerLog().getLogName());
             result = false;
             break;
           }
@@ -392,7 +393,7 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
       // double the processing interval for this log stream. This will introduce processing
       // latency at most the message incoming interval.
       newProcessingIntervalInMillis =
-          Math.min(processingIntervalInMillisMax, processingIntervalInMillis * 2);
+              Math.min(processingIntervalInMillisMax, processingIntervalInMillis * 2);
     } else {
       // If got at least one message, reset the processing interval to min value to restart.
       newProcessingIntervalInMillis = processingIntervalInMillisMin;
@@ -570,7 +571,7 @@ public class DefaultLogStreamProcessor implements LogStreamProcessor, Runnable {
       commitLogPosition(newCommittedPosition, true);
       long processingDuration = System.currentTimeMillis() - processingStartTime;
       OpenTsdbMetricConverter.gauge("processor.batch_duration_ms", processingDuration,
-          "log=" + logStream.getSingerLog().getSingerLogConfig().getName(), "host=" + SingerUtils.HOSTNAME);
+              "log=" + logStream.getSingerLog().getSingerLogConfig().getName(), "host=" + SingerUtils.HOSTNAME);
       numOfLogMessagesCommitted += logMessagesRead.size();
       LOG.debug("Done processing {} log messages in LogStream {} from position {} to position {}.",
           logMessagesRead.size(), this.logStream, batchStartPosition, committedPosition);

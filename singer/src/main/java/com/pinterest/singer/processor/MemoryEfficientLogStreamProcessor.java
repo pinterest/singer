@@ -15,11 +15,11 @@
  */
 package com.pinterest.singer.processor;
 
-import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
-import com.pinterest.singer.utils.SingerUtils;
 import java.io.IOException;
 import java.util.concurrent.ThreadLocalRandom;
 
+import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
+import com.pinterest.singer.utils.SingerUtils;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -147,7 +147,7 @@ public class MemoryEfficientLogStreamProcessor extends DefaultLogStreamProcessor
     }
     long processingDuration = System.currentTimeMillis() - processingStartTime;
     OpenTsdbMetricConverter.gauge("processor.batch_duration_ms", processingDuration,
-        "log=" + logStream.getSingerLog().getSingerLogConfig().getName(), "host=" + SingerUtils.HOSTNAME);
+            "log=" + logStream.getSingerLog().getSingerLogConfig().getName(), "host=" + SingerUtils.HOSTNAME);
     return logMessagesRead;
   }
 

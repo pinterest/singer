@@ -68,7 +68,9 @@ public class TextLogFileReader implements LogFileReader {
   private final TextLogMessageType textLogMessageType;
 
   private String hostname;
+
   private String availabilityZone;
+
   private boolean trimTailingNewlineCharacter;
 
   private Map<String, ByteBuffer> headers;
@@ -206,8 +208,8 @@ public class TextLogFileReader implements LogFileReader {
         TextMessage textMessage = new TextMessage();
         textMessage.setFilename(path);
         textMessage.setHost(hostname);
-        textMessage.setAvailabilityZone(availabilityZone);
         textMessage.addToMessages(TextMessageReader.bufToString(out));
+        textMessage.setAvailabilityZone(availabilityZone);
         logMessage = new LogMessage(ByteBuffer.wrap(serializer.serialize(textMessage)));
         break;
       case PLAIN_TEXT:

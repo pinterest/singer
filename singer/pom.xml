@@ -10,7 +10,7 @@
     <parent>
         <groupId>com.pinterest.singer</groupId>
         <artifactId>singer-package</artifactId>
-        <version>0.8.0.97</version>
+        <version>0.8.0.98</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <licenses>
@@ -119,6 +119,16 @@
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-core</artifactId>
             <version>1.12.248</version>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sts</artifactId>
+            <version>2.17.273</version>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>2.17.273</version>
         </dependency>
         <dependency>
             <groupId>com.google.guava</groupId>
@@ -230,11 +240,6 @@
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-s3</artifactId>
             <version>1.12.248</version>
-        </dependency>
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>sts</artifactId>
-            <version>2.17.273</version>
         </dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>

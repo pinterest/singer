@@ -19,8 +19,8 @@ public class PutObjectUploader extends S3Uploader {
     private static final long MAX_BACKOFF = 32000; // Maximum backoff in milliseconds
 
     public PutObjectUploader(S3WriterConfig s3WriterConfig, S3Client s3Client) {
-        super(s3WriterConfig, s3Client);
-        this.maxRetries = s3WriterConfig.getMaxRetries();
+      super(s3WriterConfig, s3Client);
+      this.maxRetries = s3WriterConfig.getMaxRetries();
     }
 
     /**
@@ -46,7 +46,7 @@ public class PutObjectUploader extends S3Uploader {
                         .build();
 
                 if (cannedAcl != null) {
-                    putObjectRequest = putObjectRequest.toBuilder().acl(cannedAcl).build();
+                  putObjectRequest = putObjectRequest.toBuilder().acl(cannedAcl).build();
                 }
 
                 PutObjectResponse

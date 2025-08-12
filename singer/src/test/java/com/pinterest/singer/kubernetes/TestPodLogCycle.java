@@ -42,6 +42,7 @@ import com.pinterest.singer.thrift.configuration.FileNameMatchMode;
 import com.pinterest.singer.thrift.configuration.KubeConfig;
 import com.pinterest.singer.thrift.configuration.SingerConfig;
 import com.pinterest.singer.thrift.configuration.SingerLogConfig;
+
 import com.twitter.ostrich.stats.Stats;
 
 public class TestPodLogCycle {
@@ -217,9 +218,6 @@ public class TestPodLogCycle {
         instance.stop();
         LogStreamManager.reset();
     }
-
-
-
     @Test
     public void testPodExternalPodDeletion() throws InterruptedException, IOException {
         SingerLogConfig logConfig2 = new SingerLogConfig();

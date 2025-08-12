@@ -63,7 +63,7 @@ public class RegexBasedModifier implements MessageTransformer<ByteBuffer> {
     if (!matcher.find()) {
       LOG.debug("[RegexParser] Message " + messageString + " did not match regex: " + regex);
       OpenTsdbMetricConverter.incr(SingerMetrics.REGEX_BASED_MODIFIER + "no_message_match",
-          "logName=" + logName + "file=" + logStream.getFileNamePrefix());
+          "logName=" + logName +  "file=" + logStream.getFileNamePrefix());
       return message;
     }
     try {

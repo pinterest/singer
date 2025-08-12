@@ -543,7 +543,7 @@ public class LogConfigUtils {
     } catch (IOException e) {
       LOG.error("Error while discovering directories in file tree for " + pathAndWildcard, e);
     }
-    LOG.info("Wilcard directory matching found " + matchingDirectories.size() + " directories for "
+    LOG.info("Wildcard directory matching found " + matchingDirectories.size() + " directories for "
         + pathAndWildcard + ": " + matchingDirectories);
     return matchingDirectories;
   }
@@ -860,27 +860,27 @@ public class LogConfigUtils {
       case KAFKA08:
       case KAFKA:
         writerConfig.setKafkaWriterConfig(parseKafkaWriterConfig(
-            new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
+                new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
         return writerConfig;
       case REALPIN:
         writerConfig.setRealpinWriterConfig(parseRealpinWriterConfig(
-            new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
+                new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
         return writerConfig;
       case NO_OP:
         writerConfig.setNoOpWriteConfig(parseNoOpWriterConfig(
-            new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
+                new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
         return writerConfig;
       case PULSAR:
         writerConfig.setPulsarWriterConfig(parsePulsarWriterConfig(
-            new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
+                new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
         return writerConfig;
       case MEMQ:
         writerConfig.setMemqWriterConfig(parseMemqWriterConfig(
-            new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
+                new SubsetConfiguration(writerConfiguration, writerTypeString + ".")));
         return writerConfig;
       default:
         throw new ConfigurationException("Unsupported log writer type.");
-      }
+    }
   }
 
   private static S3WriterConfig parseS3WriterConfig(AbstractConfiguration writerConfiguration) throws ConfigurationException {
@@ -1269,7 +1269,10 @@ public class LogConfigUtils {
     return kafkaProducerConfig;
   }
   
-  public static List<String> getRandomizedStartOffsetBrokers(int hash, Set<String> brokerSet) {
+  public static List<String> getRandomizedStartOffsetBrokers(int hash, Set<String> brokerSet) throws ConfigurationException {
+    if (brokerSet == null || brokerSet.isEmpty()) {
+      throw new ConfigurationException("serverset file is empty");
+    }
     Iterator<String> iterator = Iterables.cycle(brokerSet).iterator();
     List<String> tmpBrokers = Lists.newArrayList();
     int startOffset = hash % brokerSet.size();
@@ -1348,9 +1351,9 @@ public class LogConfigUtils {
     }
 
     if (textReaderConfiguration.containsKey(SingerConfigDef.TEXT_READER_FILTER_MESSAGE_REGEX)) {
+      String filterMessageRegex;
       try {
-        String
-            filterMessageRegex =
+        filterMessageRegex =
             textReaderConfiguration.getString(SingerConfigDef.TEXT_READER_FILTER_MESSAGE_REGEX);
         if (!filterMessageRegex.isEmpty()) {
           Pattern.compile(filterMessageRegex);

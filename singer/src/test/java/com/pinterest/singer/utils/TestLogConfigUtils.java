@@ -18,7 +18,6 @@ package com.pinterest.singer.utils;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -108,6 +107,25 @@ public class TestLogConfigUtils {
       } catch (ConfigurationException e) {
         throw e;
       }
+    }
+  }
+
+  @Test
+  public void testKafkaProducerConfigCatchEmptyBrokerset() throws Exception {
+    // set up empty serverset
+    LogConfigUtils.DEFAULT_SERVERSET_DIR = "target/serversets";
+    new File(LogConfigUtils.DEFAULT_SERVERSET_DIR).mkdirs();
+    File emptyServerset = new File(LogConfigUtils.DEFAULT_SERVERSET_DIR + "/discovery.m10nkafka.prod");
+    emptyServerset.createNewFile();
+    //set up bad producer config
+    Map<String, Object> map = new HashMap<>();
+    map.put("metadata.broker.serverset", "/discovery/m10nkafka/prod");
+    AbstractConfiguration config = new MapConfiguration(map);
+    try {
+      LogConfigUtils.parseProducerConfig(config);
+      fail("Should throw exception");
+    } catch (ConfigurationException ex) {
+      assertEquals("serverset file is empty", ex.getMessage());
     }
   }
 
@@ -340,7 +358,7 @@ public class TestLogConfigUtils {
   }
 
   @Test
-  public void testgetRandomizedStartOffsetBrokers() {
+  public void testgetRandomizedStartOffsetBrokers() throws ConfigurationException{
     List<String> one = LogConfigUtils.getRandomizedStartOffsetBrokers(101,
         new LinkedHashSet<>(Arrays.asList("1", "2", "3", "4")));
     List<String> two = LogConfigUtils.getRandomizedStartOffsetBrokers(101,
