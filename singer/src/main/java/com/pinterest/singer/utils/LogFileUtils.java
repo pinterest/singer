@@ -27,6 +27,8 @@ import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
 
+import java.util.regex.Pattern;
+
 /**
  * Utility class for LogFile
  */
@@ -50,7 +52,8 @@ public final class LogFileUtils {
         regexStr += ".*";
       }
       LOG.info("Matching files under {} with filter {}", logDir, regexStr);
-      FileFilter fileFilter = new RegexFileFilter(regexStr);
+      Pattern pattern = PatternCache.getPattern(regexStr);
+      FileFilter fileFilter = file -> pattern.matcher(file.getName()).matches();
       File[] files = dir.listFiles(fileFilter);
       for (File file : files) {
         String path = file.getAbsolutePath();

@@ -23,6 +23,7 @@ import com.pinterest.singer.thrift.LogFileAndPath;
 import com.pinterest.singer.thrift.configuration.FileNameMatchMode;
 import com.pinterest.singer.thrift.configuration.SingerLogConfig;
 import com.pinterest.singer.utils.SingerUtils;
+import com.pinterest.singer.utils.PatternCache;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -47,6 +48,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.regex.Pattern;
 
 /**
  * Represent a log stream which logger append log message onto.
@@ -173,7 +175,8 @@ public class LogStream {
     }
 
     LOG.info("Matching files under {} with filter {}", logDir, regexStr);
-    FileFilter fileFilter = new RegexFileFilter(regexStr);
+    Pattern pattern = PatternCache.getPattern(regexStr);
+    FileFilter fileFilter = file -> pattern.matcher(file.getName()).matches();
     File[] files = logDir.listFiles(fileFilter);
 
     // Sort the file first by last_modified timestamp and then by name in case two files have
