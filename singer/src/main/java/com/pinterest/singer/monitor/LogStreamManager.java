@@ -41,10 +41,6 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import com.pinterest.singer.utils.LogConfigUtils;
-import com.pinterest.singer.utils.PatternCache;
-import com.pinterest.singer.utils.SingerUtils;
-
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.comparator.CompositeFileComparator;
 import org.apache.commons.io.comparator.LastModifiedFileComparator;
@@ -71,6 +67,7 @@ import com.pinterest.singer.thrift.configuration.FileNameMatchMode;
 import com.pinterest.singer.thrift.configuration.SingerConfig;
 import com.pinterest.singer.thrift.configuration.SingerLogConfig;
 import com.pinterest.singer.utils.LogConfigUtils;
+import com.pinterest.singer.utils.PatternCache;
 import com.pinterest.singer.utils.SingerUtils;
 import com.twitter.ostrich.stats.Stats;
 
