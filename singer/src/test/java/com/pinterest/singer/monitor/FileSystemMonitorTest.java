@@ -479,7 +479,6 @@ public class FileSystemMonitorTest extends com.pinterest.singer.SingerTestBase {
     }
   }
 
-
   @Test
   public void testLogStreamManagerPatternCacheIntegration() throws Exception {
     final File testDir = this.tempDir.newFolder();
