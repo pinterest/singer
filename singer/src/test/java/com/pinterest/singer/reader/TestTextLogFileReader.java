@@ -27,6 +27,7 @@ import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
 
+import com.pinterest.singer.utils.PatternCache;
 import org.apache.commons.io.FilenameUtils;
 import org.junit.Test;
 
@@ -225,6 +226,49 @@ public class TestTextLogFileReader extends SingerTestBase {
           new String(log.getLogMessage().getMessage()));
     }
     reader.close();
+  }
+
+  @Test
+  public void testPatternCacheWithDifferentRegexFlags() throws Exception {
+    String path1 = FilenameUtils.concat(getTempPath(), "test_flags1.log");
+    String path2 = FilenameUtils.concat(getTempPath(), "test_flags2.log");
+
+    generateSampleMessagesToFile(path1);
+    generateSampleMessagesToFile(path2);
+
+    PatternCache.clearCache();
+
+    long inode1 = SingerUtils.getFileInode(SingerUtils.getPath(path1));
+    long inode2 = SingerUtils.getFileInode(SingerUtils.getPath(path2));
+    LogFile logFile1 = new LogFile(inode1);
+    LogFile logFile2 = new LogFile(inode2);
+    LogStream logStream = new LogStream(new SingerLog(new SingerLogConfig()), "test");
+
+    Pattern messagePattern1 = PatternCache.getPattern("^.*$", Pattern.UNIX_LINES);
+    Pattern filterPattern1 = PatternCache.getPattern("ERROR.*", Pattern.DOTALL); // DOTALL flag
+
+    LogFileReader reader1 = new TextLogFileReader(logStream, logFile1, path1, 0, 8192, 102400, 1,
+            messagePattern1, filterPattern1, TextLogMessageType.PLAIN_TEXT, false, false, true, null, null, null, null, null);
+
+    int cacheAfterFirst = PatternCache.getCacheSize();
+    assertTrue("Cache should have entries after first reader", cacheAfterFirst > 0);
+
+    Pattern messagePattern2 = PatternCache.getPattern("^.*$", Pattern.UNIX_LINES); // Same as first
+    Pattern filterPattern2 = PatternCache.getPattern("ERROR.*", 0); // Different flags
+
+    LogFileReader reader2 = new TextLogFileReader(logStream, logFile2, path2, 0, 8192, 102400, 1,
+            messagePattern2, filterPattern2, TextLogMessageType.PLAIN_TEXT, false, false, true, null, null, null, null, null);
+
+    // Cache should have more entries due to different flags
+    assertTrue("Cache should have more entries with different flags",
+            PatternCache.getCacheSize() > cacheAfterFirst);
+
+    // Verify message patterns are the same (cached) but filter patterns are different
+    assertSame("Message patterns should be cached", messagePattern1, messagePattern2);
+    assertNotSame("Filter patterns should be different due to different flags", filterPattern1, filterPattern2);
+
+    reader1.close();
+    reader2.close();
   }
 
   private List<String> generateSampleMessagesToFile(String path) throws FileNotFoundException,

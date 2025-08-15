@@ -25,6 +25,7 @@ import com.pinterest.singer.thrift.configuration.MessageTransformerConfig;
 import com.pinterest.singer.thrift.configuration.TextReaderConfig;
 import com.pinterest.singer.utils.LogFileUtils;
 import com.pinterest.singer.utils.SingerUtils;
+import com.pinterest.singer.utils.PatternCache;
 
 import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
@@ -65,13 +66,22 @@ public class TextLogFileReaderFactory implements LogFileReaderFactory {
           throw new LogStreamReaderException("Log file " + logFile.getInode() + " not found after re-initializing logstream " + logStream);
         }
       }
+
+      Pattern messageStartPattern = PatternCache.getPattern(
+              readerConfig.getMessageStartRegex(), Pattern.UNIX_LINES);
+
+      Pattern filterPattern = null;
+      if (readerConfig.getFilterMessageRegex() != null) {
+        filterPattern = PatternCache.getPattern(
+                readerConfig.getFilterMessageRegex(), Pattern.DOTALL);
+      }
+
       reader = new TextLogFileReader(logStream, logFile, path, byteOffset,
           readerConfig.getReaderBufferSize(),
           readerConfig.getMaxMessageSize(),
           readerConfig.getNumMessagesPerLogMessage(),
-          Pattern.compile(readerConfig.getMessageStartRegex(), Pattern.UNIX_LINES),
-          readerConfig.getFilterMessageRegex() != null ? Pattern.compile(
-              readerConfig.getFilterMessageRegex(), Pattern.DOTALL) : null,
+          messageStartPattern,
+          filterPattern,
           readerConfig.getTextLogMessageType(),
           readerConfig.isPrependTimestamp(),
           readerConfig.isPrependHostname(),

@@ -37,6 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -66,6 +67,7 @@ import com.pinterest.singer.thrift.configuration.FileNameMatchMode;
 import com.pinterest.singer.thrift.configuration.SingerConfig;
 import com.pinterest.singer.thrift.configuration.SingerLogConfig;
 import com.pinterest.singer.utils.LogConfigUtils;
+import com.pinterest.singer.utils.PatternCache;
 import com.pinterest.singer.utils.SingerUtils;
 import com.twitter.ostrich.stats.Stats;
 
@@ -184,7 +186,8 @@ public class LogStreamManager implements PodWatcher {
       for (SingerLog log : singerLogPaths.get(pathStr)) {
         String regex = log.getSingerLogConfig().getLogStreamRegex();
         LOG.debug("Checking..." + regex + " matching " + logFile.toString());
-        if (new RegexFileFilter(regex).accept(logFile)) {
+        Pattern pattern = PatternCache.getPattern(regex);
+        if (pattern.matcher(logFile.getName()).matches()) {
           singerLogs.add(log);
         }
       }
@@ -316,18 +319,16 @@ public class LogStreamManager implements PodWatcher {
         if (dir.exists()) {
           String regexStr = singerLogConfig.getLogStreamRegex();
           LOG.info("Attempting to match files under {} with filter {}", logDirPath.toFile().getAbsolutePath(), regexStr);
-          // @variable files contains files for a list of log streams. Each file represents one stream
-          FileFilter regexFileFilter = new RegexFileFilter(regexStr);;
-
-          // Add another filter on top of the regex filter to exclude watermark files
+          Pattern pattern = PatternCache.getPattern(regexStr);
           FileFilter excludeDotFilesFilter = file -> {
             // Exclude files that start with a dot (mostly want to ignore watermark files)
             if (file.getName().startsWith(".")) {
               return false;
             }
-            // Apply the regex filter
-            return regexFileFilter.accept(file);
+            // Apply the cached pattern
+            return pattern.matcher(file.getName()).matches();
           };
+
           File[] files = dir.listFiles(excludeDotFilesFilter);
 
           LOG.info(files.length + " files matches the regex " + regexStr);
@@ -407,7 +408,8 @@ public class LogStreamManager implements PodWatcher {
 
     // get all files that matches the log stream regex prefix
     String regexStr = singerLogConfig.getLogStreamRegex() + ".*";
-    FileFilter fileFilter = new RegexFileFilter(regexStr);
+    Pattern pattern = PatternCache.getPattern(regexStr);
+    FileFilter fileFilter = file -> pattern.matcher(file.getName()).matches();
     List<File> logFiles = Arrays.asList(logDir.listFiles(fileFilter));
 
     // Sort the file first by last_modified timestamp and then by name in case two files have

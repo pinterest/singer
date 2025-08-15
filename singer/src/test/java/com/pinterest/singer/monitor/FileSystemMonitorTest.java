@@ -23,6 +23,7 @@ import com.pinterest.singer.thrift.LogFileAndPath;
 import com.pinterest.singer.thrift.configuration.FileNameMatchMode;
 import com.pinterest.singer.thrift.configuration.SingerConfig;
 import com.pinterest.singer.thrift.configuration.SingerLogConfig;
+import com.pinterest.singer.utils.PatternCache;
 import com.pinterest.singer.utils.SingerUtils;
 
 import java.util.ArrayList;
@@ -36,6 +37,9 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.regex.Pattern;
 
 public class FileSystemMonitorTest extends com.pinterest.singer.SingerTestBase {
   private static final Logger LOG = LoggerFactory.getLogger(FileSystemMonitorTest.class);
@@ -473,5 +477,85 @@ public class FileSystemMonitorTest extends com.pinterest.singer.SingerTestBase {
       assertFalse("Hidden file should not be discovered",
           LogStreamManager.getLogStreamsFor(testDir.toPath(), hiddenFile.toPath()).size() > 0);
     }
+  }
+
+  @Test
+  public void testLogStreamManagerPatternCacheIntegration() throws Exception {
+    final File testDir = this.tempDir.newFolder();
+    final String filePrefix = "cache_test";
+
+    PatternCache.clearCache();
+
+    // Initialize SingerSettings
+    SingerConfig singerConfig = new SingerConfig();
+    SingerSettings.setSingerConfig(singerConfig);
+
+    // Create multiple log streams with same regex patterns
+    SingerLogConfig config1 = createSingerLogConfig(filePrefix + "1", testDir.getAbsolutePath());
+    config1.setLogStreamRegex("cache_test\\d+\\.log");
+
+    SingerLogConfig config2 = createSingerLogConfig(filePrefix + "2", testDir.getAbsolutePath());
+    config2.setLogStreamRegex("cache_test\\d+\\.log"); // Same regex
+
+    SingerLogConfig config3 = createSingerLogConfig(filePrefix + "3", testDir.getAbsolutePath());
+    config3.setLogStreamRegex("different_\\d+\\.log"); // Different regex
+
+    // Register SingerLogs with LogStreamManager properly
+    LogStreamManager manager = LogStreamManager.getInstance();
+    Map<String, Set<SingerLog>> singerLogPaths = manager.getSingerLogPaths();
+
+    String testDirPath = testDir.getAbsolutePath();
+    singerLogPaths.put(testDirPath, new HashSet<>());
+    singerLogPaths.get(testDirPath).add(new SingerLog(config1));
+    singerLogPaths.get(testDirPath).add(new SingerLog(config2));
+    singerLogPaths.get(testDirPath).add(new SingerLog(config3));
+
+    LogStream logStream1 = new LogStream(new SingerLog(config1), filePrefix + "1");
+    LogStream logStream2 = new LogStream(new SingerLog(config2), filePrefix + "2");
+    LogStream logStream3 = new LogStream(new SingerLog(config3), filePrefix + "3");
+
+    FileSystemMonitor monitor = new FileSystemMonitor(singerConfig,
+            Arrays.asList(logStream1, logStream2, logStream3), "testPatternCache");
+    monitor.start();
+
+    // Create test files to trigger pattern matching
+    File testFile1 = new File(testDir, "cache_test1.log");
+    testFile1.createNewFile();
+    Thread.sleep(FILE_EVENT_WAIT_TIME_MS);
+
+    List<SingerLog> matchedLogs1 = LogStreamManager.getMatchedSingerLogs(testDir.toPath(), testFile1);
+    int cacheAfterFirst = PatternCache.getCacheSize();
+    assertTrue("Cache should have entries after file matching", cacheAfterFirst > 0);
+    assertEquals("Should have 2 unique patterns cached (same + different)", 2, cacheAfterFirst);
+    assertTrue("Should find matching SingerLogs", matchedLogs1.size() > 0);
+
+    File testFile2 = new File(testDir, "cache_test2.log");
+    testFile2.createNewFile();
+    Thread.sleep(FILE_EVENT_WAIT_TIME_MS);
+
+    List<SingerLog> matchedLogs2 = LogStreamManager.getMatchedSingerLogs(testDir.toPath(), testFile2);
+    int cacheAfterSecond = PatternCache.getCacheSize();
+    assertEquals("Cache size should not increase when reusing patterns",
+            cacheAfterFirst, cacheAfterSecond);
+
+    File testFile3 = new File(testDir, "different_1.log");
+    testFile3.createNewFile();
+    Thread.sleep(FILE_EVENT_WAIT_TIME_MS);
+
+    List<SingerLog> matchedLogs3 = LogStreamManager.getMatchedSingerLogs(testDir.toPath(), testFile3);
+    int cacheAfterThird = PatternCache.getCacheSize();
+    assertEquals("Cache should not grow since all patterns already cached",
+            cacheAfterSecond, cacheAfterThird);
+
+    // Verify pattern matching worked correctly
+    assertTrue("Should match config1 and config2", matchedLogs1.size() >= 2);
+    assertTrue("Should match config1 and config2", matchedLogs2.size() >= 2);
+    assertTrue("Should match config3", matchedLogs3.size() >= 1);
+
+    Pattern pattern1a = PatternCache.getPattern("cache_test\\d+\\.log");
+    Pattern pattern1b = PatternCache.getPattern("cache_test\\d+\\.log");
+    assertSame("Should return same cached instance", pattern1a, pattern1b);
+
+    monitor.stop();
   }
 }
