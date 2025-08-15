@@ -51,7 +51,7 @@ public class PatternCache {
         String cacheKey = regex + "|flags=" + flags;
 
         return PATTERN_CACHE.computeIfAbsent(cacheKey, regexKey -> {
-            LOG.warn("Singer regex optimization: Compiling new pattern with flags: {} (flags={})", regex, flags);
+            LOG.info("Singer regex optimization: Compiling new pattern with flags: {} (flags={})", regex, flags);
             return Pattern.compile(regex, flags);
         });
     }
