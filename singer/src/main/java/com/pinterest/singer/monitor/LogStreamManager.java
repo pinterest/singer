@@ -318,6 +318,7 @@ public class LogStreamManager implements PodWatcher {
         File dir = new File(logDir);
         if (dir.exists()) {
           String regexStr = singerLogConfig.getLogStreamRegex();
+          LOG.info("Attempting to match files under {} with filter {}", logDirPath.toFile().getAbsolutePath(), regexStr);
           Pattern pattern = PatternCache.getPattern(regexStr);
           FileFilter excludeDotFilesFilter = file -> {
             // Exclude files that start with a dot (mostly want to ignore watermark files)
