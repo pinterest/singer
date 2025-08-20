@@ -73,9 +73,13 @@ public class SingerConfigDef {
 
   // KubeService configs
   public static final String SINGER_KUBE_CONFIG_PREFIX = "singer.kubernetes.";
+  public static final String KUBE_KUBELET_PORT = "kubeletPort";
+  public static final String KUBE_SERVICE_ACCOUNT_TOKEN_PATH = "serviceAccountTokenPath";
+  public static final String KUBE_SERVICE_ACCOUNT_CA_CERT_PATH = "serviceAccountCaCertPath";
   public static final String KUBE_POLL_FREQUENCY_SECONDS = "pollFrequencyInSeconds";
   public static final String KUBE_POD_LOG_DIR = "podLogDirectory";
   public static final String KUBE_DEFAULT_DELETION_TIMEOUT = "defaultDeletionTimeoutInSeconds";
+  public static final String KUBE_USE_SECURE_CONNECTION = "useSecureConnection";
   public static final String POD_METADATA_FIELDS = "podMetadataFields";
 
   public static final String SINGER_ADMIN_CONFIG_PREFIX = "singer.admin.";

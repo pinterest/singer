@@ -18,7 +18,6 @@ package com.pinterest.singer.utils;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
-import java.net.MalformedURLException;
 import java.nio.ByteBuffer;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
@@ -40,10 +39,11 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 
+import java.util.Map;
+import javax.net.ssl.SSLContext;
 import org.apache.commons.configuration.ConfigurationException;
 import org.apache.commons.io.comparator.LastModifiedFileComparator;
 import org.apache.commons.io.comparator.NameFileComparator;
-import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -271,7 +271,7 @@ public class SingerUtils {
    */
   public static CloseableHttpResponse makeRequest(HttpRequestBase request)
       throws KeyManagementException, NoSuchAlgorithmException, KeyStoreException, IOException {
-	  return buildClient(request.getURI().toURL().toString(), 1000, 1000, null).execute(request);
+	  return buildClient(request.getURI().toURL().toString(), 1000, 1000, null, null).execute(request);
   }
 
   /** 
@@ -279,23 +279,41 @@ public class SingerUtils {
    * under Apache 2.0 license
    */
   public static CloseableHttpResponse makeRequestAuthenticated(HttpRequestBase request, CredentialsProvider provider)
-	throws KeyManagementException, ClientProtocolException, NoSuchAlgorithmException, KeyStoreException,
-	MalformedURLException, IOException {
-	  return buildClient(request.getURI().toURL().toString(), 1000, 1000, provider).execute(request);
+      throws KeyManagementException, NoSuchAlgorithmException, KeyStoreException, IOException {
+    return buildClient(request.getURI().toURL().toString(), 1000, 1000, provider, null).execute(request);
   }
+
+  public static CloseableHttpResponse makeRequestWithSSL(HttpRequestBase request, SSLContext sslContext)
+      throws KeyManagementException, NoSuchAlgorithmException, KeyStoreException, IOException {
+    return buildClient(request.getURI().toURL().toString(), 1000, 1000, null, sslContext).execute(request);
+  }
+
 
   /** 
    * Copied from https://github.com/srotya/sidewinder/blob/development/core/src/test/java/com/srotya/sidewinder/core/qa/TestUtils.java
    * under Apache 2.0 license
    */
   public static CloseableHttpClient buildClient(String baseURL, int connectTimeout, int requestTimeout,
-	CredentialsProvider provider) throws NoSuchAlgorithmException, KeyStoreException, KeyManagementException {
+	CredentialsProvider provider, SSLContext sslContext) {
 	  HttpClientBuilder clientBuilder = HttpClients.custom();
-	  if (provider != null) {
-		  clientBuilder.setDefaultCredentialsProvider(provider);
-	  }
-	  RequestConfig config = RequestConfig.custom().setConnectTimeout(connectTimeout)
-		.setConnectionRequestTimeout(requestTimeout).setAuthenticationEnabled(true).build();
+
+    if (sslContext != null) {
+      try {
+        clientBuilder.setSSLContext(sslContext);
+      } catch (Exception e) {
+        LOG.error("Failed to create SSLContext for " + baseURL, e);
+      }
+    }
+
+    if (provider != null) {
+        clientBuilder.setDefaultCredentialsProvider(provider);
+      }
+
+    RequestConfig config = RequestConfig.custom()
+        .setConnectTimeout(connectTimeout)
+        .setConnectionRequestTimeout(requestTimeout)
+        .setAuthenticationEnabled(true)
+        .build();
 	  return clientBuilder.setDefaultRequestConfig(config).build();
   }
   
@@ -324,29 +342,40 @@ public class SingerUtils {
       return NameFileComparator.NAME_REVERSE.compare(file1, file2);
     }
   }
-  
+
   /**
    * Make an HTTP Get request on the supplied URI and return the response entity
    * as {@link String}
-   * 
+   *
    * @param uri
    * @return
    * @throws IOException
    */
-  public static String makeGetRequest(String uri) throws IOException {
-      HttpGet getPodRequest = new HttpGet(uri);
-      try {
-          CloseableHttpResponse response = SingerUtils.makeRequest(getPodRequest);
-          if (response.getStatusLine().getStatusCode() != 200) {
-              LOG.warn("Non-200 status code(" + response.getStatusLine().getStatusCode() + ") reason:"
-                      + response.getStatusLine().getReasonPhrase());
-          }
-          String entity = EntityUtils.toString(response.getEntity());
-          response.close();
-          return entity;
-      } catch (KeyManagementException | NoSuchAlgorithmException | KeyStoreException | IOException e) {
-          throw new IOException(e);
+  public static String makeGetRequest(String uri, Map<String, String> headers, SSLContext sslContext) throws IOException {
+    HttpGet getPodRequest = new HttpGet(uri);
+    if (headers != null) {
+      for (Map.Entry<String, String> entry : headers.entrySet()) {
+        getPodRequest.addHeader(entry.getKey(), entry.getValue());
       }
+    }
+    try {
+      CloseableHttpResponse response;
+      if (sslContext != null) {
+        response = SingerUtils.makeRequestWithSSL(getPodRequest, sslContext);
+      } else {
+        response = SingerUtils.makeRequest(getPodRequest);
+      }
+      if (response.getStatusLine().getStatusCode() != 200) {
+        LOG.warn("Non-200 status code(" + response.getStatusLine().getStatusCode() + ") reason:"
+            + response.getStatusLine().getReasonPhrase());
+      }
+      String entity = EntityUtils.toString(response.getEntity());
+      response.close();
+      return entity;
+    } catch (KeyManagementException | NoSuchAlgorithmException | KeyStoreException |
+             IOException e) {
+      throw new IOException(e);
+    }
   }
 
   public static String getHostNameBasedOnConfig(LogStream logStream,

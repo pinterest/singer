@@ -304,4 +304,27 @@ public class TestKubeService {
         });
     }
 
+    @Test
+    public void testUseSecureConnection() {
+        // Test with secure connection enabled
+        try {
+            KubeConfig secureConfig = new KubeConfig();
+            secureConfig.setUseSecureConnection(true);
+            secureConfig.setServiceAccountCaCertPath("src/test/resources/test-cert.pem");
+            secureConfig.setServiceAccountTokenPath("src/test/resources/test-token");
+            KubeService secureService = new KubeService(secureConfig);
+            assertTrue(secureService.getKubeMdUrl("10250").startsWith("https://"));
+        } catch (Exception e) {
+            fail("Failed to initialize KubeService with secure connection: " + e);
+        }
+        // Test with secure connection disabled
+        try {
+            KubeConfig insecureConfig = new KubeConfig();
+            insecureConfig.setUseSecureConnection(false);
+            KubeService insecureService = new KubeService(insecureConfig);
+            assertTrue(insecureService.getKubeMdUrl("10250").startsWith("http://"));
+        } catch (Exception e) {
+            fail("Failed to initialize KubeService with insecure connection: " + e);
+        }
+    }
 }

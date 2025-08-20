@@ -4,9 +4,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *    http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,6 +15,7 @@
  */
 package com.pinterest.singer.kubernetes;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
@@ -23,11 +24,24 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardWatchEventKinds;
 import java.nio.file.WatchEvent;
+import java.security.KeyManagementException;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.UnrecoverableKeyException;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
 
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,22 +65,23 @@ import com.twitter.ostrich.stats.Stats;
 /**
  * Service that detects new Kubernetes pods by watching directory and kubelet
  * metadata and creates events for any subscribing listeners.
- * 
+ *
  * This class is a singleton.
- * 
+ *
  * Note: this service starts and maintains 3 threads: Thread 1 - for kubernetes
  * md poll Thread 2 - for filesystemeventfetcher Thread 3 - for processing
  * filesystemeventfetcher events
  */
 public class KubeService implements Runnable {
 
-    private static final String DEFAULT_KUBELET_URL = "http://localhost:10255/pods";
-    private static final String KUBE_MD_URL = "kube.md.url";
     private static final int MILLISECONDS_IN_SECONDS = 1000;
     private static final int MD_MAX_POLL_DELAY = 3600;
     private static final Logger LOG = LoggerFactory.getLogger(KubeService.class);
-    private static final String PODS_MD_URL = System.getProperty(KUBE_MD_URL, DEFAULT_KUBELET_URL);
     private static KubeService instance;
+    private static String kubeMdUrl;
+    private static boolean useSecureConnection;
+    private static SSLContext sslContext;
+    private static Map<String, String> serviceAccountTokenHeaderMap;
     // using CSLS to avoid having to explicitly lock and simplify for updates
     // happening from both MD service and FileSystemEventFetcher since this may lead
     // to a deadlock since the update methods are shared
@@ -110,6 +125,24 @@ public class KubeService implements Runnable {
         podLogDirectory = kubeConfig.getPodLogDirectory();
         kubePollDelay = kubeConfig.getKubePollStartDelaySeconds() * MILLISECONDS_IN_SECONDS;
         ignorePodDirectory = kubeConfig.getIgnorePodDirectory();
+        useSecureConnection = kubeConfig.isUseSecureConnection();
+        if (useSecureConnection) {
+            try {
+                sslContext = getSslContext(kubeConfig.getServiceAccountCaCertPath());
+            } catch (CertificateException | UnrecoverableKeyException | KeyStoreException |
+                     IOException | NoSuchAlgorithmException | KeyManagementException e) {
+                LOG.error("Error initializing SSLContext for KubeService", e);
+                OpenTsdbMetricConverter.incr(SingerMetrics.KUBE_SERVICE_SECURE_CONNECTION_ERROR, "reason=ssl_init_error");
+            }
+            try {
+                serviceAccountTokenHeaderMap = Collections.singletonMap("Authorization", "Bearer " + new String(
+                    Files.readAllBytes(Paths.get(kubeConfig.getServiceAccountTokenPath()))));
+            } catch (IOException e) {
+                LOG.error("Error reading service account token for KubeService", e);
+                OpenTsdbMetricConverter.incr(SingerMetrics.KUBE_SERVICE_SECURE_CONNECTION_ERROR, "reason=token_read_error");
+            }
+        }
+        kubeMdUrl = getKubeMdUrl(kubeConfig.getKubeletPort());
     }
 
     public synchronized static KubeService getInstance() {
@@ -304,7 +337,7 @@ public class KubeService implements Runnable {
      * @throws IOException
      */
     public static JsonArray getPodListFromKubelet() throws IOException {
-      String response = SingerUtils.makeGetRequest(PODS_MD_URL);
+      String response = SingerUtils.makeGetRequest(kubeMdUrl, serviceAccountTokenHeaderMap, sslContext);
       Gson gson = new Gson();
       JsonObject obj = gson.fromJson(response, JsonObject.class);
       return obj != null && obj.has("items") ? obj.get("items").getAsJsonArray() : null;
@@ -468,5 +501,41 @@ public class KubeService implements Runnable {
       }
       podFormat = namespace + "_" + podName + "_" + uuid;
       return podFormat;
+    }
+
+    public String getKubeMdUrl(String port) {
+        // In newer Kubernetes versions, the kubelet API is served over HTTPS. In addition, the certificate
+        // has the node's IP address in its SANs, so we can't use localhost.
+        if (useSecureConnection) {
+            String hostIp = System.getenv("HOST_IP");
+            if (hostIp == null || hostIp.isEmpty()) {
+                LOG.warn("HOST_IP not set, using localhost for kubelet API secure access");
+                return "https://localhost:" + port + "/pods";
+            }
+            LOG.info("Using HOST_IP for kubelet API: " + hostIp);
+            return "https://" + hostIp + ":" + port + "/pods";
+        }
+        return "http://localhost:" + port + "/pods";
+    }
+
+    private static SSLContext getSslContext(String certPath)
+        throws CertificateException, UnrecoverableKeyException, KeyStoreException, IOException, NoSuchAlgorithmException, KeyManagementException {
+        CertificateFactory cf = CertificateFactory.getInstance("X.509");
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        ByteArrayInputStream caInput = new ByteArrayInputStream(
+            Files.readAllBytes(Paths.get(certPath)));
+        X509Certificate cert = (X509Certificate) cf.generateCertificate(caInput);
+
+        KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
+        ks.load(null);
+        ks.setCertificateEntry(cert.getSubjectX500Principal().getName(), cert);
+        KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+        kmf.init(ks, null);
+
+        TrustManagerFactory tmf = TrustManagerFactory.getInstance(
+            TrustManagerFactory.getDefaultAlgorithm());
+        tmf.init(ks);
+        sslContext.init(null, tmf.getTrustManagers(), null);
+        return sslContext;
     }
 }
