@@ -348,6 +348,29 @@ struct KubeConfig {
   */
   7: optional list<string> podMetadataFields;
 
+    /**
+     * The path to the service account token file.
+     * This is used to authenticate with the Kubernetes API server.
+     */
+    8: optional string serviceAccountTokenPath;
+
+    /**
+     * The path to the service account CA certificate file.
+     * This is used to verify the Kubernetes API server's TLS certificate.
+     */
+    9: optional string serviceAccountCaCertPath;
+
+    /**
+     * The port number of the kubelet API server.
+     * This is used to fetch pod metadata.
+     */
+    10: optional string kubeletPort = "10255";
+
+    /**
+     * Whether to use a secure connection to the kubelet API server.
+     * If true, the serviceAccountTokenPath and serviceAccountCaCertPath must be set.
+     */
+    11: optional bool useSecureConnection = false;
 }
 
 struct AdminConfig {

@@ -305,6 +305,55 @@ public class LogConfigUtils {
       config.setDefaultDeletionTimeoutInSeconds(
           subsetConfig.getInt(SingerConfigDef.KUBE_DEFAULT_DELETION_TIMEOUT));
     }
+
+    if (subsetConfig.containsKey(SingerConfigDef.KUBE_KUBELET_PORT)) {
+      config.setKubeletPort(subsetConfig.getString(SingerConfigDef.KUBE_KUBELET_PORT));
+    }
+
+    if (subsetConfig.containsKey(SingerConfigDef.KUBE_USE_SECURE_CONNECTION)
+        && subsetConfig.getBoolean(SingerConfigDef.KUBE_USE_SECURE_CONNECTION)) {
+      config.setUseSecureConnection(
+          subsetConfig.getBoolean(SingerConfigDef.KUBE_USE_SECURE_CONNECTION));
+      if (!subsetConfig.containsKey(SingerConfigDef.KUBE_SERVICE_ACCOUNT_TOKEN_PATH) ||
+          !subsetConfig.containsKey(SingerConfigDef.KUBE_SERVICE_ACCOUNT_CA_CERT_PATH)) {
+        throw new ConfigurationException("When using secure connection, "
+            + SingerConfigDef.KUBE_SERVICE_ACCOUNT_TOKEN_PATH + " must be set.");
+      }
+      // Validate the service account token and CA cert paths
+      String tokenPath = subsetConfig.getString(SingerConfigDef.KUBE_SERVICE_ACCOUNT_TOKEN_PATH);
+      File tokenFile = new File(tokenPath);
+      if (!tokenFile.exists() || !tokenFile.isFile()) {
+        throw new ConfigurationException(
+            "Service account token file does not exist: " + tokenPath);
+      }
+      config.setServiceAccountTokenPath(tokenPath);
+      String caCertPath = subsetConfig.getString(
+          SingerConfigDef.KUBE_SERVICE_ACCOUNT_CA_CERT_PATH);
+      File caCertFile = new File(caCertPath);
+      if (!caCertFile.exists() || !caCertFile.isFile()) {
+        throw new ConfigurationException(
+            "Service account CA cert file does not exist: " + caCertPath);
+      }
+      config.setServiceAccountCaCertPath(caCertPath);
+    }
+
+    if (subsetConfig.containsKey(SingerConfigDef.KUBE_SERVICE_ACCOUNT_TOKEN_PATH)) {
+      String tokenPath = subsetConfig.getString(SingerConfigDef.KUBE_SERVICE_ACCOUNT_TOKEN_PATH);
+      File tokenFile = new File(tokenPath);
+      if (!tokenFile.exists() || !tokenFile.isFile()) {
+        throw new ConfigurationException("Service account token file does not exist: " + tokenPath);
+      }
+      config.setServiceAccountTokenPath(tokenPath);
+    }
+
+    if (subsetConfig.containsKey(SingerConfigDef.KUBE_SERVICE_ACCOUNT_CA_CERT_PATH)) {
+      String caCertPath = subsetConfig.getString(SingerConfigDef.KUBE_SERVICE_ACCOUNT_CA_CERT_PATH);
+      File caCertFile = new File(caCertPath);
+      if (!caCertFile.exists() || !caCertFile.isFile()) {
+        throw new ConfigurationException("Service account CA cert file does not exist: " + caCertPath);
+      }
+      config.setServiceAccountCaCertPath(caCertPath);
+    }
     return config;
   }
 
