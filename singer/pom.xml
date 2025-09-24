@@ -118,7 +118,7 @@
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-core</artifactId>
-            <version>1.12.248</version>
+            <version>1.12.320</version>
         </dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
@@ -239,7 +239,7 @@
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-s3</artifactId>
-            <version>1.12.248</version>
+            <version>1.12.320</version>
         </dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
