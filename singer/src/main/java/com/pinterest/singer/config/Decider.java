@@ -15,6 +15,8 @@
  */
 package com.pinterest.singer.config;
 
+import com.pinterest.singer.common.SingerMetrics;
+import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
 import com.pinterest.singer.utils.HashUtils;
 import com.pinterest.singer.utils.SingerUtils;
 
@@ -238,6 +240,9 @@ public class Decider {
   public int getDeciderValue(String deciderName, int defaultValue) {
     try {
       deciderName = deciderName.toLowerCase();
+      OpenTsdbMetricConverter.gauge(
+          SingerMetrics.DECIDER_ACCESSED, 1,
+          "name=" + deciderName);
       if (mDeciderMap.containsKey(deciderName)) {
         return mDeciderMap.get(deciderName);
       }
