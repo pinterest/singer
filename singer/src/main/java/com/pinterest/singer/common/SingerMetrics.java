@@ -65,6 +65,8 @@ public class SingerMetrics {
   public static final String PROCESSOR_MESSAGE_VALUE_SIZE_BYTES = "processor.message.value.size.bytes";
   public static final String DISABLE_DECIDER_ACTIVE = "singer.processor.disable_decider_active";
 
+  public static final String DECIDER_ACCESSED = "singer.decider.accessed";
+
   public static final String SKIPPED_BYTES = "singer.reader.skipped_bytes";
   public static final String READER_INODE_MISMATCH = "singer.reader.inode_mismatch";
 
