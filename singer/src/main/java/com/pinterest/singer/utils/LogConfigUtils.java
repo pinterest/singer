@@ -1033,6 +1033,11 @@ public class LogConfigUtils {
       }
       config.setRegion(writerConfiguration.getString(SingerConfigDef.REGION));
     }
+
+    if (writerConfiguration.containsKey(SingerConfigDef.CONTENT_TYPE)) {
+      config.setContentType(writerConfiguration.getString(SingerConfigDef.CONTENT_TYPE));
+    }
+
     return config;
   }
 

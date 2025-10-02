@@ -471,7 +471,7 @@ public class TestLogConfigUtils {
         "type=s3\n" + "s3.bucket=my-fav-bucket\n" + "s3.keyFormat=%{service}/%{index}/my_log\n"
             + "s3.maxFileSizeMB=100\n" + "s3.minUploadTimeInSeconds=1\n" + "s3.maxRetries=10\n"
             + "s3.filenamePattern=^(?<service>[a-zA-Z0-9]+)_.*_(?<index>\\\\d+)\\\\.log$\n"
-            + "s3.cannedAcl=bucket-owner-full-control";
+            + "s3.cannedAcl=bucket-owner-full-control\n" + "s3.contentType=application/json";
     PropertiesConfiguration conf = new PropertiesConfiguration();
     conf.load(new ByteArrayInputStream(config.getBytes()));
     List<String> tokens = new ArrayList<>();

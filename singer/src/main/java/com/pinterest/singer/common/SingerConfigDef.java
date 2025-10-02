@@ -127,5 +127,6 @@ public class SingerConfigDef {
   public static final String UPLOADER_CLASS = "uploaderClass";
   public static final String REGION = "region";
   public static final String MATCH_ABSOLUTE_PATH = "matchAbsolutePath";
+  public static final String CONTENT_TYPE = "contentType";
   public static final String NAMED_GROUP_PATTERN = "\\(\\?<([a-zA-Z][a-zA-Z0-9]*)>";
 }

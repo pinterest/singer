@@ -13,19 +13,20 @@ import software.amazon.awssdk.services.s3.model.PutObjectResponse;
 import java.io.File;
 
 public class PutObjectUploader extends S3Uploader {
+
     private static final Logger LOG = LoggerFactory.getLogger(PutObjectUploader.class);
     private final int maxRetries;
     private static final long INITIAL_BACKOFF = 1000; // Initial backoff in milliseconds
     private static final long MAX_BACKOFF = 32000; // Maximum backoff in milliseconds
 
     public PutObjectUploader(S3WriterConfig s3WriterConfig, S3Client s3Client) {
-      super(s3WriterConfig, s3Client);
-      this.maxRetries = s3WriterConfig.getMaxRetries();
+        super(s3WriterConfig, s3Client);
+        this.maxRetries = s3WriterConfig.getMaxRetries();
     }
 
     /**
-     * Uploads a file to S3 using the PutObject API.
-     * Uses exponential backoff with a cap for retries.
+     * Uploads a file to S3 using the PutObject API. Uses exponential backoff with a cap for
+     * retries.
      *
      * @param s3ObjectUpload the object to upload
      * @return true if the file was successfully uploaded, false otherwise
@@ -40,14 +41,19 @@ public class PutObjectUploader extends S3Uploader {
         while (attempts < maxRetries && !success) {
             attempts++;
             try {
-                PutObjectRequest putObjectRequest = PutObjectRequest.builder()
-                        .bucket(bucket)
-                        .key(s3Key)
-                        .build();
+                PutObjectRequest.Builder putObjectRequestBuilder = PutObjectRequest.builder()
+                    .bucket(bucket)
+                    .key(s3Key);
 
+                // Add optional fields if present
                 if (cannedAcl != null) {
-                  putObjectRequest = putObjectRequest.toBuilder().acl(cannedAcl).build();
+                    putObjectRequestBuilder = putObjectRequestBuilder.acl(cannedAcl);
                 }
+                if (contentType != null && !contentType.isEmpty()) {
+                    putObjectRequestBuilder = putObjectRequestBuilder.contentType(contentType);
+                }
+
+                PutObjectRequest putObjectRequest = putObjectRequestBuilder.build();
 
                 PutObjectResponse
                     putObjectResponse =
