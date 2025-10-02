@@ -12,12 +12,14 @@ public abstract class S3Uploader {
   protected S3WriterConfig s3WriterConfig;
   protected final ObjectCannedACL cannedAcl;
   protected final String bucket;
+  protected final String contentType;
   protected S3Client s3Client;
 
   public S3Uploader(S3WriterConfig s3WriterConfig, S3Client s3Client) {
     this.s3WriterConfig = s3WriterConfig;
     this.bucket = s3WriterConfig.getBucket();
     this.cannedAcl = ObjectCannedACL.fromValue(s3WriterConfig.getCannedAcl());
+    this.contentType = s3WriterConfig.getContentType();
     this.s3Client = s3Client;
   }
 

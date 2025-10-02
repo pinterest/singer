@@ -179,6 +179,9 @@ struct S3WriterConfig {
   11: optional string region = "us-east-1";
   // Use absolute path for filenamePattern regex matching.
   12: optional bool matchAbsolutePath = false;
+  // The content type header to set for uploaded S3 objects.
+  // e.g. "application/json", "text/plain", etc.
+  13: optional string contentType;
 }
 
 enum RealpinObjectType {
