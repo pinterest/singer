@@ -457,6 +457,9 @@ public class LogConfigUtils {
     if (configuration.containsKey("maxBlockMs")) {
       config.setMaxBlockMs(configuration.getInt("maxBlockMs"));
     }
+    if (configuration.containsKey("numWriteEndpoints")) {
+      config.setNumWriteEndpoints(configuration.getInt("numWriteEndpoints"));
+    }
     return config;
   }
   

@@ -221,6 +221,7 @@ struct MemqWriterConfig {
   12: optional MemqAuditorConfig auditorConfig;
   13: optional i32 maxInFlightRequestsMemoryBytes = 33554432;  // 32 MB
   14: optional i32 maxBlockMs = 0; // non-blocking by default
+  15: optional i32 numWriteEndpoints = 1; // producer to broker mapping, 1:1 by default
 }
 
 struct PulsarProducerConfig {
