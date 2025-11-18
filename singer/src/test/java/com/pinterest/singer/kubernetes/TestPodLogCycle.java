@@ -389,6 +389,11 @@ public class TestPodLogCycle {
 
     @Test
     public void testPodDirectoryDeletion() throws InterruptedException, IOException, SingerLogException {
+        // Enable direct pod directory cleanup
+        kubeConfig.setEnablePodLogDirectoryCleanup(true);
+        kubeConfig.setDeletionCheckIntervalInSeconds(1);
+        kubeConfig.setDefaultDeletionTimeoutInSeconds(1);
+
         SingerLogConfig logConfig = new SingerLogConfig();
         logConfig.setLogDir("/var/log");
         logConfig.setFilenameMatchMode(FileNameMatchMode.PREFIX);
