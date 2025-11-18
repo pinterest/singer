@@ -559,74 +559,75 @@ public class LogStreamManager implements PodWatcher {
 
   @Override
   public void podDeleted(final String podUid) {
-      int deletionCheckIntervalInSeconds = SingerSettings.getSingerConfig().getKubeConfig().getDeletionCheckIntervalInSeconds();
+    int deletionCheckIntervalInSeconds = SingerSettings.getSingerConfig().getKubeConfig().getDeletionCheckIntervalInSeconds();
 
-      SingerSettings.getBackgroundTaskExecutor().schedule(new Runnable() {
-          @Override
-          public void run() {
-              LOG.info("Checking if POD:" + podUid + " is ready for deletion");
+    SingerSettings.getBackgroundTaskExecutor().schedule(new Runnable() {
+      @Override
+      public void run() {
+        LOG.info("Checking if POD:" + podUid + " is ready for deletion");
 
-              // check if all logs for this pod are cleaned up
-              String fromKey = new File(podLogDirectory + "/" + podUid).toPath().normalize().toString();
-              String toKey = fromKey + "/" + Character.MAX_VALUE;
+        // check if all logs for this pod are cleaned up
+        String fromKey = new File(podLogDirectory + "/" + podUid).toPath().normalize().toString();
+        String toKey = fromKey + "/" + Character.MAX_VALUE;
 
-              // get all logstreams for this pod uid
-              SortedMap<String, Collection<LogStream>> logStreamsForPodPath = dirStreams.subMap(fromKey, toKey);
+        // get all logstreams for this pod uid
+        SortedMap<String, Collection<LogStream>> logStreamsForPodPath = dirStreams.subMap(fromKey, toKey);
 
-              // iterate through the subMap
-              long maxElapsedTime = checkAndCleanupLogStreamsForPod(podUid, logStreamsForPodPath,
-                      SingerSettings.getSingerConfig().getKubeConfig().getDefaultDeletionTimeoutInSeconds());
+        // iterate through the subMap
+        long maxElapsedTime = checkAndCleanupLogStreamsForPod(podUid, logStreamsForPodPath,
+            SingerSettings.getSingerConfig().getKubeConfig().getDefaultDeletionTimeoutInSeconds());
 
-              if (logStreamsForPodPath.size() == 0) {
-                  // no more directory streams left, we can now cleanup singer
-                  try {
-                      SingerSettings.getOrCreateFileSystemMonitor(podUid).destroy();
-                      boolean enableDirectCleanup = SingerSettings.getSingerConfig().getKubeConfig().isEnablePodLogDirectoryCleanup();
+        if(logStreamsForPodPath.size()==0) {
+          // no more directory streams left, we can now cleanup singer
+          try {
+            SingerSettings.getOrCreateFileSystemMonitor(podUid).destroy();
+            boolean enableDirectCleanup = SingerSettings.getSingerConfig().getKubeConfig().isEnablePodLogDirectoryCleanup();
 
-                      if (enableDirectCleanup) {
-                          // Delete the pod log directory directly
-                          File podDirectory = new File(podLogDirectory + "/" + podUid);
-                          if (podDirectory.exists()) {
-                              SingerUtils.deleteRecursively(podDirectory);
-                              // Also delete the base directory itself
-                              boolean deleted = podDirectory.delete();
-                              if (deleted) {
-                                  Stats.incr(SingerMetrics.POD_DIRECTORIES_DELETED);
-                                  LOG.info("Pod directory deleted successfully: " + podDirectory.getAbsolutePath());
-                              } else {
-                                  LOG.warn("Failed to delete base pod directory: " + podDirectory.getAbsolutePath());
-                              }
-                          } else {
-                              LOG.warn("Pod directory does not exist, skipping deletion: " + podDirectory.getAbsolutePath());
-                          }
-                      } else {
-                          // Legacy: Create dot file for external cleanup process
-                          SingerUtils.createEmptyDotFile(podLogDirectory + "/." + podUid);
-                          LOG.info("Pod " + podUid + " is ready to be cleaned; written dot file");
-                          Stats.incr(SingerMetrics.PODS_TOMBSTONE_MARKER);
-                      }
-
-                      Stats.incr(SingerMetrics.ACTIVE_POD_DELETION_TASKS, -1);
-                      Stats.incr(SingerMetrics.PODS_DELETED);
-                      // update the max time elapsed before the pod was deleted
-                      @SuppressWarnings("rawtypes")
-                      scala.Option gaugeOption = Stats.getGauge(SingerMetrics.POD_DELETION_TIME_ELAPSED);
-                      Double timeElapsed = gaugeOption.isDefined() ? (Double) gaugeOption.get() : 0.0;
-                      Stats.setGauge(SingerMetrics.POD_DELETION_TIME_ELAPSED, Math.max(maxElapsedTime, timeElapsed));
-                  } catch (Exception e) {
-                      LOG.error("Exception while cleaning up during pod deletion for pod:" + podUid, e);
-                  }
-              }else {
-                // reschedule itself again for review in a few seconds
-                SingerSettings.getBackgroundTaskExecutor().schedule(this,
-                          deletionCheckIntervalInSeconds, TimeUnit.SECONDS);
-                  LOG.debug("Rescheduling cleanup check for pod(" + podUid + ")");
+            if (enableDirectCleanup) {
+              // Delete the pod log directory directly
+              File podDirectory = new File(podLogDirectory + "/" + podUid);
+              if (podDirectory.exists()) {
+                SingerUtils.deleteRecursively(podDirectory);
+                // Also delete the base directory itself
+                boolean deleted = podDirectory.delete();
+                if (deleted) {
+                  Stats.incr(SingerMetrics.POD_DIRECTORIES_DELETED);
+                  LOG.info("Pod directory deleted successfully: " + podDirectory.getAbsolutePath());
+                } else {
+                  LOG.warn("Failed to delete base pod directory: " + podDirectory.getAbsolutePath());
+                }
+              } else {
+                LOG.warn("Pod directory does not exist, skipping deletion: " + podDirectory.getAbsolutePath());
               }
-          }
+            } else {
+              // Legacy: Create dot file for external cleanup process
+              SingerUtils.createEmptyDotFile(podLogDirectory + "/." + podUid);
+              LOG.info("Pod " + podUid + " is ready to be cleaned; written dot file");
+              Stats.incr(SingerMetrics.PODS_TOMBSTONE_MARKER);
+            }
 
-      }, deletionCheckIntervalInSeconds, TimeUnit.SECONDS);
-      LOG.info("Scheduled task to check if pod directory is deletable for pod(" + podUid + ")");
-      Stats.incr(SingerMetrics.ACTIVE_POD_DELETION_TASKS);
+            // update deletion count metrics
+            Stats.incr(SingerMetrics.ACTIVE_POD_DELETION_TASKS, -1);
+            Stats.incr(SingerMetrics.PODS_DELETED);
+            // update the max time elapsed before the pod was deleted
+            @SuppressWarnings("rawtypes")
+            scala.Option gaugeOption = Stats.getGauge(SingerMetrics.POD_DELETION_TIME_ELAPSED);
+            Double timeElapsed = gaugeOption.isDefined() ? (Double) gaugeOption.get() : 0.0;
+            Stats.setGauge(SingerMetrics.POD_DELETION_TIME_ELAPSED, Math.max(maxElapsedTime, timeElapsed));
+          } catch (Exception e) {
+            LOG.error("Exception while cleaning up during pod deletion for pod:"+podUid, e);
+          }
+        }else {
+          // reschedule itself again for review in a few seconds
+          SingerSettings.getBackgroundTaskExecutor().schedule(this,
+              deletionCheckIntervalInSeconds, TimeUnit.SECONDS);
+          LOG.debug("Rescheduling cleanup check for pod(" + podUid + ")");
+        }
+      }
+
+    }, deletionCheckIntervalInSeconds, TimeUnit.SECONDS);
+    LOG.info("Scheduled task to check if pod directory is deletable for pod(" + podUid + ")");
+    Stats.incr(SingerMetrics.ACTIVE_POD_DELETION_TASKS);
   }
 
   public CompletableFuture<Void> drainAndStopLogStreams() {
