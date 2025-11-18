@@ -246,6 +246,7 @@ public class Decider {
 
       OpenTsdbMetricConverter.gauge(
           SingerMetrics.DECIDER_ACCESSED + "." + deciderName, 1);
+
       if (mDeciderMap.containsKey(deciderName)) {
         return mDeciderMap.get(deciderName);
       }
