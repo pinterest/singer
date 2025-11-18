@@ -578,7 +578,7 @@ public class LogStreamManager implements PodWatcher {
                       SingerSettings.getSingerConfig().getKubeConfig().getDefaultDeletionTimeoutInSeconds());
 
               if (logStreamsForPodPath.size() == 0) {
-                  // no more directory streams left, we can now cleanup singer and write a pod tombstone marker
+                  // no more directory streams left, we can now cleanup singer
                   try {
                       SingerSettings.getOrCreateFileSystemMonitor(podUid).destroy();
                       boolean enableDirectCleanup = SingerSettings.getSingerConfig().getKubeConfig().isEnablePodLogDirectoryCleanup();
