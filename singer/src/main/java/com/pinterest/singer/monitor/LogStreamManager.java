@@ -577,21 +577,45 @@ public class LogStreamManager implements PodWatcher {
               long maxElapsedTime = checkAndCleanupLogStreamsForPod(podUid, logStreamsForPodPath,
                       SingerSettings.getSingerConfig().getKubeConfig().getDefaultDeletionTimeoutInSeconds());
 
-              if(logStreamsForPodPath.size()==0) {
-                // no more directory streams left, we can now cleanup singer and write a pod tombstone marker
-                try {
-                    SingerSettings.getOrCreateFileSystemMonitor(podUid).destroy();
-                    SingerUtils.createEmptyDotFile(podLogDirectory + "/." + podUid);
-                    LOG.info("POD(" + podUid + ") is ready to be cleaned; written dot file");
-                    // update deletion count metrics
-                    Stats.incr(SingerMetrics.ACTIVE_POD_DELETION_TASKS, -1);
-                    Stats.incr(SingerMetrics.PODS_TOMBSTONE_MARKER);
-                    // update the max time elapsed before the pod was deleted
-                    Double timeElapsed = ((Double)Stats.getGauge(SingerMetrics.POD_DELETION_TIME_ELAPSED).get());
-                    Stats.setGauge(SingerMetrics.POD_DELETION_TIME_ELAPSED, Math.max(maxElapsedTime, timeElapsed));
-                } catch (Exception e) {
-                    LOG.error("Exception while cleaning up during pod deletion for pod:"+podUid, e);
-                }
+              if (logStreamsForPodPath.size() == 0) {
+                  // no more directory streams left, we can now cleanup singer and write a pod tombstone marker
+                  try {
+                      SingerSettings.getOrCreateFileSystemMonitor(podUid).destroy();
+                      boolean enableDirectCleanup = SingerSettings.getSingerConfig().getKubeConfig().isEnablePodLogDirectoryCleanup();
+
+                      if (enableDirectCleanup) {
+                          // Delete the pod log directory directly
+                          File podDirectory = new File(podLogDirectory + "/" + podUid);
+                          if (podDirectory.exists()) {
+                              SingerUtils.deleteRecursively(podDirectory);
+                              // Also delete the base directory itself
+                              boolean deleted = podDirectory.delete();
+                              if (deleted) {
+                                  Stats.incr(SingerMetrics.POD_DIRECTORIES_DELETED);
+                                  LOG.info("Pod directory deleted successfully: " + podDirectory.getAbsolutePath());
+                              } else {
+                                  LOG.warn("Failed to delete base pod directory: " + podDirectory.getAbsolutePath());
+                              }
+                          } else {
+                              LOG.warn("Pod directory does not exist, skipping deletion: " + podDirectory.getAbsolutePath());
+                          }
+                      } else {
+                          // Legacy: Create dot file for external cleanup process
+                          SingerUtils.createEmptyDotFile(podLogDirectory + "/." + podUid);
+                          LOG.info("Pod " + podUid + " is ready to be cleaned; written dot file");
+                          Stats.incr(SingerMetrics.PODS_TOMBSTONE_MARKER);
+                      }
+
+                      Stats.incr(SingerMetrics.ACTIVE_POD_DELETION_TASKS, -1);
+                      Stats.incr(SingerMetrics.PODS_DELETED);
+                      // update the max time elapsed before the pod was deleted
+                      @SuppressWarnings("rawtypes")
+                      scala.Option gaugeOption = Stats.getGauge(SingerMetrics.POD_DELETION_TIME_ELAPSED);
+                      Double timeElapsed = gaugeOption.isDefined() ? (Double) gaugeOption.get() : 0.0;
+                      Stats.setGauge(SingerMetrics.POD_DELETION_TIME_ELAPSED, Math.max(maxElapsedTime, timeElapsed));
+                  } catch (Exception e) {
+                      LOG.error("Exception while cleaning up during pod deletion for pod:" + podUid, e);
+                  }
               }else {
                 // reschedule itself again for review in a few seconds
                 SingerSettings.getBackgroundTaskExecutor().schedule(this,

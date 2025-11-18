@@ -375,6 +375,13 @@ struct KubeConfig {
      * If true, the serviceAccountTokenPath and serviceAccountCaCertPath must be set.
      */
     11: optional bool useSecureConnection = false;
+
+    /**
+     * Whether to enable automatic cleanup of pod log directories when pods are deleted.
+     * If false, Singer will create dot files for external cleanup processes.
+     * If true, Singer will directly delete pod directories.
+     */
+    12: optional bool enablePodLogDirectoryCleanup = false;
 }
 
 struct AdminConfig {

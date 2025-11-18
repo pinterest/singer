@@ -354,6 +354,11 @@ public class LogConfigUtils {
       }
       config.setServiceAccountCaCertPath(caCertPath);
     }
+
+      if (subsetConfig.containsKey(SingerConfigDef.KUBE_ENABLE_POD_LOG_DIRECTORY_CLEANUP)) {
+          config.setEnablePodLogDirectoryCleanup(
+              subsetConfig.getBoolean(SingerConfigDef.KUBE_ENABLE_POD_LOG_DIRECTORY_CLEANUP));
+      }
     return config;
   }
 
