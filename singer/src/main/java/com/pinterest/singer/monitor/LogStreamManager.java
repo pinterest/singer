@@ -594,7 +594,8 @@ public class LogStreamManager implements PodWatcher {
                   Stats.incr(SingerMetrics.POD_DIRECTORIES_DELETED);
                   LOG.info("Pod directory deleted successfully: " + podDirectory.getAbsolutePath());
                 } else {
-                  LOG.warn("Failed to delete base pod directory: " + podDirectory.getAbsolutePath());
+                  // Throw exception the schedule the task again
+                  throw new IOException("Failed to delete pod directory: " + podDirectory.getAbsolutePath());
                 }
               } else {
                 LOG.warn("Pod directory does not exist, skipping deletion: " + podDirectory.getAbsolutePath());
@@ -617,7 +618,7 @@ public class LogStreamManager implements PodWatcher {
           } catch (Exception e) {
             LOG.error("Exception while cleaning up during pod deletion for pod:"+podUid, e);
           }
-        }else {
+        } else {
           // reschedule itself again for review in a few seconds
           SingerSettings.getBackgroundTaskExecutor().schedule(this,
               deletionCheckIntervalInSeconds, TimeUnit.SECONDS);
