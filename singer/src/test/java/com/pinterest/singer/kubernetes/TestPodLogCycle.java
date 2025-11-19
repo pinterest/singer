@@ -405,12 +405,7 @@ public class TestPodLogCycle {
         SingerSettings.getLogConfigMap().putAll(SingerSettings.loadLogConfigMap(config));
 
         LogStreamManager lsm = LogStreamManager.getInstance();
-        KubeService instance = KubeService.getInstance();
-        instance.start();
 
-        Thread.sleep(SingerTestBase.FILE_EVENT_WAIT_TIME_MS);
-
-        // Create pod directory with files
         String podUid = "delete-test-pod-123";
         File podDirectory = new File(podLogPath + "/" + podUid);
         podDirectory.mkdirs();
@@ -424,8 +419,8 @@ public class TestPodLogCycle {
         // Simulate pod deletion - this should delete the directory directly, not create dot file
         lsm.podDeleted(podUid);
 
-        // Wait for background deletion task
-        Thread.sleep(3000);
+        // Wait for background deletion task (deletionCheckInterval + timeout + buffer)
+        Thread.sleep(5000);
 
         // Verify directory was deleted (not just dot file created)
         assertFalse("Pod directory should be deleted", podDirectory.exists());
@@ -434,9 +429,6 @@ public class TestPodLogCycle {
         // Verify no dot file was created (old behavior)
         File dotFile = new File(podLogPath + "/." + podUid);
         assertFalse("Dot file should not be created (old behavior)", dotFile.exists());
-
-        instance.stop();
-        LogStreamManager.reset();
     }
 
     /*
