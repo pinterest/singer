@@ -387,6 +387,50 @@ public class TestPodLogCycle {
     LogStreamManager.reset();
   }
 
+    @Test
+    public void testPodDirectoryDeletion() throws InterruptedException, IOException, SingerLogException {
+        // Enable direct pod directory cleanup
+        kubeConfig.setEnablePodLogDirectoryCleanup(true);
+        kubeConfig.setDeletionCheckIntervalInSeconds(1);
+        kubeConfig.setDefaultDeletionTimeoutInSeconds(1);
+
+        SingerLogConfig logConfig = new SingerLogConfig();
+        logConfig.setLogDir("/var/log");
+        logConfig.setFilenameMatchMode(FileNameMatchMode.PREFIX);
+        logConfig.setName("testDeletion");
+        logConfig.setLogStreamRegex("test.log");
+
+        List<SingerLogConfig> logConfigs = Arrays.asList(logConfig);
+        config.setLogConfigs(logConfigs);
+        SingerSettings.getLogConfigMap().putAll(SingerSettings.loadLogConfigMap(config));
+
+        LogStreamManager lsm = LogStreamManager.getInstance();
+
+        String podUid = "delete-test-pod-123";
+        File podDirectory = new File(podLogPath + "/" + podUid);
+        podDirectory.mkdirs();
+        new File(podDirectory + "/var/log").mkdirs();
+        File testFile = new File(podDirectory + "/var/log/test.log");
+        testFile.createNewFile();
+
+        assertTrue("Pod directory should exist", podDirectory.exists());
+        assertTrue("Test file should exist", testFile.exists());
+
+        // Simulate pod deletion - this should delete the directory directly, not create dot file
+        lsm.podDeleted(podUid);
+
+        // Wait for background deletion task (deletionCheckInterval + timeout + buffer)
+        Thread.sleep(5000);
+
+        // Verify directory was deleted (not just dot file created)
+        assertFalse("Pod directory should be deleted", podDirectory.exists());
+        assertFalse("Test file should be deleted", testFile.exists());
+
+        // Verify no dot file was created (old behavior)
+        File dotFile = new File(podLogPath + "/." + podUid);
+        assertFalse("Dot file should not be created (old behavior)", dotFile.exists());
+    }
+
     /*
      * Copied from
      * https://github.com/srotya/sidewinder/blob/development/core/src/main/java/com/

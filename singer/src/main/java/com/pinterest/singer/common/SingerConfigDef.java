@@ -80,6 +80,7 @@ public class SingerConfigDef {
   public static final String KUBE_POD_LOG_DIR = "podLogDirectory";
   public static final String KUBE_DEFAULT_DELETION_TIMEOUT = "defaultDeletionTimeoutInSeconds";
   public static final String KUBE_USE_SECURE_CONNECTION = "useSecureConnection";
+  public static final String KUBE_ENABLE_POD_LOG_DIRECTORY_CLEANUP = "enablePodLogDirectoryCleanup";
   public static final String POD_METADATA_FIELDS = "podMetadataFields";
 
   public static final String SINGER_ADMIN_CONFIG_PREFIX = "singer.admin.";
