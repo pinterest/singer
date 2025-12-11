@@ -45,7 +45,6 @@ import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.comparator.CompositeFileComparator;
 import org.apache.commons.io.comparator.LastModifiedFileComparator;
 import org.apache.commons.io.comparator.NameFileComparator;
-import org.apache.commons.io.filefilter.RegexFileFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -414,11 +413,16 @@ public class LogStreamManager implements PodWatcher {
 
     // Sort the file first by last_modified timestamp and then by name in case two files have
     // the same mtime due to precision (mtime is up to seconds).
-    @SuppressWarnings("rawtypes")
-    Ordering ordering = Ordering.from(
-        new CompositeFileComparator(
-            LastModifiedFileComparator.LASTMODIFIED_COMPARATOR, NameFileComparator.NAME_REVERSE));
-    logFiles = ordering.sortedCopy(logFiles);
+    try {
+      @SuppressWarnings("rawtypes")
+      Ordering ordering = Ordering.from(
+          new CompositeFileComparator(
+              LastModifiedFileComparator.LASTMODIFIED_COMPARATOR, NameFileComparator.NAME_REVERSE));
+      logFiles = ordering.sortedCopy(logFiles);
+    } catch (Exception e) {
+      Stats.incr(SingerMetrics.LOGSTREAM_SORT_EXCEPTION);
+      throw e;
+    }
 
     for (File file : logFiles) {
       String fileName = file.getName();
