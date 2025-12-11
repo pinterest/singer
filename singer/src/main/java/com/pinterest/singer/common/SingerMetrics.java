@@ -45,6 +45,8 @@ public class SingerMetrics {
 
   public static final String LOGSTREAM_CREATION_FAILURE = "singer.logstream.creation_failure";
 
+  public static final String LOGSTREAM_SORT_EXCEPTION = "singer.logstream.sort_exception";
+
   public static final String LOGSTREAM_MISSING_INODE_PATH = "singer.logstream.missing_inode_path";
 
   public static final String LOGSTREAM_INITIALIZE = "singer.logstream.initialize";
@@ -123,6 +125,8 @@ public class SingerMetrics {
   public static final String LEADER_INFO_EXCEPTION = SINGER_WRITER + "leader_info_exception";
   public static final String MISSING_LOCAL_PARTITIONS = "singer.locality.missing_local_partitions";
   public static final String MISSING_DIR_CHECKER_INTERRUPTED = "singer.missing_dir_checker.thread_interrupted";
+  public static final String MISSING_DIR_CHECKER_EXCEPTION = "singer.missing_dir_checker.iteration_exception";
+  public static final String MISSING_DIR_CHECK_THREAD_STOPPED = "singer.missing_dir_check_thread_stopped";
   public static final String NUMBER_OF_MISSING_DIRS = "singer.missing_dir_checker.num_of_missing_dirs";
   public static final String NUMBER_OF_SERIALIZING_HEADERS_ERRORS = "singer.headers_injector.num_of_serializing_headers_errors";
   public static final String AUDIT_HEADERS_INJECTED = "singer.audit.num_of_headers_injected";

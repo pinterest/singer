@@ -81,11 +81,12 @@ public class MissingDirChecker implements Runnable {
   @Override
   public void run() {
     LOG.info("[{}] is checking missing directories if any...", Thread.currentThread().getName());
-    try {
-      while (!cancelled.get() && singerLogsWithoutDir != null && !singerLogsWithoutDir.isEmpty()) {
+    while (!cancelled.get() && singerLogsWithoutDir != null && !singerLogsWithoutDir.isEmpty()) {
+      try {
         LOG.info("[{}] Checking missing directories for {} SingerLogs.",
             Thread.currentThread().getName(), singerLogsWithoutDir.size());
-        Iterator<Map.Entry<SingerLog, String>> iterator = singerLogsWithoutDir.entrySet().iterator();
+        Iterator<Map.Entry<SingerLog, String>> iterator = singerLogsWithoutDir.entrySet()
+            .iterator();
         while (iterator.hasNext()) {
           Map.Entry<SingerLog, String> entry = iterator.next();
           SingerLog singerLog = entry.getKey();
@@ -129,19 +130,30 @@ public class MissingDirChecker implements Runnable {
         LOG.info("[{}] sleep for {} milliseconds and then check again.",
             Thread.currentThread().getName(), sleepInMills);
         Thread.sleep(sleepInMills);
+      } catch (InterruptedException e) {
+        Stats.incr(SingerMetrics.MISSING_DIR_CHECKER_INTERRUPTED);
+        LOG.warn("MissingDirChecker thread is interrupted ", e);
+        break;
+      } catch (Exception e) {
+        Stats.incr(SingerMetrics.MISSING_DIR_CHECKER_EXCEPTION);
+        LOG.error("Unexpected exception in MissingDirChecker iteration. " +
+            "Will try again next iteration.", e);
+        try {
+          Thread.sleep(sleepInMills);
+        } catch (InterruptedException ie) {
+          Stats.incr(SingerMetrics.MISSING_DIR_CHECKER_INTERRUPTED);
+          LOG.warn("MissingDirChecker interrupted during error recovery sleep", ie);
+          break;
+        }
       }
-    } catch (InterruptedException e){
-      Stats.incr(SingerMetrics.MISSING_DIR_CHECKER_INTERRUPTED);
-      LOG.warn("MissingDirChecker thread is interrupted ", e);
-    } catch (Exception e){
-      LOG.error("MissingDirChecker thread needs to stop due to ", e);
-    } finally {
-      LOG.info("MissingDirChecker thread stopped. SingerLogs without dir: " + singerLogsWithoutDir);
     }
+    LOG.warn("MissingDirChecker thread stopped. SingerLogs without dir: " +
+        (singerLogsWithoutDir != null ? singerLogsWithoutDir.size() : 0));
+    Stats.incr(SingerMetrics.MISSING_DIR_CHECK_THREAD_STOPPED);
   }
 
   public synchronized void start() {
-    if(this.thread == null) {
+    if (this.thread == null) {
       thread = new Thread(this);
       thread.setDaemon(true);
       thread.setName("MissingDirChecker");
@@ -149,9 +161,9 @@ public class MissingDirChecker implements Runnable {
     }
   }
 
-  public synchronized void stop(){
+  public synchronized void stop() {
     cancelled.set(true);
-    if(this.thread != null && thread.isAlive()) {
+    if (this.thread != null && thread.isAlive()) {
       thread.interrupt();
     }
   }
