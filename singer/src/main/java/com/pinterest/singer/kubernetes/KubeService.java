@@ -102,8 +102,6 @@ public class KubeService implements Runnable {
         Preconditions.checkNotNull(kubeConfig);
         try {
             init(kubeConfig);
-            // Register here so it is the first watcher in the set
-            addWatcher(PodMetadataWatcher.getInstance());
         } catch (Exception e) {
             LOG.error("Exception while initializing KubeService", e);
             throw new RuntimeException(e);
@@ -277,6 +275,12 @@ public class KubeService implements Runnable {
      */
     public void updatePodWatchers(String podName, boolean isDelete) {
         LOG.debug("Pod change:" + podName + " deleted:" + isDelete);
+        
+        // Remove metadata from cache when pod is deleted
+        if (isDelete) {
+            PodMetadataFetcher.getInstance().remove(podName);
+        }
+        
         for (PodWatcher watcher : registeredWatchers) {
             try {
                 if (isDelete) {

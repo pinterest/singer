@@ -33,7 +33,6 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
 
@@ -55,8 +54,31 @@ import com.sun.net.httpserver.HttpServer;
 @SuppressWarnings("restriction")
 public class TestKubeService {
 
-    private static HttpServer server;
-    private final List<String> podNames = Arrays.asList(
+    protected static HttpServer server;
+
+    /**
+     * Ensure the test HTTP server is running. Can be called from other test classes.
+     */
+    protected static void ensureServerRunning() throws IOException {
+        if (server == null) {
+            server = HttpServer.create(new InetSocketAddress(10255), 0);
+            server.start();
+        }
+    }
+
+    /**
+     * Remove the /pods context to allow registering a new one.
+     */
+    protected static void removePodsContext() {
+        try {
+            if (server != null) {
+                server.removeContext("/pods");
+            }
+        } catch (Exception e) {
+            // ignore
+        }
+    }
+    protected final List<String> podNames = Arrays.asList(
             "default_nginx-deployment-5c689d7589-abcde_12345678-1234-1234-1234-1234567890ab",
             "default_nginx-deployment-5c689d7589-fghij_12345678-1234-5678-1234-567890abcdef",
             "default_backend-service-7987d5b5c-12345_54321678-9876-5432-9876-5432198765ac",
@@ -66,13 +88,15 @@ public class TestKubeService {
 
     @BeforeClass
     public static void beforeClass() throws IOException {
-        server = com.sun.net.httpserver.HttpServer.create(new InetSocketAddress(10255), 0);
-        server.start();
+        ensureServerRunning();
     }
 
     @AfterClass
     public static void afterClass() {
-        server.stop(0);
+        if (server != null) {
+            server.stop(0);
+            server = null;
+        }
     }
 
     @Before
@@ -191,20 +215,23 @@ public class TestKubeService {
         KubeConfig kubeConfig = new KubeConfig();
         kubeConfig.setPodMetadataFields(
             Arrays.asList("name", "namespace", "uid"));
-        KubeService kubeService = new KubeService(kubeConfig);
-        PodMetadataWatcher pmdTracker = new PodMetadataWatcher(kubeConfig);
-        kubeService.addWatcher(pmdTracker);
+        kubeConfig.setPodLogDirectory("");
+        
+        PodMetadataFetcher pmdTracker = new PodMetadataFetcher(kubeConfig);
+        
         for (String pod : podNames) {
-            kubeService.updatePodWatchers(pod, false);
+            Map<String, String> metadata = pmdTracker.getPodMetadata(pod);
+            assertNotNull("Metadata should be fetched for pod: " + pod, metadata);
+            assertNotNull(metadata.get("namespace"));
+            assertNotNull(metadata.get("name"));
+            assertNotNull(metadata.get("uid"));
         }
+        
         assertEquals(podNames.size(), pmdTracker.getPodMetadataMap().size());
-        for (Entry<String, Map<String, String>> pod : pmdTracker.getPodMetadataMap().entrySet()) {
-            assertTrue(podNames.contains(pod.getKey()));
-            assertNotNull(pod.getValue().get("namespace"));
-            assertNotNull(pod.getValue().get("name"));
-            assertNotNull(pod.getValue().get("uid"));
-        }
-        kubeService.updatePodWatchers(podNames.get(podNames.size() - 1), true);
+        
+        // Test removing a pod from the cache
+        String lastPod = podNames.get(podNames.size() - 1);
+        pmdTracker.remove(lastPod);
         assertEquals(podNames.size() - 1, pmdTracker.getPodMetadataMap().size());
     }
 
@@ -283,7 +310,7 @@ public class TestKubeService {
         });
     }
 
-    public void registerGoodResponse() {
+    protected static void registerGoodResponse() {
         server.createContext("/pods", new HttpHandler() {
 
             @Override

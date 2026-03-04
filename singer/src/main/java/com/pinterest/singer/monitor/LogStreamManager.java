@@ -58,7 +58,7 @@ import com.pinterest.singer.common.SingerMetrics;
 import com.pinterest.singer.common.errors.LogStreamException;
 import com.pinterest.singer.common.errors.SingerLogException;
 import com.pinterest.singer.kubernetes.KubeService;
-import com.pinterest.singer.kubernetes.PodMetadataWatcher;
+import com.pinterest.singer.kubernetes.PodMetadataFetcher;
 import com.pinterest.singer.kubernetes.PodWatcher;
 import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
 import com.pinterest.singer.thrift.LogFile;
@@ -82,6 +82,8 @@ public class LogStreamManager implements PodWatcher {
   private static final String POD_LOGNAME_SEPARATOR = "..";
   // use an empty string as non-kubernetes pod id for backward compatibility
   public static final String NON_KUBERNETES_POD_ID = "";
+  // Marker value in podAllowlist to indicate config should also be processed at host level directories (outside of podLogDirectory)
+  private static final String INCLUDE_HOST_MARKER = "__HOST__";
   private static final Logger LOG = LoggerFactory.getLogger(LogStreamManager.class);
   private static LogStreamManager instance;
 
@@ -106,6 +108,8 @@ public class LogStreamManager implements PodWatcher {
    */
   private Map<String, Set<SingerLog>> singerLogPaths = new ConcurrentHashMap<>();
   private String podLogDirectory = "";
+  private String podAllowlistMetadataKey = null;
+  private final boolean kubernetesEnabled;
 
   private FileSystemEventFetcher recursiveDirectoryWatcher;
   private Thread recursiveEventProcessorThread;
@@ -120,10 +124,17 @@ public class LogStreamManager implements PodWatcher {
   protected LogStreamManager() {
     missingDirChecker = new MissingDirChecker();
     SingerConfig singerConfig = SingerSettings.getSingerConfig();
-    if(singerConfig!=null &&
-        singerConfig.isKubernetesEnabled()) {
+    kubernetesEnabled = singerConfig != null && singerConfig.isKubernetesEnabled();
+    if (kubernetesEnabled) {
       KubeService.getInstance().addWatcher(this);
       podLogDirectory = singerConfig.getKubeConfig().getPodLogDirectory();
+      String configuredMetadataKey = singerConfig.getKubeConfig().getPodAllowlistMetadataKey();
+      if (configuredMetadataKey != null && !configuredMetadataKey.isEmpty()) {
+        podAllowlistMetadataKey = configuredMetadataKey;
+        LOG.warn("Pod allowlist feature enabled with metadata key: {}", podAllowlistMetadataKey);
+      } else {
+        LOG.warn("Pod allowlist feature disabled - no podAllowlistMetadataKey configured");
+      }
       try {
         recursiveDirectoryWatcher = new FileSystemEventFetcher(singerConfig);
         recursiveDirectoryWatcher.start("RecursiveDirectoryWatcher");
@@ -265,6 +276,14 @@ public class LogStreamManager implements PodWatcher {
 
     if (logConfigs!=null) {
       for (SingerLogConfig singerLogConfig : logConfigs) {
+        // In Kubernetes mode, only process configs that include host-level processing
+        // Skip configs that are pod-only (have allowlist but no INCLUDE_HOST_MARKER)
+        if (kubernetesEnabled && !includesHostProcessing(singerLogConfig)) {
+          LOG.info("Skipping pod-only config {} for host-level initialization", 
+              singerLogConfig.getName());
+          continue;
+        }
+        
         ArrayList<String> directories = SingerUtils.splitString(singerLogConfig.getLogDir());
         SingerLog singerLog = new SingerLog(singerLogConfig);
 
@@ -754,8 +773,20 @@ public class LogStreamManager implements PodWatcher {
    * @throws SingerLogException
    */
   public void initializeLogStreamForPod(String podUid, Collection<SingerLogConfig> configs) throws SingerLogException {
-    // initialize logstreams for the supplied configs only
+    boolean podAllowlistEnabled = podAllowlistMetadataKey != null && !podAllowlistMetadataKey.isEmpty();
+    Map<String, String> podMetadata = PodMetadataFetcher.getInstance().getPodMetadata(podUid);
+
+    String podIdentifier = null;
+    if (podAllowlistEnabled && podMetadata != null) {
+      podIdentifier = podMetadata.get(podAllowlistMetadataKey);
+    }
+    
     for(SingerLogConfig singerLogConfig : configs) {
+      // Skip if this config should not be initialized for this pod
+      if (podAllowlistEnabled && !shouldInitializeForPod(podIdentifier, singerLogConfig)) {
+        continue;
+      }
+    
       ArrayList<String> directories = SingerUtils.splitString(singerLogConfig.getLogDir());
       String logPathKeys = directories.stream()
           .map(dir -> new File(podLogDirectory + "/" + podUid + "/" + dir).getAbsolutePath())
@@ -771,7 +802,6 @@ public class LogStreamManager implements PodWatcher {
       clone.setName(podUid + POD_LOGNAME_SEPARATOR + clone.getName());
       singerLog = new SingerLog(clone, podUid);
 
-      Map<String, String> podMetadata = PodMetadataWatcher.getInstance().getPodMetadata(podUid);
       if (podMetadata != null) {
         LOG.info("Initializing pod metadata {} for pod: {}", podMetadata, podUid);
         OpenTsdbMetricConverter.incr("pod_metadata_enabled", 1, "pod=" + podUid, "log=" + clone.getName());
@@ -792,6 +822,51 @@ public class LogStreamManager implements PodWatcher {
         }
       }
     }
+  }
+
+  /**
+   * Check if a config should be processed at the host level.
+   *
+   * @param singerLogConfig the log config to check
+   * @return true if this config should be processed at host level
+   */
+  private boolean includesHostProcessing(SingerLogConfig singerLogConfig) {
+    if (!singerLogConfig.isSetPodAllowlist() || singerLogConfig.getPodAllowlist().isEmpty()) {
+      return true;
+    }
+    return singerLogConfig.getPodAllowlist().contains(INCLUDE_HOST_MARKER);
+  }
+
+  /**
+   * Determine if a log stream config should be initialized for a pod.
+   * - No allowlist or empty allowlist: initialize for all pods (universal)
+   * - Allowlist with pod IDs: only initialize if pod's identifier matches
+   * 
+   * @param podIdentifier the pod's identifier from metadata (null if not present)
+   * @param singerLogConfig the log config to check
+   * @return true if the config should be initialized for this pod
+   */
+  private boolean shouldInitializeForPod(String podIdentifier, SingerLogConfig singerLogConfig) {
+    if (!singerLogConfig.isSetPodAllowlist() || singerLogConfig.getPodAllowlist().isEmpty()) {
+      return true;
+    }
+
+    if (podIdentifier == null) {
+      return false;
+    }
+
+    // Check if pod's identifier matches any entry (skip INCLUDE_HOST_MARKER marker)
+    for (String entry : singerLogConfig.getPodAllowlist()) {
+      if (INCLUDE_HOST_MARKER.equals(entry)) {
+        continue;
+      }
+      if (podIdentifier.startsWith(entry)) {
+        OpenTsdbMetricConverter.incr(SingerMetrics.POD_ALLOWLIST_MATCH,
+            "podId=" + podIdentifier, "log=" + singerLogConfig.getName());
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

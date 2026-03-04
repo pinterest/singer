@@ -130,4 +130,8 @@ public class SingerConfigDef {
   public static final String MATCH_ABSOLUTE_PATH = "matchAbsolutePath";
   public static final String CONTENT_TYPE = "contentType";
   public static final String NAMED_GROUP_PATTERN = "\\(\\?<([a-zA-Z][a-zA-Z0-9]*)>";
+
+  // Pod allowlist config for Kubernetes log stream filtering
+  public static final String POD_ALLOWLIST = "podAllowlist";
+  public static final String POD_ALLOWLIST_METADATA_KEY = "podAllowlistMetadataKey";
 }
