@@ -359,6 +359,12 @@ public class LogConfigUtils {
         config.setEnablePodLogDirectoryCleanup(
             subsetConfig.getBoolean(SingerConfigDef.KUBE_ENABLE_POD_LOG_DIRECTORY_CLEANUP));
     }
+
+    if (subsetConfig.containsKey(SingerConfigDef.POD_ALLOWLIST_METADATA_KEY)) {
+      String metadataKey = subsetConfig.getString(SingerConfigDef.POD_ALLOWLIST_METADATA_KEY);
+      config.setPodAllowlistMetadataKey(metadataKey);
+      LOG.info("Pod allowlist metadata key configured: {}", metadataKey);
+    }
     return config;
   }
 
@@ -764,6 +770,16 @@ public class LogConfigUtils {
 
     if (logConfiguration.containsKey(SingerConfigDef.SKIP_DRAINING)) {
       config.setSkipDraining(logConfiguration.getBoolean(SingerConfigDef.SKIP_DRAINING));
+    }
+
+    // Parse pod allowlist configuration for Kubernetes environments
+    if (logConfiguration.containsKey(SingerConfigDef.POD_ALLOWLIST)) {
+      List<Object> allowlistObjects = logConfiguration.getList(SingerConfigDef.POD_ALLOWLIST);
+      List<String> podAllowlist = allowlistObjects.stream()
+          .map(Object::toString)
+          .collect(Collectors.toList());
+      config.setPodAllowlist(podAllowlist);
+      LOG.info("Pod allowlist configured for log {}: {}", logName, podAllowlist);
     }
     
     ts = System.currentTimeMillis() - ts;

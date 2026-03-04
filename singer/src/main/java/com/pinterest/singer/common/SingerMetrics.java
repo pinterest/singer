@@ -108,6 +108,7 @@ public class SingerMetrics {
   public static final String NUMBER_OF_PODS = KUBE_PREFIX + "number_of_pods";
   public static final String POD_METADATA_UPDATED = KUBE_PREFIX + "pod_metadata_updated";
   public static final String POD_METADATA_MAP_SIZE = KUBE_PREFIX + "pod_metadata_size";
+  public static final String POD_ALLOWLIST_MATCH = KUBE_PREFIX + "pod_allowlist_match";
 
   public static final String ADMIN_PREFIX = SINGER_PREIX + "admin.";
   public static final String ADMIN_SERVER_STARTED = ADMIN_PREFIX + "admin_server_started";

@@ -293,6 +293,20 @@ struct SingerLogConfig {
    *  Configuration to transform log message
    */
   15: optional MessageTransformerConfig messageTransformerConfig;
+
+  /**
+   * Allowlist of pod identifiers that this log stream should process.
+   * 
+   * Behavior (in Kubernetes mode):
+   * - Not set (null) or empty: Universal config - processed for all pods log directories and host-level directories
+   * - ["svc1", "svc2"]: Pod-only config - only matching pods, skipped for host-level
+   * 
+   * Adding "__HOST__" to the allowlist indicates the config should also be processed for host-level directories.
+   * Pod IDs use prefix matching.
+   * 
+   * The pod identifier is determined by KubeConfig.podAllowlistMetadataKey.
+   */
+  16: optional list<string> podAllowlist;
 }
 
 /**
@@ -382,6 +396,12 @@ struct KubeConfig {
      * If true, Singer will directly delete pod directories.
      */
     12: optional bool enablePodLogDirectoryCleanup = false;
+
+  /**
+   * The metadata key to use for checking against podAllowlist in SingerLogConfig.
+   * If not set, the podAllowlist feature is disabled and all configs are initialized for all pods.
+   */
+  13: optional string podAllowlistMetadataKey;
 }
 
 struct AdminConfig {
