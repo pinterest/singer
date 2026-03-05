@@ -306,8 +306,8 @@ public class S3Writer implements LogStreamWriter {
    * This method handles the upload cycle:
    * 1. Closes the current bufferedOutputStream to ensure data is flushed to disk
    * 2. Uploads the buffer file to S3
-   * 3. Cleans up the old buffer file and creates a new one
-   * 4. Reopens the bufferedOutputStream for continued writing
+   * 3. Cleans up the old buffer file and creates a new one (unless triggerType is CLOSE)
+   * 4. Reopens the bufferedOutputStream for continued writing if not during close
    *
    * If upload fails, the buffer file remains intact for crash recovery.
    *
@@ -337,7 +337,6 @@ public class S3Writer implements LogStreamWriter {
         "bucket=" + bucketName, "host=" + HOSTNAME, "logName=" + logName, "trigger_type=" + triggerType.name());
     LOG.info("Successfully uploaded buffer file {}", getBufferFileName());
 
-    // Always clean up buffer file and reopen stream after successful upload
     boolean deleted = bufferFile.delete();
     if (deleted) {
       OpenTsdbMetricConverter.incr(SingerMetrics.S3_WRITER + "buffer_file_delete", 1,
@@ -633,10 +632,25 @@ public class S3Writer implements LogStreamWriter {
       LOG.debug("Cancelled time-based upload task for log {}", logName);
     }
 
-    // Close buffered output stream to ensure data is flushed to disk
-    if (bufferedOutputStream != null) {
-      bufferedOutputStream.close();
-      bufferedOutputStream = null;
+
+    synchronized (objLock) {
+      try {
+        if (bufferedOutputStream != null) {
+          bufferedOutputStream.flush();
+        }
+        if (bufferedOutputStream != null && bufferFile.length() > 0) {
+          try {
+            uploadDiskBufferedFileToS3(TriggerType.CLOSE);
+          } catch (LogStreamWriterException e) {
+            LOG.error("Failed to upload remaining buffer on close for log {}", logName, e);
+          }
+        }
+      } finally {
+        if (bufferedOutputStream != null) {
+          bufferedOutputStream.close();
+          bufferedOutputStream = null;
+        }
+      }
     }
   }
 }
