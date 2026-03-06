@@ -432,6 +432,33 @@ public class S3WriterTest extends SingerTestBase {
   }
 
   @Test
+  public void testCloseUploadsRemainingBufferData() throws Exception {
+    when(mockS3Uploader.upload(any(S3ObjectUpload.class))).thenReturn(true);
+
+    s3WriterConfig.setMaxFileSizeMB(10);
+    s3Writer = new S3Writer(logStream, s3WriterConfig, mockS3Uploader, tempPath);
+
+    ByteBuffer messageBuffer = ByteBuffer.wrap("data that should be uploaded on close".getBytes());
+    LogMessage logMessage = new LogMessage(messageBuffer);
+    LogMessageAndPosition logMessageAndPosition = new LogMessageAndPosition(logMessage, null);
+
+    s3Writer.startCommit(false);
+    s3Writer.writeLogMessageToCommit(logMessageAndPosition, false);
+    s3Writer.endCommit(1, false);
+
+    File bufferFile = new File(tempPath + "/" + s3Writer.getBufferFileName());
+    assertTrue("Buffer should contain data before close", bufferFile.exists() && bufferFile.length() > 0);
+
+    verify(mockS3Uploader, never()).upload(any(S3ObjectUpload.class));
+
+    s3Writer.close();
+
+    verify(mockS3Uploader).upload(any(S3ObjectUpload.class));
+
+    assertFalse("Buffer file should be deleted after successful close upload", bufferFile.exists());
+  }
+
+  @Test
   public void testBufferFileRecoveryAfterRestartWithMultipleLogStreams() throws Exception {
     // Create two different log streams (simulating different log files)
     LogStream logStream1 = new LogStream(singerLog, "test_log_1");
