@@ -67,6 +67,12 @@ public class TestPodAllowlist {
     @AfterClass
     public static void afterClass() {
         TestKubeService.removePodsContext();
+        // Stop the HTTP server that was created by ensureServerRunning()
+        // Give it 1 second to complete any pending exchanges
+        if (TestKubeService.server != null) {
+            TestKubeService.server.stop(1);
+            TestKubeService.server = null;
+        }
     }
 
     @Before

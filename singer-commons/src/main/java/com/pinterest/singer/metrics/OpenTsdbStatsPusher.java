@@ -61,7 +61,12 @@ public class OpenTsdbStatsPusher extends StatsPusher {
                         long pollMillis) throws IOException {
     super.configure(sourceHostname, metricsPrefix, destinationHost, destinationPort, pollMillis);
     this.client = new OpenTsdbClient(destinationHost, destinationPort);
-    this.converter = new OpenTsdbMetricConverter(metricsPrefix, sourceHostname);
+    String podName = System.getenv("POD_NAME");
+    if (podName != null) {
+      this.converter = new OpenTsdbMetricConverter(metricsPrefix, "host=" + sourceHostname, "podName=" + podName);
+    } else {
+      this.converter = new OpenTsdbMetricConverter(metricsPrefix, sourceHostname);
+    }
   }
 
   @SuppressWarnings("unchecked")

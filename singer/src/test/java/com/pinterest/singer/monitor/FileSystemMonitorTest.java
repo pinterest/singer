@@ -37,7 +37,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.ArrayList;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -205,10 +204,12 @@ public class FileSystemMonitorTest extends com.pinterest.singer.SingerTestBase {
     List<LogStream> logStreams = LogStreamManager.getLogStreamsFor(testDir.toPath(), created[0].toPath());
     assertEquals(1, logStreams.size());
     verifyFiles(createdFiles, logStreams.get(0));
+    assertTrue("LogStream 1 should have consistent sort order", logStreams.get(0).checkConsistency());
 
     List<LogStream> logStreams2 = LogStreamManager.getLogStreamsFor(testDir.toPath(), created2[0].toPath());
     assertEquals(1, logStreams2.size());
     verifyFiles(createdFiles2, logStreams2.get(0));
+    assertTrue("LogStream 2 should have consistent sort order", logStreams2.get(0).checkConsistency());
   }
 
 

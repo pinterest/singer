@@ -174,10 +174,12 @@ public class RecursiveFSEventProcessor implements Runnable {
     // only register new watchers if there are any log configurations for it's
     // subdirectories
     if (directoryDepth <= SingerSettings.getLogConfigMap().lastKey().getLeft()) {
-      // register for recursive watch if this event wasn't for a file
-      LOG.info("Registering recursive watch for path:" + path);
       try {
-        lsm.getRecursiveDirectoryWatcher().registerPath(path);
+        if (path.toFile().isDirectory()) {
+          // register for recursive watch if this event wasn't for a file
+          LOG.info("Registering recursive watch for path:" + path);
+          lsm.getRecursiveDirectoryWatcher().registerPath(path);
+        }
       } catch (IOException e) {
         LOG.error("Problem with recursive directory watch for path:" + path, e);
       }
