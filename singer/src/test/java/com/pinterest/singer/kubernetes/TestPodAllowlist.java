@@ -21,15 +21,16 @@ import static org.junit.Assert.assertTrue;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.concurrent.Executors;
 
+import org.apache.commons.io.IOUtils;
 import org.junit.After;
-import org.junit.AfterClass;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -40,6 +41,9 @@ import com.pinterest.singer.thrift.configuration.FileNameMatchMode;
 import com.pinterest.singer.thrift.configuration.KubeConfig;
 import com.pinterest.singer.thrift.configuration.SingerConfig;
 import com.pinterest.singer.thrift.configuration.SingerLogConfig;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
+import com.sun.net.httpserver.HttpServer;
 
 /**
  * Tests for the pod allowlist feature which filters log stream initialization
@@ -53,33 +57,15 @@ public class TestPodAllowlist {
     private KubeConfig kubeConfig;
     private String podLogPath;
     private Path tempDir;
+    private HttpServer server;
 
     // Pod directory names from pods-goodresponse.json: namespace_name_uid
     private static final String POD_NGINX_1 = "default_nginx-deployment-5c689d7589-abcde_12345678-1234-1234-1234-1234567890ab";
     private static final String POD_BACKEND = "default_backend-service-7987d5b5c-12345_54321678-9876-5432-9876-5432198765ac";
     private static final String POD_DATABASE = "default_database-7f8d5b7c6-mnopq_98765432-7654-4321-6543-987654321098";
 
-    @BeforeClass
-    public static void beforeClass() throws IOException {
-        TestKubeService.ensureServerRunning();
-    }
-
-    @AfterClass
-    public static void afterClass() {
-        TestKubeService.removePodsContext();
-        // Stop the HTTP server that was created by ensureServerRunning()
-        // Give it 1 second to complete any pending exchanges
-        if (TestKubeService.server != null) {
-            TestKubeService.server.stop(1);
-            TestKubeService.server = null;
-        }
-    }
-
     @Before
     public void before() throws IOException {
-        TestKubeService.removePodsContext();
-        TestKubeService.registerGoodResponse();
-
         LogStreamManager.getInstance().getSingerLogPaths().clear();
         SingerSettings.getFsMonitorMap().clear();
         LogStreamManager.reset();
@@ -101,11 +87,20 @@ public class TestPodAllowlist {
         podLogPath = tempDir.toAbsolutePath().toString();
         kubeConfig.setPodLogDirectory(podLogPath);
         kubeConfig.setPodMetadataFields(Arrays.asList("name"));
+
+        // Isolate this test class from TestKubeService shared server lifecycle.
+        server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.start();
+        kubeConfig.setKubeletPort(String.valueOf(server.getAddress().getPort()));
+        registerGoodResponse();
     }
 
     @After
     public void after() {
-        TestKubeService.removePodsContext();
+        if (server != null) {
+            server.stop(0);
+            server = null;
+        }
         SingerSettings.getFsMonitorMap().clear();
         if (tempDir != null) {
             deleteDirectory(tempDir.toFile());
@@ -344,6 +339,25 @@ public class TestPodAllowlist {
     private void createPodDirectory(String podUid, String logDir, String logFile) throws IOException {
         new File(podLogPath + "/" + podUid + logDir).mkdirs();
         new File(podLogPath + "/" + podUid + logDir + "/" + logFile).createNewFile();
+    }
+
+    private void registerGoodResponse() {
+        server.createContext("/pods", new HttpHandler() {
+            @Override
+            public void handle(HttpExchange exchange) throws IOException {
+                try {
+                    String response = new String(
+                            Files.readAllBytes(new File("src/test/resources/pods-goodresponse.json").toPath()),
+                            "utf-8");
+                    exchange.getResponseHeaders().add("Content-Type", "text/html");
+                    exchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, response.length());
+                    IOUtils.write(response, exchange.getResponseBody());
+                    exchange.close();
+                } catch (IOException e) {
+                    throw e;
+                }
+            }
+        });
     }
 
     private static boolean deleteDirectory(File dir) {
