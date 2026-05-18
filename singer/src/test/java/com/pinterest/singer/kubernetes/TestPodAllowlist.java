@@ -67,7 +67,6 @@ public class TestPodAllowlist {
 
     @Before
     public void before() throws IOException {
-        LogStreamManager.getInstance().getSingerLogPaths().clear();
         SingerSettings.getFsMonitorMap().clear();
         LogStreamManager.reset();
         KubeService.reset();
@@ -101,14 +100,13 @@ public class TestPodAllowlist {
             server.stop(0);
             server = null;
         }
-        SingerSettings.getFsMonitorMap().clear();
-        if (tempDir != null) {
-            deleteDirectory(tempDir.toFile());
-        }
         LogStreamManager.reset();
         KubeService.reset();
         PodMetadataFetcher.reset();
         SingerSettings.reset();
+        if (tempDir != null) {
+            deleteDirectory(tempDir.toFile());
+        }
     }
 
     @Test
@@ -118,7 +116,7 @@ public class TestPodAllowlist {
         logConfig.setPodAllowlist(Arrays.asList("nginx-deployment-5c689d7589-abcde")); // Only allow this pod
 
         config.setLogConfigs(Arrays.asList(logConfig));
-        SingerSettings.getLogConfigMap().putAll(SingerSettings.loadLogConfigMap(config));
+        SingerSettings.initializeConfigMap(config);
 
         createPodDirectory(POD_BACKEND, "/var/log", "app.log");
 
@@ -143,7 +141,7 @@ public class TestPodAllowlist {
             "nginx-deployment-5c689d7589-fghij"));
 
         config.setLogConfigs(Arrays.asList(logConfig));
-        SingerSettings.getLogConfigMap().putAll(SingerSettings.loadLogConfigMap(config));
+        SingerSettings.initializeConfigMap(config);
 
         createPodDirectory(POD_NGINX_1, "/var/log", "app.log");
 
@@ -169,7 +167,7 @@ public class TestPodAllowlist {
             "nginx-deployment-5c689d7589-fghij"));
 
         config.setLogConfigs(Arrays.asList(logConfig));
-        SingerSettings.getLogConfigMap().putAll(SingerSettings.loadLogConfigMap(config));
+        SingerSettings.initializeConfigMap(config);
 
         createPodDirectory(POD_BACKEND, "/var/log", "app.log");
 
@@ -190,7 +188,7 @@ public class TestPodAllowlist {
         SingerLogConfig logConfig = createLogConfig("test-log", "/var/log", "app.log");
 
         config.setLogConfigs(Arrays.asList(logConfig));
-        SingerSettings.getLogConfigMap().putAll(SingerSettings.loadLogConfigMap(config));
+        SingerSettings.initializeConfigMap(config);
 
         createPodDirectory(POD_DATABASE, "/var/log", "app.log");
 
@@ -219,7 +217,7 @@ public class TestPodAllowlist {
         SingerLogConfig logConfig3 = createLogConfig("log-universal", "/var/log/common", "common.log");
 
         config.setLogConfigs(Arrays.asList(logConfig1, logConfig2, logConfig3));
-        SingerSettings.getLogConfigMap().putAll(SingerSettings.loadLogConfigMap(config));
+        SingerSettings.initializeConfigMap(config);
 
         new File(podLogPath + "/" + POD_NGINX_1 + "/var/log/nginx").mkdirs();
         new File(podLogPath + "/" + POD_NGINX_1 + "/var/log/nginx/nginx.log").createNewFile();
@@ -252,7 +250,7 @@ public class TestPodAllowlist {
         hostOnlyConfig.setPodAllowlist(Arrays.asList("__HOST__"));
 
         config.setLogConfigs(Arrays.asList(hostOnlyConfig));
-        SingerSettings.getLogConfigMap().putAll(SingerSettings.loadLogConfigMap(config));
+        SingerSettings.initializeConfigMap(config);
 
         createPodDirectory(POD_NGINX_1, "/var/log", "host.log");
 
@@ -280,7 +278,7 @@ public class TestPodAllowlist {
             "nginx-deployment-5c689d7589-abcde"));
 
         config.setLogConfigs(Arrays.asList(mixedConfig));
-        SingerSettings.getLogConfigMap().putAll(SingerSettings.loadLogConfigMap(config));
+        SingerSettings.initializeConfigMap(config);
 
         LogStreamManager.initializeLogStreams();
         LogStreamManager lsm = LogStreamManager.getInstance();
@@ -312,7 +310,7 @@ public class TestPodAllowlist {
         prefixConfig.setPodAllowlist(Arrays.asList("nginx-"));
 
         config.setLogConfigs(Arrays.asList(prefixConfig));
-        SingerSettings.getLogConfigMap().putAll(SingerSettings.loadLogConfigMap(config));
+        SingerSettings.initializeConfigMap(config);
 
         createPodDirectory(POD_NGINX_1, "/var/log", "prefix.log");
 

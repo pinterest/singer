@@ -565,8 +565,10 @@ public class LogStreamManager implements PodWatcher {
    * Reset LogStream manager for testing purpose
    */
   public static void reset() {
-      instance.stop();
-      instance = null;
+      if (instance != null) {
+        instance.stop();
+        instance = null;
+      }
   }
 
   public FileSystemEventFetcher getRecursiveDirectoryWatcher() {
