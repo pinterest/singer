@@ -1158,11 +1158,24 @@ public class LogConfigUtils {
           .getInt(SingerConfigDef.KAFKA_WRITE_TIMEOUT_IN_SECONDS);
     }
 
+    String topicTemplate = null;
+    if (kafkaWriterConfiguration.containsKey(SingerConfigDef.TOPIC_TEMPLATE)) {
+      topicTemplate = kafkaWriterConfiguration.getString(SingerConfigDef.TOPIC_TEMPLATE);
+      try {
+        TopicTemplateResolver.validateTemplate(topicTemplate);
+      } catch (IllegalArgumentException e) {
+        throw new ConfigurationException("Invalid KafkaWriter topicTemplate: " + e.getMessage());
+      }
+    }
+
     KafkaWriterConfig writerConfig = new KafkaWriterConfig(topic, producerConfig);
     writerConfig.setAuditTopic(auditTopic);
     writerConfig.setAuditingEnabled(auditingEnabled);
     writerConfig.setSkipNoLeaderPartitions(skipNoLeaderPartitions);
     writerConfig.setWriteTimeoutInSeconds(writeTimeoutInSeconds);
+    if (topicTemplate != null) {
+      writerConfig.setTopicTemplate(topicTemplate);
+    }
     return writerConfig;
   }
 

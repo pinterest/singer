@@ -47,6 +47,7 @@ import org.junit.Test;
 import com.pinterest.singer.common.SingerConfigDef;
 import com.pinterest.singer.config.ConfigFileWatcher;
 import com.pinterest.singer.thrift.configuration.KafkaProducerConfig;
+import com.pinterest.singer.thrift.configuration.KafkaWriterConfig;
 import com.pinterest.singer.thrift.configuration.LogStreamProcessorConfig;
 import com.pinterest.singer.thrift.configuration.MemqWriterConfig;
 import com.pinterest.singer.thrift.configuration.RealpinWriterConfig;
@@ -503,5 +504,63 @@ public class TestLogConfigUtils {
         LogConfigUtils.parseRegexBasedModifierConfig(conf);
 
     assertNotNull(regexBasedModifierConfig);
+  }
+
+  @Test
+  public void testKafkaWriterTopicTemplateParsing() throws Exception {
+    String CONFIG = "" + "type=kafka\n"
+        + "kafka.topic=fallback_topic\n"
+        + "kafka.topicTemplate=logs_%{namespace}_%{container}\n"
+        + "kafka.producerConfig.bootstrap.servers=localhost:9092\n";
+    PropertiesConfiguration config = new PropertiesConfiguration();
+    config.load(new ByteArrayInputStream(CONFIG.getBytes()));
+    KafkaWriterConfig kafkaWriterConfig =
+        LogConfigUtils.parseLogStreamWriterConfig(config).getKafkaWriterConfig();
+    assertEquals("fallback_topic", kafkaWriterConfig.getTopic());
+    assertEquals("logs_%{namespace}_%{container}", kafkaWriterConfig.getTopicTemplate());
+  }
+
+  @Test
+  public void testKafkaWriterWithoutTopicTemplate() throws Exception {
+    String CONFIG = "" + "type=kafka\n"
+        + "kafka.topic=plain_topic\n"
+        + "kafka.producerConfig.bootstrap.servers=localhost:9092\n";
+    PropertiesConfiguration config = new PropertiesConfiguration();
+    config.load(new ByteArrayInputStream(CONFIG.getBytes()));
+    KafkaWriterConfig kafkaWriterConfig =
+        LogConfigUtils.parseLogStreamWriterConfig(config).getKafkaWriterConfig();
+    assertFalse(kafkaWriterConfig.isSetTopicTemplate());
+  }
+
+  @Test
+  public void testKafkaWriterTopicTemplateRejectsPodLevelVariables() throws Exception {
+    String CONFIG = "" + "type=kafka\n"
+        + "kafka.topic=fallback_topic\n"
+        + "kafka.topicTemplate=logs_%{podName}\n"
+        + "kafka.producerConfig.bootstrap.servers=localhost:9092\n";
+    PropertiesConfiguration config = new PropertiesConfiguration();
+    config.load(new ByteArrayInputStream(CONFIG.getBytes()));
+    try {
+      LogConfigUtils.parseLogStreamWriterConfig(config);
+      fail("topicTemplate with %{podName} should be rejected at config load time");
+    } catch (ConfigurationException e) {
+      assertTrue(e.getMessage().contains("cardinality"));
+    }
+  }
+
+  @Test
+  public void testKafkaWriterTopicTemplateRejectsUnknownVariable() throws Exception {
+    String CONFIG = "" + "type=kafka\n"
+        + "kafka.topic=fallback_topic\n"
+        + "kafka.topicTemplate=logs_%{cluster}\n"
+        + "kafka.producerConfig.bootstrap.servers=localhost:9092\n";
+    PropertiesConfiguration config = new PropertiesConfiguration();
+    config.load(new ByteArrayInputStream(CONFIG.getBytes()));
+    try {
+      LogConfigUtils.parseLogStreamWriterConfig(config);
+      fail("topicTemplate with unknown variable should be rejected at config load time");
+    } catch (ConfigurationException e) {
+      assertTrue(e.getMessage().contains("Allowed variables"));
+    }
   }
 }

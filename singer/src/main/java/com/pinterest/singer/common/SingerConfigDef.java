@@ -134,4 +134,7 @@ public class SingerConfigDef {
   // Pod allowlist config for Kubernetes log stream filtering
   public static final String POD_ALLOWLIST = "podAllowlist";
   public static final String POD_ALLOWLIST_METADATA_KEY = "podAllowlistMetadataKey";
+
+  // Per-stream Kafka topic template for Kubernetes log streams
+  public static final String TOPIC_TEMPLATE = "topicTemplate";
 }
