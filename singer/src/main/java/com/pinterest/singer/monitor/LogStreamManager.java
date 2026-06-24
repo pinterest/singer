@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -42,15 +43,11 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.apache.commons.io.FilenameUtils;
-import org.apache.commons.io.comparator.CompositeFileComparator;
-import org.apache.commons.io.comparator.LastModifiedFileComparator;
-import org.apache.commons.io.comparator.NameFileComparator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Ordering;
 import com.pinterest.singer.common.LogStream;
 import com.pinterest.singer.common.SingerSettings;
 import com.pinterest.singer.common.SingerLog;
@@ -411,7 +408,6 @@ public class LogStreamManager implements PodWatcher {
    * @throws LogStreamException If there is an error creating the log stream
    * @throws IOException If there is an error reading from disk
    */
-  @SuppressWarnings("unchecked")
   private void createPrefixBasedLogStreams(SingerLog singerLog,
       SingerLogConfig singerLogConfig, File logDir, File[] files, Path logDirPath) throws IOException {
     Map<String, LogStream> nameToLogStream = new HashMap<>();
@@ -430,16 +426,27 @@ public class LogStreamManager implements PodWatcher {
     FileFilter fileFilter = file -> pattern.matcher(file.getName()).matches();
     List<File> logFiles = Arrays.asList(logDir.listFiles(fileFilter));
 
-    // Sort the file first by last_modified timestamp and then by name in case two files have
-    // the same mtime due to precision (mtime is up to seconds).
+    // snapshot the latest file timestamps
+    final Map<File, Long> latestFileTimestamps = new HashMap<>();
+    for (File file : logFiles) {
+      latestFileTimestamps.put(file, file.lastModified());
+    }
+
     try {
-      @SuppressWarnings("rawtypes")
-      Ordering ordering = Ordering.from(
-          new CompositeFileComparator(
-              LastModifiedFileComparator.LASTMODIFIED_COMPARATOR, NameFileComparator.NAME_REVERSE));
-      logFiles = ordering.sortedCopy(logFiles);
-    } catch (Exception e) {
+      // Sort the files by last_modified timestamp and then by name in case two files have
+      // the same mtime due to precision (mtime is up to seconds).
+      Comparator<File> comparator = (f1, f2) -> {
+        int result = Long.compare(latestFileTimestamps.get(f1), latestFileTimestamps.get(f2));
+        if (result == 0) {
+          return f2.getName().compareTo(f1.getName());
+        }
+        return result;
+      };
+      logFiles.sort(comparator);
+    } catch (IllegalArgumentException e) {
       Stats.incr(SingerMetrics.LOGSTREAM_SORT_EXCEPTION);
+      LOG.error("Exception during file sorting for log directory: {}. Files count: {}",
+               logDir.getAbsolutePath(), logFiles.size(), e);
       throw e;
     }
 
@@ -558,8 +565,10 @@ public class LogStreamManager implements PodWatcher {
    * Reset LogStream manager for testing purpose
    */
   public static void reset() {
-      instance.stop();
-      instance = null;
+      if (instance != null) {
+        instance.stop();
+        instance = null;
+      }
   }
 
   public FileSystemEventFetcher getRecursiveDirectoryWatcher() {

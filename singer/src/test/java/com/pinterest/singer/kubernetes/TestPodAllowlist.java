@@ -21,15 +21,16 @@ import static org.junit.Assert.assertTrue;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.concurrent.Executors;
 
+import org.apache.commons.io.IOUtils;
 import org.junit.After;
-import org.junit.AfterClass;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -40,6 +41,9 @@ import com.pinterest.singer.thrift.configuration.FileNameMatchMode;
 import com.pinterest.singer.thrift.configuration.KubeConfig;
 import com.pinterest.singer.thrift.configuration.SingerConfig;
 import com.pinterest.singer.thrift.configuration.SingerLogConfig;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
+import com.sun.net.httpserver.HttpServer;
 
 /**
  * Tests for the pod allowlist feature which filters log stream initialization
@@ -47,34 +51,22 @@ import com.pinterest.singer.thrift.configuration.SingerLogConfig;
  * 
  * Uses the shared HTTP server from TestKubeService and pods-goodresponse.json.
  */
+@SuppressWarnings("restriction")
 public class TestPodAllowlist {
 
     private SingerConfig config;
     private KubeConfig kubeConfig;
     private String podLogPath;
     private Path tempDir;
+    private HttpServer server;
 
     // Pod directory names from pods-goodresponse.json: namespace_name_uid
     private static final String POD_NGINX_1 = "default_nginx-deployment-5c689d7589-abcde_12345678-1234-1234-1234-1234567890ab";
     private static final String POD_BACKEND = "default_backend-service-7987d5b5c-12345_54321678-9876-5432-9876-5432198765ac";
     private static final String POD_DATABASE = "default_database-7f8d5b7c6-mnopq_98765432-7654-4321-6543-987654321098";
 
-    @BeforeClass
-    public static void beforeClass() throws IOException {
-        TestKubeService.ensureServerRunning();
-    }
-
-    @AfterClass
-    public static void afterClass() {
-        TestKubeService.removePodsContext();
-    }
-
     @Before
     public void before() throws IOException {
-        TestKubeService.removePodsContext();
-        TestKubeService.registerGoodResponse();
-
-        LogStreamManager.getInstance().getSingerLogPaths().clear();
         SingerSettings.getFsMonitorMap().clear();
         LogStreamManager.reset();
         KubeService.reset();
@@ -95,19 +87,26 @@ public class TestPodAllowlist {
         podLogPath = tempDir.toAbsolutePath().toString();
         kubeConfig.setPodLogDirectory(podLogPath);
         kubeConfig.setPodMetadataFields(Arrays.asList("name"));
+
+        server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.start();
+        kubeConfig.setKubeletPort(String.valueOf(server.getAddress().getPort()));
+        registerGoodResponse();
     }
 
     @After
     public void after() {
-        TestKubeService.removePodsContext();
-        SingerSettings.getFsMonitorMap().clear();
-        if (tempDir != null) {
-            deleteDirectory(tempDir.toFile());
+        if (server != null) {
+            server.stop(0);
+            server = null;
         }
         LogStreamManager.reset();
         KubeService.reset();
         PodMetadataFetcher.reset();
         SingerSettings.reset();
+        if (tempDir != null) {
+            deleteDirectory(tempDir.toFile());
+        }
     }
 
     @Test
@@ -117,7 +116,7 @@ public class TestPodAllowlist {
         logConfig.setPodAllowlist(Arrays.asList("nginx-deployment-5c689d7589-abcde")); // Only allow this pod
 
         config.setLogConfigs(Arrays.asList(logConfig));
-        SingerSettings.getLogConfigMap().putAll(SingerSettings.loadLogConfigMap(config));
+        SingerSettings.initializeConfigMap(config);
 
         createPodDirectory(POD_BACKEND, "/var/log", "app.log");
 
@@ -142,7 +141,7 @@ public class TestPodAllowlist {
             "nginx-deployment-5c689d7589-fghij"));
 
         config.setLogConfigs(Arrays.asList(logConfig));
-        SingerSettings.getLogConfigMap().putAll(SingerSettings.loadLogConfigMap(config));
+        SingerSettings.initializeConfigMap(config);
 
         createPodDirectory(POD_NGINX_1, "/var/log", "app.log");
 
@@ -168,7 +167,7 @@ public class TestPodAllowlist {
             "nginx-deployment-5c689d7589-fghij"));
 
         config.setLogConfigs(Arrays.asList(logConfig));
-        SingerSettings.getLogConfigMap().putAll(SingerSettings.loadLogConfigMap(config));
+        SingerSettings.initializeConfigMap(config);
 
         createPodDirectory(POD_BACKEND, "/var/log", "app.log");
 
@@ -189,7 +188,7 @@ public class TestPodAllowlist {
         SingerLogConfig logConfig = createLogConfig("test-log", "/var/log", "app.log");
 
         config.setLogConfigs(Arrays.asList(logConfig));
-        SingerSettings.getLogConfigMap().putAll(SingerSettings.loadLogConfigMap(config));
+        SingerSettings.initializeConfigMap(config);
 
         createPodDirectory(POD_DATABASE, "/var/log", "app.log");
 
@@ -218,7 +217,7 @@ public class TestPodAllowlist {
         SingerLogConfig logConfig3 = createLogConfig("log-universal", "/var/log/common", "common.log");
 
         config.setLogConfigs(Arrays.asList(logConfig1, logConfig2, logConfig3));
-        SingerSettings.getLogConfigMap().putAll(SingerSettings.loadLogConfigMap(config));
+        SingerSettings.initializeConfigMap(config);
 
         new File(podLogPath + "/" + POD_NGINX_1 + "/var/log/nginx").mkdirs();
         new File(podLogPath + "/" + POD_NGINX_1 + "/var/log/nginx/nginx.log").createNewFile();
@@ -251,7 +250,7 @@ public class TestPodAllowlist {
         hostOnlyConfig.setPodAllowlist(Arrays.asList("__HOST__"));
 
         config.setLogConfigs(Arrays.asList(hostOnlyConfig));
-        SingerSettings.getLogConfigMap().putAll(SingerSettings.loadLogConfigMap(config));
+        SingerSettings.initializeConfigMap(config);
 
         createPodDirectory(POD_NGINX_1, "/var/log", "host.log");
 
@@ -279,7 +278,7 @@ public class TestPodAllowlist {
             "nginx-deployment-5c689d7589-abcde"));
 
         config.setLogConfigs(Arrays.asList(mixedConfig));
-        SingerSettings.getLogConfigMap().putAll(SingerSettings.loadLogConfigMap(config));
+        SingerSettings.initializeConfigMap(config);
 
         LogStreamManager.initializeLogStreams();
         LogStreamManager lsm = LogStreamManager.getInstance();
@@ -311,7 +310,7 @@ public class TestPodAllowlist {
         prefixConfig.setPodAllowlist(Arrays.asList("nginx-"));
 
         config.setLogConfigs(Arrays.asList(prefixConfig));
-        SingerSettings.getLogConfigMap().putAll(SingerSettings.loadLogConfigMap(config));
+        SingerSettings.initializeConfigMap(config);
 
         createPodDirectory(POD_NGINX_1, "/var/log", "prefix.log");
 
@@ -338,6 +337,21 @@ public class TestPodAllowlist {
     private void createPodDirectory(String podUid, String logDir, String logFile) throws IOException {
         new File(podLogPath + "/" + podUid + logDir).mkdirs();
         new File(podLogPath + "/" + podUid + logDir + "/" + logFile).createNewFile();
+    }
+
+    private void registerGoodResponse() {
+        server.createContext("/pods", new HttpHandler() {
+            @Override
+            public void handle(HttpExchange exchange) throws IOException {
+                String response = new String(
+                        Files.readAllBytes(new File("src/test/resources/pods-goodresponse.json").toPath()),
+                        "utf-8");
+                exchange.getResponseHeaders().add("Content-Type", "text/html");
+                exchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, response.length());
+                IOUtils.write(response, exchange.getResponseBody());
+                exchange.close();
+            }
+        });
     }
 
     private static boolean deleteDirectory(File dir) {
