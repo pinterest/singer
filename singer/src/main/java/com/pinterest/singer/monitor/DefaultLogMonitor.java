@@ -24,6 +24,7 @@ import com.pinterest.singer.common.errors.LogStreamReaderException;
 import com.pinterest.singer.common.LogStreamWriter;
 import com.pinterest.singer.common.errors.LogStreamWriterException;
 import com.pinterest.singer.common.SingerMetrics;
+import com.pinterest.singer.common.SingerSettings;
 import com.pinterest.singer.config.Decider;
 import com.pinterest.singer.metrics.OpenTsdbMetricConverter;
 import com.pinterest.singer.processor.DefaultLogStreamProcessor;
@@ -46,6 +47,7 @@ import com.pinterest.singer.thrift.configuration.SingerRestartConfig;
 import com.pinterest.singer.thrift.configuration.TextReaderConfig;
 import com.pinterest.singer.thrift.configuration.ThriftReaderConfig;
 import com.pinterest.singer.utils.SingerUtils;
+import com.pinterest.singer.utils.TopicTemplateResolver;
 import com.pinterest.singer.writer.NoOpLogStreamWriter;
 import com.pinterest.singer.writer.KafkaWriter;
 import com.pinterest.singer.writer.kafka.CommittableKafkaWriter;
@@ -76,6 +78,7 @@ import java.util.GregorianCalendar;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -387,10 +390,7 @@ public class DefaultLogMonitor implements LogMonitor, Runnable {
     KafkaProducerConfig producerConfig = kafkaWriterConfig.getProducerConfig();
 
     SingerLogConfig singerLogConfig = logStream.getSingerLog().getSingerLogConfig();
-    String topic = extractTopicNameFromLogStreamName(
-        logStream.getLogStreamName(),
-        singerLogConfig.getLogStreamRegex(),
-        kafkaWriterConfig.getTopic());
+    String topic = resolveTopic(logStream, singerLogConfig, kafkaWriterConfig);
 
     boolean auditingEnabled = kafkaWriterConfig.isAuditingEnabled();
     String auditTopic = null;
@@ -686,6 +686,46 @@ public class DefaultLogMonitor implements LogMonitor, Runnable {
       // Remove the LogStream from processed LogStreams.
       it.remove();
     }
+  }
+
+  /**
+   * Resolve the Kafka topic for a log stream.
+   *
+   * Precedence:
+   *  1. writer.kafka.topicTemplate, if configured and the stream has Kubernetes pod
+   *     context, every template variable resolves, and the result is a legal topic name.
+   *  2. writer.kafka.topic, with the existing \N capture-group expansion against
+   *     logStreamRegex (unchanged legacy behavior; also the fallback whenever the
+   *     template cannot be resolved).
+   */
+  @VisibleForTesting
+  protected static String resolveTopic(LogStream logStream, SingerLogConfig singerLogConfig,
+                                       KafkaWriterConfig kafkaWriterConfig)
+      throws ConfigurationException {
+    if (kafkaWriterConfig.isSetTopicTemplate() && !kafkaWriterConfig.getTopicTemplate().isEmpty()) {
+      String podLogDirectory = "";
+      SingerConfig singerConfig = SingerSettings.getSingerConfig();
+      if (singerConfig != null && singerConfig.isKubernetesEnabled()
+          && singerConfig.getKubeConfig() != null) {
+        podLogDirectory = singerConfig.getKubeConfig().getPodLogDirectory();
+      }
+      Optional<String> resolved = TopicTemplateResolver
+          .resolve(kafkaWriterConfig.getTopicTemplate(), logStream, podLogDirectory);
+      if (resolved.isPresent()) {
+        OpenTsdbMetricConverter.incr(SingerMetrics.TOPIC_TEMPLATE_RESOLVED, 1,
+            "topic=" + resolved.get(), "logName=" + singerLogConfig.getName());
+        return resolved.get();
+      }
+      LOG.warn("Falling back to static topic {} for log stream {}: topicTemplate {} could not"
+          + " be resolved", kafkaWriterConfig.getTopic(), logStream.getLogStreamDescriptor(),
+          kafkaWriterConfig.getTopicTemplate());
+      OpenTsdbMetricConverter.incr(SingerMetrics.TOPIC_TEMPLATE_FALLBACK, 1,
+          "topic=" + kafkaWriterConfig.getTopic(), "logName=" + singerLogConfig.getName());
+    }
+    return extractTopicNameFromLogStreamName(
+        logStream.getLogStreamName(),
+        singerLogConfig.getLogStreamRegex(),
+        kafkaWriterConfig.getTopic());
   }
 
   /**

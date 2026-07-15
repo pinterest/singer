@@ -89,6 +89,8 @@ public class SingerMetrics {
   public static final String NUM_COMMITED_TRANSACTIONS = SINGER_WRITER + "num_committed_transactions";
   public static final String NUM_ABORTED_TRANSACTIONS = SINGER_WRITER + "num_aborted_transactions";
   public static final String NUM_KAFKA_PRODUCERS = SINGER_WRITER + "num_kafka_producers";
+  public static final String TOPIC_TEMPLATE_RESOLVED = SINGER_WRITER + "topic_template_resolved";
+  public static final String TOPIC_TEMPLATE_FALLBACK = SINGER_WRITER + "topic_template_fallback";
 
   public static final String SINGER_TRANSFORMER = SINGER_PREIX + "transformer.";
   public static final String REGEX_BASED_MODIFIER = SINGER_TRANSFORMER + "regex_based_modifier.";

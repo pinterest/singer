@@ -150,12 +150,13 @@ public class RecursiveFSEventProcessor implements Runnable {
         SingerSettings.getSingerConfig().getKubeConfig().getPodLogDirectory(), path, podUid);
 
     int directoryDepth = logConfigKey.split("/").length - 1;
+    // collect configs from all matching entries so wildcard patterns (e.g. "/*") and exact
+    // directory configs at the same depth don't shadow each other
     Collection<SingerLogConfig> collection = new ArrayList<>();
     for (Map.Entry<Pair<Integer, String>, Collection<SingerLogConfig>> entry : SingerSettings.getLogConfigMap().entrySet()) {
       if (entry.getKey().getLeft() == directoryDepth && FilenameUtils.wildcardMatch(logConfigKey,
           entry.getKey().getRight())) {
-        collection = entry.getValue();
-        break;
+        collection.addAll(entry.getValue());
       }
     }
 

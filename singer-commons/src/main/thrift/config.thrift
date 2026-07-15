@@ -140,6 +140,20 @@ struct KafkaWriterConfig {
   4: optional bool auditingEnabled = 0;
   5: optional bool skipNoLeaderPartitions = 0;
   6: optional i32 writeTimeoutInSeconds = 60;
+  // Template used to derive the topic per log stream when running in Kubernetes mode,
+  // e.g. "logs_%{namespace}_%{container}". Supported variables:
+  //   %{namespace}      - the Kubernetes namespace of the pod the stream belongs to
+  //   %{container}      - the first directory under the pod log directory; with the
+  //                       standard kubelet layout (/var/log/pods/<ns>_<pod>_<uid>/<container>/)
+  //                       this is the container name
+  //   %{metadata:<key>} - a pod metadata value fetched via KubeConfig.podMetadataFields
+  //                       (e.g. a label or annotation), keyed by the last path segment
+  // Pod-level identifiers (pod name / pod uid) are intentionally not supported to avoid
+  // unbounded topic cardinality.
+  // Precedence: if every variable resolves and the result is a legal Kafka topic name,
+  // the resolved name is used; otherwise the writer falls back to "topic" (which still
+  // supports the existing \\N capture-group expansion against logStreamRegex).
+  7: optional string topicTemplate;
 }
 
 struct NoOpWriteConfig {
